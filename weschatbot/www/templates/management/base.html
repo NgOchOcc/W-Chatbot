@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>{{ title or "Chatbot Management" }}</title>
+    {% block head %}
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#000000">
+    {% endblock %}
+
+    {% block head_css %}
+    <link href="{{ url_for('management.static', filename='css/style.css') }}" rel="stylesheet">
+    {% endblock %}
+
+    {% block head_js %}
+    <script src="{{ url_for('management.static', filename='dist/index.js') }}"></script>
+    {% endblock %}
+</head>
+
+<body style="background-color: var(--cui-tertiary-bg-rgb)">
+<main class="d-flex flex-nowrap">
+    <div id="sidebar_menu"></div>
+    <div class="container-fluid"
+         style="background: var(--cui-tertiary-bg-rgb); height: 100vh; padding: 20px;padding-left: 0 !important; margin-left: 20px">
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        {% block content %}
+
+        {% endblock %}
+    </div>
+
+</main>
+</body>
+{% block footer %}
+<script src="{{ url_for('management.static', filename='dist/sidebar_menu.js') }}"></script>
+{% endblock %}
+</html>

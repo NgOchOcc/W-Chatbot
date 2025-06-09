@@ -1,0 +1,531 @@
+import json
+from datetime import datetime
+from functools import reduce
+from flask import Blueprint, request, abort, render_template, redirect, flash
+from weschatbot.log.logging_mixin import LoggingMixin
+from weschatbot.utils.db import provide_session
+from weschatbot.www.management.utils import get_auto_field_types, is_relationship, relationship_class, \
+    relationship_data, outside_url_for
+
+
+class Field:
+    def __init__(self, name, _type):
+        self.name = name
+        self.type = _type
+
+    def to_dict(self):
+        return {
+            "name": self.name,
+            "type": self.type
+        }
+
+
+class UpdateValue:
+    def __init__(self, value):
+        self.value = value
+
+    def is_updated(self):
+        return True
+
+
+class NoUpdate(UpdateValue):
+    def __init__(self):
+        super().__init__(None)
+
+    def is_updated(self):
+        return False
+
+
+class Pagination:
+    def __init__(self, page=1, page_size=20, total=0):
+        self.page = page
+        self.page_size = page_size
+        self.total = total
+
+    def to_dict(self):
+        return {
+            "page": self.page,
+            "page_size": self.page_size,
+            "total": self.total
+        }
+
+
+class SubViewModel(LoggingMixin):
+    def __init__(self, view_model_class):
+        self.view_model_class = view_model_class
+        self.register()
+
+    def register(self):
+        pass
+
+    def to_dict(self):
+        pass
+
+
+class ListViewModel(SubViewModel):
+    list_fields = []
+    field_types = {}
+    items = []
+
+    search_url_func = None
+    search_fields = []
+    keyword = None
+
+    detail_url_func = None
+    update_url_func = None
+    add_url_func = None
+    delete_url_func = None
+
+    pagination = Pagination()
+
+    model_class = None
+
+    def register(self):
+        self.model_class = self.view_model_class.model_class
+        self.list_fields = self.view_model_class.list_fields
+        self.search_url_func = self.view_model_class.search_url_func
+        self.search_fields = self.view_model_class.search_fields
+        self.keyword = self.view_model_class.keyword
+        self.detail_url_func = self.view_model_class.detail_url_func
+        self.update_url_func = self.view_model_class.update_url_func
+        self.add_url_func = self.view_model_class.add_url_func
+        self.delete_url_func = self.view_model_class.delete_url_func
+        self.pagination = self.view_model_class.pagination
+        self.field_types = self.view_model_class.field_types
+
+    def map_item(self, item):
+        item.detail_url = self.detail_url_func(item_id=item.id)
+        item.update_url = self.update_url_func and self.update_url_func(item_id=item.id) or None
+        item.delete_url = self.delete_url_func and self.delete_url_func(item_id=item.id) or None
+
+        res = {}
+        for field in [*self.list_fields, "detail_url", "update_url", "delete_url"]:
+            res[field] = getattr(item, field)
+        return res
+
+    def to_dict(self):
+        self.field_types = get_auto_field_types(self.model_class, self.list_fields, self.field_types)
+
+        return {
+            "add_url": self.add_url_func and self.add_url_func(),
+            "list_fields": self.list_fields,
+            "data_types": self.field_types,
+            "items": [self.map_item(x) for x in self.items],
+            "search_url": self.search_url_func(),
+            "keyword": self.keyword,
+            "pagination": self.pagination.to_dict(),
+            "title": f"List {self.model_class.__name__}",
+        }
+
+
+class AddViewModel(SubViewModel):
+    add_fields = []
+    field_types = {}
+    model_class = None
+    select_funcs = {}
+
+    def register(self):
+        self.model_class = self.view_model_class.model_class
+        self.add_fields = self.view_model_class.add_fields
+        self.field_types = self.view_model_class.field_types
+        self.select_funcs = self.view_model_class.select_funcs
+
+    @provide_session
+    def to_dict(self, session=None):
+        self.field_types = get_auto_field_types(self.model_class, self.add_fields, self.field_types)
+        relationships = {}
+        select_items = {}
+
+        for field in self.add_fields:
+            relationship = is_relationship(self.model_class, field)
+            match relationship:
+                case "relationship_one":
+                    model_relationship = relationship_class(self.model_class, field)
+                    relationships[field] = relationship_data(model_relationship, session)
+                case "relationship_many":
+                    model_relationship = relationship_class(self.model_class, field)
+                    relationships[field] = relationship_data(model_relationship, session)
+                case _:
+                    pass
+
+            match self.field_types[field]:
+                case "select":
+                    func = self.select_funcs[field]
+                    items = func()
+                    select_items[field] = items
+                case _:
+                    pass
+
+        return {
+            "add_fields": self.add_fields,
+            "data_types": self.field_types,
+            "title": f"Add {self.model_class.__name__}",
+            "relationships": relationships,
+            "select_items": select_items
+        }
+
+
+class UpdateViewModel(SubViewModel):
+    disabled_update_fields = []
+    update_fields = []
+    item = None
+    model_class = None
+    field_types = {}
+    select_funcs = {}
+
+    def __init__(self, view_model_class):
+        super().__init__(view_model_class)
+
+    def register(self):
+        self.model_class = self.view_model_class.model_class
+        self.update_fields = self.view_model_class.update_fields
+        self.disabled_update_fields = self.view_model_class.disabled_update_fields
+        self.field_types = self.view_model_class.field_types
+        self.select_funcs = self.view_model_class.select_funcs
+
+    @provide_session
+    def to_dict(self, session=None):
+        item = {}
+        relationships = {}
+        select_items = {}
+
+        self.field_types = get_auto_field_types(self.model_class, [*self.update_fields, *self.disabled_update_fields],
+                                                self.field_types)
+
+        for field in [*self.update_fields, *self.disabled_update_fields]:
+            relationship = is_relationship(self.model_class, field)
+            match relationship:
+                case "relationship_one":
+                    item[field] = getattr(self.item, field) is not None and getattr(self.item, field).to_dict() or {}
+
+                    model_relationship = relationship_class(self.model_class, field)
+                    relationships[field] = relationship_data(model_relationship, session)
+                case "relationship_many":
+                    item[field] = list(map(lambda x: x.to_dict(session), getattr(self.item, field)))
+                    model_relationship = relationship_class(self.model_class, field)
+                    relationships[field] = relationship_data(model_relationship, session)
+                case _:
+                    item[field] = getattr(self.item, field)
+
+            match self.field_types[field]:
+                case "select":
+                    func = self.select_funcs[field]
+                    items = func()
+                    select_items[field] = items
+                case _:
+                    pass
+        return {
+            "relationships": relationships,
+            "select_items": select_items,
+            "disabled_update_fields": self.disabled_update_fields,
+            "update_fields": self.update_fields,
+            "item": item,
+            "data_types": self.field_types,
+            "title": f"Update {self.model_class.__name__}",
+        }
+
+
+class DeleteViewModel(SubViewModel):
+    item = None
+    model_class = None
+
+    def register(self):
+        self.model_class = self.view_model_class.model_class
+
+    def to_dict(self):
+        return {
+            "title": f"Delete {self.model_class.__name__}",
+            "item": self.item.to_dict()
+        }
+
+
+class DetailViewModel(SubViewModel):
+    actions = {}
+    detail_fields = []
+    item = None
+    model_class = None
+    field_types = {}
+
+    def register(self):
+        self.model_class = self.view_model_class.model_class
+        self.detail_fields = self.view_model_class.detail_fields
+        self.actions = self.view_model_class.actions
+        self.field_types = self.view_model_class.field_types
+
+    def map_item(self):
+        res = {}
+        for field in self.detail_fields:
+            res[field] = getattr(self.item, field)
+        return res
+
+    def to_dict(self):
+        acts = {}
+        for act in self.actions:
+            acts[act] = self.actions[act](item_id=self.item.id)
+
+        self.field_types = get_auto_field_types(self.model_class, self.detail_fields, self.field_types)
+
+        return {
+            "actions": acts,
+            "detail_fields": self.detail_fields,
+            "data_fields": self.field_types,
+            "item": self.map_item(),
+            "title": f"Details of {self.model_class.__name__}",
+        }
+
+
+class ViewModel(LoggingMixin):
+    model_class = None
+
+    disabled_update_fields = []
+    disabled_view_models = []
+    update_fields = []
+
+    actions = {}
+    detail_fields = []
+    search_fields = []
+    add_fields = []
+
+    list_fields = []
+
+    item = None
+    items = []
+
+    search_url_func = None
+    detail_url_func = None
+    update_url_func = None
+    add_url_func = None
+    delete_url_func = None
+
+    keyword = None
+
+    pagination = Pagination()
+
+    template_folder = "templates"
+    static_folder = "static"
+
+    bp: Blueprint = None
+    list_view_model: ListViewModel = None
+
+    list_template = ""
+    detail_template = ""
+    update_template = ""
+    delete_template = ""
+    add_template = ""
+    field_types = {}
+    select_funcs = {}
+
+    def __init__(self, model_class,
+                 auth,
+                 add_view_model=AddViewModel,
+                 update_view_model=UpdateViewModel,
+                 list_view_model=ListViewModel,
+                 delete_view_model=DeleteViewModel,
+                 detail_view_model=DetailViewModel,
+                 list_template="management/list_view.html",
+                 detail_template="management/detail_view.html",
+                 update_template="management/update_view.html",
+                 delete_template="management/delete_view.html",
+                 add_template="management/add_view.html"):
+        self.model_class = model_class
+        self.__class__.bp = Blueprint(self.__class__.__name__, __name__,
+                                      url_prefix=f"{self.__class__.__name__}",
+                                      template_folder=self.template_folder, static_folder=self.static_folder)
+
+        if not self.add_enabled():
+            self.add_url_func = None
+        else:
+            self.add_url_func = self.add_url_func or outside_url_for(".add_item")
+
+        self.search_url_func = outside_url_for(".list_items")
+        self.detail_url_func = self.detail_enabled() and outside_url_for(".detail_item")
+        self.update_url_func = self.update_enabled() and outside_url_for(".update_item")
+        self.delete_url_func = self.delete_enabled() and outside_url_for(".delete_item")
+
+        self.list_view_model = list_view_model(self)
+        self.add_view_model = add_view_model(self)
+        self.update_view_model = update_view_model(self)
+        self.delete_view_model = delete_view_model(self)
+        self.detail_view_model = detail_view_model(self)
+
+        self.list_template = list_template
+        self.detail_template = detail_template
+        self.update_template = update_template
+        self.delete_template = delete_template
+        self.add_template = add_template
+        self.auth = auth
+
+    def enabled(self, view_model):
+        return view_model not in self.disabled_view_models
+
+    def add_enabled(self):
+        return self.enabled("add")
+
+    def update_enabled(self):
+        return self.enabled("update")
+
+    def delete_enabled(self):
+        return self.enabled("delete")
+
+    def list_enabled(self):
+        return self.enabled("list")
+
+    def detail_enabled(self):
+        return self.enabled("detail")
+
+    def register(self, flask_app_or_bp):
+        if self.list_enabled():
+            self.bp.route("/list", methods=["GET"])(self.auth(self.list_items))
+        if self.add_enabled():
+            self.bp.route("/add", methods=["GET", "POST"])(self.auth(self.add_item))
+        if self.update_enabled():
+            self.bp.route("/<int:item_id>/update", methods=["GET", "POST"])(self.auth(self.update_item))
+        if self.delete_enabled():
+            self.bp.route("/<int:item_id>/delete", methods=["GET", "POST"])(self.auth(self.delete_item))
+        if self.detail_enabled():
+            self.bp.route("/<int:item_id>", methods=["GET"])(self.auth(self.detail_item))
+
+        flask_app_or_bp.register_blueprint(self.bp)
+
+    @provide_session
+    def list_items(self, session=None):
+        keyword = request.args.get("keyword", None)
+        page = max(int(request.args.get("page", 1)), 1)
+        page_size = int(request.args.get("page_size", 20))
+
+        query = session.query(self.model_class)
+        if keyword:
+            query = query.filter(reduce(lambda r, x: r | x,
+                                        [getattr(self.model_class, field).like(f"%{keyword}%") for field in
+                                         self.search_fields]))
+
+        query = query.order_by(self.model_class.id.desc())
+        total = query.count()
+        query = query.offset((page - 1) * page_size).limit(page_size)
+        items = query.all()
+
+        res = self.list_view_model
+        res.items = items
+        res.keyword = keyword
+        res.pagination = Pagination(page, page_size, total)
+
+        return render_template(self.list_template, model=json.dumps(res.to_dict(), default=str)), 200
+
+    @provide_session
+    def add_item_post(self, session=None):
+        kwargs = {}
+
+        for field in self.add_fields:
+            kwargs[field] = request.form.get(field, None)
+
+            value = request.form.get(field, None)
+            field_types = get_auto_field_types(self.model_class, self.add_fields, self.field_types)
+            match field_types[field].lower():
+                case "boolean":
+                    res = UpdateValue(bool(int(request.form.get(field, False))))
+                case "TIMESTAMP":
+                    res = UpdateValue(datetime.fromtimestamp(int(value) / 1000.0))
+                case "relationship_one":
+                    req_value = request.form[field]
+                    rel_class = relationship_class(self.model_class, field)
+                    res = UpdateValue(session.query(rel_class).filter_by(id=req_value).one_or_none())
+                case "relationship_many":
+                    req_value = request.form.getlist(field)
+                    rel_class = relationship_class(self.model_class, field)
+                    res = UpdateValue(session.query(rel_class).filter(rel_class.id.in_(req_value)).all())
+                case _:
+                    res = NoUpdate()
+            if res.is_updated():
+                kwargs[field] = res.value
+        item = self.model_class(**kwargs)
+        session.add(item)
+        flash(f"Successfully added item {item.id}", "success")
+        return redirect(self.list_view_model.search_url_func()), 302
+
+    def add_item_get(self):
+        model = self.add_view_model
+        return render_template(self.add_template, model=json.dumps(model.to_dict(), default=str)), 200
+
+    @provide_session
+    def add_item(self, session=None):
+        return request.method == "POST" and self.add_item_post(session=session) or self.add_item_get()
+
+    @provide_session
+    def update_item_get(self, item_id, session=None):
+        item = session.query(self.model_class).filter_by(id=item_id).one_or_none()
+        model = self.update_view_model
+        model.update_fields = self.update_fields
+        model.disabled_view_models = self.disabled_view_models
+        model.item = item
+        model_json = json.dumps(model.to_dict(session), default=str)
+
+        return render_template(self.update_template, model=model_json), 200
+
+    @provide_session
+    def update_item_post(self, item_id, session=None):
+
+        item = session.query(self.model_class).filter_by(id=item_id).one_or_none()
+        field_types = get_auto_field_types(self.model_class, self.update_fields, self.field_types)
+        for field in self.update_fields:
+            res = NoUpdate()
+            if field in self.disabled_update_fields:
+                continue
+            if field_types[field].lower() == "relationship_many":
+                req_value = request.form.getlist(field)
+                rel_class = relationship_class(self.model_class, field)
+                res = UpdateValue(session.query(rel_class).filter(rel_class.id.in_(req_value)).all())
+            elif field_types[field].lower() == "relationship_one":
+                req_value = request.form[field]
+                rel_class = relationship_class(self.model_class, field)
+                res = UpdateValue(session.query(rel_class).filter_by(id=req_value).one_or_none())
+            else:
+                value = request.form.get(field, None)
+                match field_types[field].lower():
+                    case "boolean":
+                        res = UpdateValue(bool(int(request.form.get(field, False))))
+                    case "date":
+                        res = UpdateValue(datetime.fromtimestamp(int(value) / 1000.0))
+                    case "string":
+                        res = UpdateValue(value)
+                    case "select":
+                        res = UpdateValue(value)
+                    case "TIMESTAMP":
+                        res = UpdateValue(datetime.fromisoformat(value))
+                    case _:
+                        res = NoUpdate()
+            if res.is_updated():
+                setattr(item, field, res.value)
+
+        session.add(item)
+        flash("Successfully updated the item", "success")
+        return redirect(self.list_view_model.search_url_func()), 302
+
+    @provide_session
+    def update_item(self, item_id, session=None):
+        return request.method == "GET" and self.update_item_get(item_id, session=session) or self.update_item_post(
+            item_id, session=session)
+
+    @provide_session
+    def delete_item(self, item_id, session=None):
+        item = session.query(self.model_class).filter_by(id=item_id).one_or_none()
+        if request.method == "GET":
+            if not item:
+                flash("Item not found", "error")
+                return abort(404)
+            res = self.delete_view_model
+            res.item = item
+            return render_template(self.delete_template, model=json.dumps(res.to_dict(), default=str)), 200
+        else:
+            session.delete(item)
+            flash("Successfully deleted the item", "success")
+            return redirect(self.list_view_model.search_url_func()), 302
+
+    @provide_session
+    def detail_item(self, item_id, session=None):
+        item = session.query(self.model_class).filter_by(id=item_id).one_or_none()
+        if not item:
+            flash("Item not found", "error")
+            return abort(404)
+        res = self.detail_view_model
+        res.item = item
+        return render_template(self.detail_template, model=json.dumps(res.to_dict(), default=str)), 200
