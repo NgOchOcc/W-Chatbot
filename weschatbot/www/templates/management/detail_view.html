@@ -1,0 +1,9 @@
+{% extends "management/base.html" %}
+
+{% block content %}
+<div id="root_container"></div>
+<div hidden id="model">
+    {{ model }}
+</div>
+<script src="{{ url_for('management.static', filename='dist/detail_view.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,10 @@
+{% extends "management/base.html" %}
+
+{% block content %}
+<div id="root_container"></div>
+<div hidden id="model">
+    {{model}}
+</div>
+<script src="{{ url_for('static', filename='dist/refresh_token_show.js') }}"></script>
+
+{% endblock %}
