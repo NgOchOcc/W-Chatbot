@@ -1,0 +1,9 @@
+.idea
+dist
+node_modules
+.gitignore
+weschatbot.egg-info/
+*.pyc
+__pycache__
+package-lock.json
+milvus

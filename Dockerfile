@@ -11,7 +11,9 @@ RUN cd weschatbot/www \
 CMD []
 
 
-FROM python:3.12.4 AS weschatbot_app
+FROM chatbot-base:0.0.1 AS weschatbot_app
+
+EXPOSE 8000
 
 WORKDIR /opt/app
 
@@ -19,7 +21,8 @@ RUN pip install build
 
 COPY . ./
 
-COPY --from=node_builder /opt/app/weschatbot/www/static/weschatbot/dist /opt/app/weschatbot/www/static/weschatbot/dist
+COPY --from=node_builder /opt/app/weschatbot/www/static/chatbot_ui/dist /opt/app/weschatbot/www/static/chatbot_ui/dist
+COPY --from=node_builder /opt/app/weschatbot/www/static/management/dist /opt/app/weschatbot/www/static/management/dist
 
 
 RUN python -m build \

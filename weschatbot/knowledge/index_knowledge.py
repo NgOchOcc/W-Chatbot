@@ -72,5 +72,5 @@ def show_collection_data(collection_name):
 
 if __name__ == '__main__':
     # delete_collection("enterprise_kb")
-    show_collection_data("enterprise_kb")
-    # main()
+    # show_collection_data("enterprise_kb")
+    main()
