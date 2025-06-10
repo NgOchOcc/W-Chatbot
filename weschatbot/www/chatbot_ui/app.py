@@ -1,19 +1,21 @@
 import json
-from time import sleep
 
 from fastapi import FastAPI, WebSocket, Request
-from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 from fastapi.websockets import WebSocketDisconnect
 from pymilvus import Collection, connections
 from sentence_transformers import SentenceTransformer
-from transformers import pipeline, set_seed
+from transformers import pipeline
+from transformers import set_seed
+
+from weschatbot.utils.config import config
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="weschatbot/www/static"), name="static")
 templates = Jinja2Templates(directory="weschatbot/www/templates")
 
-connections.connect("default", host="localhost", port="19530")
+connections.connect("default", host=config["milvus"]["host"], port=int(config["milvus"]["port"]))
 
 KB_COLLECTION_NAME = "enterprise_kb"
 kb_collection = Collection(KB_COLLECTION_NAME)
@@ -22,6 +24,9 @@ kb_collection.load()
 embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
 
 generator = pipeline('text-generation', model='gpt2')
+
+qa_pipeline = pipeline("question-answering", model="bert-large-uncased-whole-word-masking-finetuned-squad")
+
 set_seed(42)
 
 
@@ -61,11 +66,24 @@ async def websocket_endpoint(websocket: WebSocket):
                 for hit in hits
             ]
 
-            context = "\n".join(relevant_texts)
+            context = "\n".join(text for text in relevant_texts if text.strip() != "")
+
+            if not context:
+                await websocket.send_text(json.dumps({"text": "Information is not found"}))
+                continue
+
+            qa_input = {
+                "question": question,
+                "context": context
+            }
+
             prompt = f"Milvus context:\n{context}\n\nQuestion: {question}. Only get answer in context.\nAnswer:"
 
-            generated = generator(prompt, max_length=150, num_return_sequences=1)
-            answer = generated[0]['generated_text'][len(prompt):].strip()
+            try:
+                answer_result = qa_pipeline(qa_input)
+                answer = answer_result.get("answer", "Answer is not found")
+            except Exception as e:
+                answer = f"Error: {str(e)}"
 
             res = {
                 "text": f"{answer}"
