@@ -7,6 +7,7 @@
 ```shell
 cd base_image
 docker build -t chatbot-base:0.0.1 .
+cd ..
 ```
 
 ### Application image
