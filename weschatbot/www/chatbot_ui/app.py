@@ -21,7 +21,7 @@ KB_COLLECTION_NAME = "enterprise_kb"
 kb_collection = Collection(KB_COLLECTION_NAME)
 kb_collection.load()
 
-embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+embedding_model = SentenceTransformer('all-mpnet-base-v2')
 
 generator = pipeline('text-generation', model='gpt2')
 
@@ -78,6 +78,7 @@ async def websocket_endpoint(websocket: WebSocket):
             }
 
             prompt = f"Milvus context:\n{context}\n\nQuestion: {question}. Only get answer in context.\nAnswer:"
+            print(prompt)
 
             try:
                 answer_result = qa_pipeline(qa_input)
