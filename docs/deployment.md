@@ -18,10 +18,15 @@ docker build -t westaco-chatbot:0.0.1 .
 
 ### Start chatbot-ui
 
-## Network
+#### Network
 
 ```shell
 docker network create -d bridge westaco_chatbot
+```
+
+#### Start mysql
+```shell
+docker run --network westaco_chatbot --name local-mysql -p 3306:3306 -p 33060:33060 -e MYSQL_ROOT_PASSWORD=Adcef#1234 -d mysql:8.0.40-debian --default-authentication-plugin=mysql_native_password
 ```
 
 #### Start milvus
@@ -34,7 +39,8 @@ docker compose up -d
 #### Start application
 
 ```shell
-docker run -d --rm -p 8000:8000 \
+docker run -d -p 8000:8000 \
+  --restart=always \
   --name westaco-chatbot-ui \
   --network westaco_chatbot \
   --env-file .env \

@@ -33,7 +33,10 @@ function ChatFrame() {
     const ws = useRef(null);
 
     useEffect(() => {
-        ws.current = new WebSocket('ws://localhost:8000/ws');
+        const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://'
+        const host = window.location.host
+        const wsUrl = `${protocol}${host}/ws`
+        ws.current = new WebSocket(wsUrl)
 
         ws.current.onopen = () => {
             console.log('WebSocket connected');

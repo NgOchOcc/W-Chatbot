@@ -31,6 +31,9 @@ setup(
         "flask_wtf==1.2.2",
         "mysqlclient==2.2.7",
         "PyJWT==2.10.1",
+        "redis==6.2.0",
+        "aiomysql==0.2.0",
+        "alembic==1.16.2",
         "build==1.2.2"
     ]
 )
