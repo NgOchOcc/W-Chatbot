@@ -2,9 +2,17 @@
 <html>
 <head>
     <title>Westaco Chatbot</title>
-    <script src="static/chatbot_ui/dist/index.js"></script>
+    <script src="/static/chatbot_ui/dist/index.js"></script>
 </head>
 <body>
+<div hidden id="model">
+    {{ model }}
+</div>
+
+<div hidden id="sessions">
+    {{ sessions }}
+</div>
+
 <div id="root_container"></div>
 <script src="/static/chatbot_ui/dist/chatbot_ui.js"></script>
 </body>

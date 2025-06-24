@@ -3,8 +3,9 @@ import os
 from flask import Blueprint, render_template
 
 from weschatbot.log.logging_mixin import LoggingMixin
-from weschatbot.models.user import User
+from weschatbot.models.user import User, ChatSession
 from weschatbot.www.management.addition_blueprint import addition_blueprint
+from weschatbot.www.management.viewmodels.vm_chat import ViewModelChat
 from weschatbot.www.management.viewmodels.vm_user import ViewModelUser
 
 
@@ -28,6 +29,7 @@ class Management(LoggingMixin):
         self.bp.route("/")(self.index)
 
         ViewModelUser(User, auth=self.auth.required).register(self.bp)
+        ViewModelChat(ChatSession, auth=self.auth.required).register(self.bp)
 
         self.bp.register_blueprint(addition_blueprint)
         return self.bp

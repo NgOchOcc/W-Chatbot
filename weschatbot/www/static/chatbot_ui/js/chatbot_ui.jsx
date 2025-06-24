@@ -2,7 +2,6 @@ import {createRoot} from "react-dom/client";
 import React, {useEffect, useRef, useState} from "react";
 
 import {
-    CBadge,
     CButton,
     CCard,
     CCardBody,
@@ -10,9 +9,7 @@ import {
     CCol,
     CContainer,
     CForm,
-    CFormInput,
-    CNavGroup,
-    CNavItem,
+    CFormInput, CNavItem,
     CNavTitle,
     CRow,
     CSidebar,
@@ -22,14 +19,19 @@ import {
     CSidebarToggler,
 } from '@coreui/react'
 
-import CIcon from '@coreui/icons-react'
-import {cilCloudDownload, cilLayers, cilPuzzle, cilSpeedometer} from '@coreui/icons'
 
+function ChatFrame({chat_id, history_messages}) {
 
-function ChatFrame() {
+    const initialMessages = history_messages !== null && history_messages.map((x) => {
+        if (x.sender === "bot") {
+            return {text: x.message, from: "recv"}
+        } else {
+            return {text: x.message, from: "sent"}
+        }
+    }) || []
 
     const [message, setMessage] = useState('');
-    const [messages, setMessages] = useState([]);
+    const [messages, setMessages] = useState(initialMessages);
     const ws = useRef(null);
 
     useEffect(() => {
@@ -68,9 +70,13 @@ function ChatFrame() {
         e.preventDefault()
         if (message.trim()) {
 
+            const data = {
+                "chat_id": chat_id,
+                "message": message.trim(),
+            }
 
             if (ws.current && ws.current.readyState === WebSocket.OPEN) {
-                ws.current.send(message);
+                ws.current.send(JSON.stringify(data))
             }
 
             const outgoingMessage = {text: message, from: 'sent'}
@@ -112,7 +118,7 @@ function ChatFrame() {
                         <CCardFooter>
                             <CForm className="d-flex" onSubmit={handleSendMessage}>
                                 <CFormInput
-                                    placeholder="Nhập tin nhắn..."
+                                    placeholder="Question..."
                                     value={message}
                                     onChange={(e) => setMessage(e.target.value)}
                                 />
@@ -128,15 +134,30 @@ function ChatFrame() {
     )
 }
 
-function Sidebar() {
+function Sidebar({sessions}) {
     return (
         <>
             <CSidebar className="border-end" colorScheme="dark" style={{height: '100vh'}}>
                 <CSidebarHeader className="border-bottom">
                     <CSidebarBrand style={{textDecoration: 'none', fontSize: '1.5rem'}}>Westaco Chatbot</CSidebarBrand>
                 </CSidebarHeader>
+                <div className="px-3 py-2">
+                    <a href="/new_chat" style={{textDecoration: 'none'}}>
+                        <CButton color="primary" variant="outline" className="w-100">
+                            New Conversation
+                        </CButton>
+                    </a>
+                </div>
                 <CSidebarNav>
                     <CNavTitle>Sessions</CNavTitle>
+                    {
+                        sessions.map((session, index) => (
+                            <CNavItem key={`item_${index}`} href={`/chats/${session["uuid"]}`}>
+                                {session["name"]}
+                            </CNavItem>
+                        ))
+                    }
+
                 </CSidebarNav>
                 <CSidebarHeader className="border-top">
                     <CSidebarToggler/>
@@ -146,14 +167,17 @@ function Sidebar() {
     )
 }
 
-function App() {
+function App({model, sessions}) {
     return (
         <>
             <main className={"d-flex flex-nowrap"} style={{height: '100vh'}}>
                 <div>
-                    <Sidebar></Sidebar>
+                    <Sidebar sessions={sessions}></Sidebar>
                 </div>
-                <ChatFrame></ChatFrame>
+                {
+                    model.messages !== null &&
+                    <ChatFrame chat_id={model.chat_id} history_messages={model.messages}></ChatFrame>
+                }
             </main>
         </>
     )
@@ -162,4 +186,10 @@ function App() {
 const container = document.getElementById("root_container")
 const root = createRoot(container)
 
-root.render(<App/>)
+const model_data = document.getElementById("model").innerText
+const model = JSON.parse(model_data)
+
+const sessions_data = document.getElementById("sessions").innerText
+const sessions = JSON.parse(sessions_data)
+
+root.render(<App model={model} sessions={sessions}/>)
