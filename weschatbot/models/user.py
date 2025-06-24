@@ -22,6 +22,8 @@ class User(Base):
     role: Mapped["Role"] = relationship(back_populates="users")
     role_id = Column(Integer, ForeignKey('roles.id'), nullable=False)
 
+    chats: Mapped[List["ChatSession"]] = relationship(back_populates="user")
+
     def __repr__(self):
         return "user:{self.name}".format(self=self)
 
@@ -70,3 +72,50 @@ class UserStatus(Base):
 
     def __repr__(self):
         return self.name
+
+
+@basic_fields
+class ChatSession(Base):
+    __tablename__ = "chats"
+
+    id = Column(Integer, primary_key=True, nullable=False, autoincrement=True)
+    name = Column(String(31), nullable=False, unique=False)
+
+    user: Mapped["User"] = relationship(back_populates="chats")
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=True)
+
+    messages: Mapped[List["ChatMessage"]] = relationship(back_populates="chat")
+    uuid = Column(String(36), nullable=False, unique=True)
+
+    def to_dict(self, session=None):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "user": self.user and self.user.to_dict() or {},
+            "uuid": self.uuid,
+            "modified_date": self.modified_date.strftime("%Y-%m-%d %H:%M:%S"),
+            # "messages": [x.to_dict() for x in self.messages],
+        }
+
+
+@basic_fields
+class ChatMessage(Base):
+    __tablename__ = "messages"
+
+    id = Column(Integer, primary_key=True, nullable=False, autoincrement=True)
+    name = Column(String(31), nullable=False, unique=False)
+    content = Column(String(2047), nullable=False)
+    sender = Column(String(4), nullable=False)
+
+    chat: Mapped["ChatSession"] = relationship(back_populates="messages")
+    chat_id = Column(Integer, ForeignKey('chats.id'), nullable=False)
+
+    def to_dict(self, session=None):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "content": self.content,
+        }
+
+    def __repr__(self):
+        return f"{self.sender}: {self.content}\n"

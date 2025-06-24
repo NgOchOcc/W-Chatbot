@@ -73,7 +73,9 @@ function AddBox({add_url}) {
 
     return (
         <>
-            <button type={"button"} className={"btn btn-outline-success"} onClick={add}>New</button>
+            {add_url !== null &&
+                <button type={"button"} className={"btn btn-outline-success"} onClick={add}>New</button>
+            }
         </>
     )
 }

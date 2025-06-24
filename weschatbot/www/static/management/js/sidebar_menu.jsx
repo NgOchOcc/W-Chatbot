@@ -28,6 +28,11 @@ function SidebarMenu() {
                     {' '}
                     Users
                 </CNavItem>
+                <CNavItem href="/management/ViewModelChat/list">
+                    <CIcon customClassName="nav-icon" icon={cilUser}/>
+                    {' '}
+                    Chat Sessions
+                </CNavItem>
             </CSidebarNav>
             <CSidebarHeader className="border-top">
                 <CSidebarToggler/>

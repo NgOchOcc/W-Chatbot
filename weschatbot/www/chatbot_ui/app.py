@@ -1,6 +1,8 @@
 import json
+import uuid
 
 from fastapi import FastAPI, WebSocket, Request
+from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.websockets import WebSocketDisconnect
@@ -9,6 +11,8 @@ from sentence_transformers import SentenceTransformer
 from transformers import pipeline
 from transformers import set_seed
 
+from weschatbot.schemas.chat import Message
+from weschatbot.services.session_service import SessionService
 from weschatbot.utils.config import config
 
 app = FastAPI()
@@ -25,18 +29,59 @@ embedding_model = SentenceTransformer('all-mpnet-base-v2')
 
 generator = pipeline('text-generation', model='gpt2')
 
-qa_pipeline = pipeline("question-answering", model="bert-large-uncased-whole-word-masking-finetuned-squad")
+# qa_pipeline = pipeline("question-answering", model="bert-large-uncased-whole-word-masking-finetuned-squad")
+qa_pipeline = pipeline("question-answering", model="distilbert-base-cased-distilled-squad")
 
 set_seed(42)
+
+mock_chats = {
+    "1": [
+        {"sender": "user", "text": "Xin chào!"},
+        {"sender": "bot", "text": "Chào bạn, tôi có thể giúp gì?"},
+        {"sender": "user", "text": "Hôm nay thời tiết thế nào nhỉ?"},
+        {"sender": "bot", "text": "Nắng đẹp và hơi nóng nhé 😄"},
+    ]
+}
+
+session_service = SessionService()
 
 
 @app.get("/")
 async def get(request: Request):
-    return templates.TemplateResponse("chatbot_ui/index.html", {
-        "request": request,
-        "title": "Westaco Chatbot",
-        "message": "Welcome to Westaco Chatbot!"
-    })
+    model = {
+        "chat_id": None,
+        "messages": None
+    }
+    all_sessions = session_service.get_sessions()
+    return templates.TemplateResponse(
+        "chatbot_ui/index.html",
+        {
+            "model": json.dumps(model),
+            "request": request,
+            "sessions": json.dumps(all_sessions),
+        })
+
+
+@app.get("/new_chat")
+async def new_chat():
+    chat_id, _ = session_service.create_session()
+    url = app.url_path_for("get_chat", chat_id=chat_id)
+    return RedirectResponse(url=url, status_code=302)
+
+
+@app.get("/chats/{chat_id}")
+async def get_chat(request: Request, chat_id: str):
+    chat = session_service.get_session(chat_id)
+    model = chat.to_dict()
+    all_sessions = session_service.get_sessions()
+    return templates.TemplateResponse(
+        "chatbot_ui/index.html",
+        {
+            "model": json.dumps(model),
+            "request": request,
+            "sessions": json.dumps(all_sessions),
+        }
+    )
 
 
 @app.websocket("/ws")
@@ -46,7 +91,8 @@ async def websocket_endpoint(websocket: WebSocket):
         while True:
             data = await websocket.receive_text()
 
-            question = data
+            question = json.loads(data)["message"]
+            chat_id = json.loads(data)["chat_id"]
 
             query_emb = embedding_model.encode([question])[0].tolist()
 
@@ -89,6 +135,13 @@ async def websocket_endpoint(websocket: WebSocket):
             res = {
                 "text": f"{answer}"
             }
+
+            messages = [
+                Message(sender="user", receiver="bot", message=question),
+                Message(sender="bot", receiver="user", message=answer),
+            ]
+
+            session_service.update_session(chat_id, messages)
 
             await websocket.send_text(json.dumps(res))
     except WebSocketDisconnect:
