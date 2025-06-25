@@ -34,7 +34,7 @@ class JWTManager:
                                  options={"verify_exp": True})
         except jwt.ExpiredSignatureError:
             raise TokenExpiredError("Expired token")
-        except jwt.InvalidTokenError:
+        except jwt.InvalidTokenError as e:
             raise TokenInvalidError("Invalid token")
 
         if token_type and payload["type"] != token_type:

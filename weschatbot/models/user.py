@@ -91,7 +91,7 @@ class ChatSession(Base):
         return {
             "id": self.id,
             "name": self.name,
-            "user": self.user and self.user.to_dict() or {},
+            "user": self.user and self.user.to_dict(session=session) or {},
             "uuid": self.uuid,
             "modified_date": self.modified_date.strftime("%Y-%m-%d %H:%M:%S"),
             # "messages": [x.to_dict() for x in self.messages],

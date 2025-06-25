@@ -34,6 +34,8 @@ setup(
         "redis==6.2.0",
         "aiomysql==0.2.0",
         "alembic==1.16.2",
+        "fastapi-csrf-protect==1.0.3",
+        "python-multipart==0.0.20",
         "build==1.2.2"
     ]
 )

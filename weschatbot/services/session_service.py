@@ -32,37 +32,42 @@ class SessionService(LoggingMixin):
         return chat
 
     @provide_session
-    def add_session_in_db(self, chat_id, messages, session=None):
+    def add_session_in_db(self, user_id, chat_id, messages, session=None):
+
+        def add_messages(db_chat_id):
+            for message in messages:
+                new_message = ChatMessage(
+                    name=message.message[0:31],
+                    content=message.message,
+                    sender=message.sender,
+                    chat_id=db_chat_id
+                )
+                session.add(new_message)
+
         chat = session.query(ChatSession).filter(ChatSession.uuid == chat_id).first()
         if chat:
-            raise ValueError(f"Chat {chat_id} is already in db")
-        new_chat = ChatSession(name=messages[0].message[0:31], uuid=chat_id)
-        session.add(new_chat)
-        session.commit()
-        session.refresh(new_chat)
+            add_messages(chat.id)
+        else:
+            new_chat = ChatSession(name=messages[0].message[0:31], uuid=chat_id, user_id=user_id)
+            session.add(new_chat)
+            session.commit()
+            session.refresh(new_chat)
 
-        for message in messages:
-            new_message = ChatMessage(
-                name=message.message[0:31],
-                content=message.message,
-                sender=message.sender,
-                chat_id=new_chat.id
-            )
-            session.add(new_message)
+            add_messages(new_chat.id)
 
-    def update_session(self, chat_id, messages):
+    def update_session(self, user_id, chat_id, messages):
         chat = self.get_chat(chat_id)
         chat.messages = chat.messages + messages
         if not chat.in_db:
             chat.in_db = True
-            self.add_session_in_db(chat_id, messages)
+            self.add_session_in_db(user_id, chat_id, messages)
 
         self.store_chat(chat)
 
     @provide_session
-    def get_sessions(self, user_id=None, session=None):
+    def get_sessions(self, user_id, session=None):
         def query_sessions(ss=None):
-            return ss.query(ChatSession).all()
+            return ss.query(ChatSession).filter(ChatSession.user_id == user_id).all()
 
         res = query_sessions(session)
-        return [x.to_dict() for x in res]
+        return [x.to_dict(session=session) for x in res]
