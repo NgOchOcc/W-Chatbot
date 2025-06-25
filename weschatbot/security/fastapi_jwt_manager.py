@@ -1,6 +1,4 @@
-
-from fastapi import Depends, HTTPException
-from fastapi.security import HTTPBearer
+from fastapi import HTTPException
 
 from weschatbot.security.exceptions import TokenExpiredError, TokenInvalidError
 from weschatbot.security.jwt_manager import JWTManager
@@ -8,23 +6,21 @@ from weschatbot.utils.config import config
 
 
 class FastAPIJWTManager(JWTManager):
-    reusable_oauth2 = HTTPBearer(
-        scheme_name='Authorization'
-    )
 
-    def required(self, credential=Depends(reusable_oauth2)):
+    def required(self, credential):
         token = credential.credentials
         try:
             payload = self.verify_access_token(token)
             if payload:
                 return payload
-            raise HTTPException(status_code=401, detail="Invalid token")
-        except TokenExpiredError as e:
-            raise HTTPException(status_code=401, detail=f"{e}")
+            raise TokenExpiredError("Invalid access token")
         except TokenInvalidError as e:
-            raise HTTPException(status_code=401, detail=f"{e}")
+            raise e
+        except TokenExpiredError as e:
+            raise e
 
-    def refresh_required(self, credential=Depends(reusable_oauth2)):
+
+    def refresh_required(self, credential):
         token = credential.credentials
         try:
             payload = self.verify_refresh_token(token)

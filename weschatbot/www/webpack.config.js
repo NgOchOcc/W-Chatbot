@@ -37,7 +37,8 @@ const chatbotUIConfig = {
     ...commonConfig,
     entry: {
         index: [`${CHATBOT_UI_JS_DIR}/index.jsx`],
-        chatbot_ui: [`${CHATBOT_UI_JS_DIR}/chatbot_ui.jsx`]
+        chatbot_ui: [`${CHATBOT_UI_JS_DIR}/chatbot_ui.jsx`],
+        login: [`${CHATBOT_UI_JS_DIR}/login.jsx`],
     },
     output: {
         path: CHATBOT_UI_BUILD_DIR,
