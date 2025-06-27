@@ -99,6 +99,7 @@ def login_post(request: Request, username: str = Form(...), password: str = Form
             raise InvalidUserError("username/password incorrect")
         payload = {
             "sub": str(user.id),
+            "username": user.name
         }
         token = jwt_manager.create_access_token(exp_in_seconds=24 * 3600, payload=payload)
         url = app.url_path_for("get")
@@ -125,6 +126,7 @@ async def get(request: Request, payload: dict = Depends(jwt_manager.required)):
             "model": json.dumps(model),
             "request": request,
             "sessions": json.dumps(all_sessions),
+            "username": payload["username"],
         })
 
 
@@ -151,6 +153,7 @@ async def get_chat(request: Request, chat_id: str, payload: dict = Depends(jwt_m
             "model": json.dumps(model),
             "request": request,
             "sessions": json.dumps(all_sessions),
+            "username": payload["username"],
         }
     )
 

@@ -2,7 +2,9 @@
 <html>
 <head>
     <title>Westaco Chatbot</title>
+    <link href="/static/chatbot_ui/css/style.css" rel="stylesheet">
     <script src="/static/chatbot_ui/dist/index.js"></script>
+
 </head>
 <body>
 <div hidden id="model">
@@ -11,6 +13,10 @@
 
 <div hidden id="sessions">
     {{ sessions }}
+</div>
+
+<div hidden id="username">
+    {{ username }}
 </div>
 
 <div id="root_container"></div>

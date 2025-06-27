@@ -2,14 +2,22 @@ import {createRoot} from "react-dom/client";
 import React, {useEffect, useRef, useState} from "react";
 
 import {
+    CAvatar,
     CButton,
     CCard,
     CCardBody,
     CCardFooter,
     CCol,
     CContainer,
+    CDropdown,
+    CDropdownItem,
+    CDropdownMenu,
+    CDropdownToggle,
     CForm,
-    CFormInput, CNavItem,
+    CFormInput,
+    CHeader,
+    CHeaderNav,
+    CNavItem,
     CNavTitle,
     CRow,
     CSidebar,
@@ -18,6 +26,84 @@ import {
     CSidebarNav,
     CSidebarToggler,
 } from '@coreui/react'
+
+const colors = [
+    '#f44336',
+    '#e91e63',
+    '#9c27b0',
+    '#3f51b5',
+    '#2196f3',
+    '#009688',
+    '#4caf50',
+    '#ff9800',
+    '#795548',
+]
+
+function pickColorFromString(str) {
+    let hash = 0
+    for (let i = 0; i < str.length; i++) {
+        hash = str.charCodeAt(i) + ((hash << 5) - hash)
+    }
+    const idx = Math.abs(hash) % colors.length
+    return colors[idx]
+}
+
+function Header({userName, chatId}) {
+
+    const initial = userName.trim().charAt(0).toUpperCase()
+    const bgColor = pickColorFromString(userName)
+
+    const onLogout = () => {
+        console.log("Click Logout")
+        window.location.replace("/logout")
+    }
+
+    return (
+        <>
+            <CHeader>
+                <CContainer fluid className={"py-0"}>
+                    <CCol className={"col-md-2"}></CCol>
+                    <CCol className={"col-md-8"}>
+                        <div className="text-center">
+                            <small className="text-muted">Chat ID:</small>{' '}
+                            <strong>{chatId}</strong>
+                        </div>
+                    </CCol>
+                    <CCol className={"col-md-2 d-flex justify-content-end"}>
+                        <CHeaderNav className="ms-auto">
+                            <CDropdown variant="nav-item" className="py-0 px-2">
+                                <CDropdownToggle placement="bottom-end" className="py-0"
+                                                 style={{
+                                                     height: '42px',
+                                                     lineHeight: '32px',
+                                                 }}>
+                                    <CAvatar className={"py-1"}
+                                             content={initial}
+                                             style={{
+                                                 backgroundColor: bgColor,
+                                                 color: '#fff',
+                                                 fontWeight: '600',
+                                             }}
+                                             size="md"
+                                    >{initial}</CAvatar>
+                                </CDropdownToggle>
+                                <CDropdownMenu className="pt-0" placement="bottom-end">
+                                    <CDropdownItem header tag="div" className="text-center py-2">
+                                        Hello, {userName}
+                                    </CDropdownItem>
+                                    <CDropdownItem divider/>
+                                    <CDropdownItem onClick={onLogout}>
+                                        <i className="bi bi-box-arrow-right me-2"/> Logout
+                                    </CDropdownItem>
+                                </CDropdownMenu>
+                            </CDropdown>
+                        </CHeaderNav>
+                    </CCol>
+                </CContainer>
+            </CHeader>
+        </>
+    )
+}
 
 
 function ChatFrame({chat_id, history_messages}) {
@@ -96,45 +182,48 @@ function ChatFrame({chat_id, history_messages}) {
     };
 
     return (
-        <CContainer fluid className="vh-90" style={{paddingTop: '20px'}}>
-            <CRow className="h-100 justify-content-center">
-                <CCol lg="8" md="10" sm="12">
-                    <CCard style={{height: '95vh'}}>
-                        <CCardBody className="d-flex flex-column" style={{overflowY: 'auto'}}>
-                            {messages.map((msg, index) => {
-                                const messageStyle = {
-                                    ...baseMessageStyle,
-                                    backgroundColor: msg.from === 'sent' ? '#d1e7dd' : '#f1f1f1',
-                                    alignSelf: msg.from === 'sent' ? 'flex-end' : 'flex-start',
-                                };
+        <CRow className="h-90 justify-content-center">
+            <CCol lg="8" md="10" sm="12">
+                <CCard style={{height: '85vh'}}>
+                    <CCardBody className="d-flex flex-column" style={{overflowY: 'auto'}}>
+                        {messages.map((msg, index) => {
+                            const messageStyle = {
+                                ...baseMessageStyle,
+                                backgroundColor: msg.from === 'sent' ? '#d1e7dd' : '#f1f1f1',
+                                alignSelf: msg.from === 'sent' ? 'flex-end' : 'flex-start',
+                            };
 
-                                return (
-                                    <div key={index} style={messageStyle}>
-                                        {msg.text}
-                                    </div>
-                                );
-                            })}
-                        </CCardBody>
-                        <CCardFooter>
-                            <CForm className="d-flex" onSubmit={handleSendMessage}>
-                                <CFormInput
-                                    placeholder="Question..."
-                                    value={message}
-                                    onChange={(e) => setMessage(e.target.value)}
-                                />
-                                <CButton type="submit" color="primary" className="ms-2">
-                                    Send
-                                </CButton>
-                            </CForm>
-                        </CCardFooter>
-                    </CCard>
-                </CCol>
-            </CRow>
-        </CContainer>
+                            return (
+                                <div key={index} style={messageStyle}>
+                                    {msg.text}
+                                </div>
+                            );
+                        })}
+                    </CCardBody>
+                    <CCardFooter>
+                        <CForm className="d-flex" onSubmit={handleSendMessage}>
+                            <CFormInput
+                                placeholder="Question..."
+                                value={message}
+                                onChange={(e) => setMessage(e.target.value)}
+                            />
+                            <CButton type="submit" color="primary" className="ms-2">
+                                Send
+                            </CButton>
+                        </CForm>
+                    </CCardFooter>
+                </CCard>
+            </CCol>
+        </CRow>
     )
 }
 
 function Sidebar({sessions}) {
+
+    const deleteSession = (chat_id) => {
+        console.log("Click deleteSession")
+    }
+
     return (
         <>
             <CSidebar className="border-end" colorScheme="dark" style={{height: '100vh'}}>
@@ -152,8 +241,18 @@ function Sidebar({sessions}) {
                     <CNavTitle>Sessions</CNavTitle>
                     {
                         sessions.map((session, index) => (
-                            <CNavItem key={`item_${index}`} href={`/chats/${session["uuid"]}`}>
-                                {session["name"]}
+                            <CNavItem
+                                key={session.uuid}
+                                className="nav-item-with-trash"
+                                href={`/chats/${session.uuid}`}>
+                                {session.name}
+                                <span className="trash-icon"
+                                      onClick={(e) => {
+                                          e.preventDefault()       // chặn link
+                                          deleteSession(session.uuid)
+                                      }}>
+                                    <i className="bi bi-trash"/>
+                                  </span>
                             </CNavItem>
                         ))
                     }
@@ -167,17 +266,24 @@ function Sidebar({sessions}) {
     )
 }
 
-function App({model, sessions}) {
+function App({model, sessions, username}) {
     return (
         <>
             <main className={"d-flex flex-nowrap"} style={{height: '100vh'}}>
                 <div>
                     <Sidebar sessions={sessions}></Sidebar>
                 </div>
-                {
-                    model.messages !== null &&
-                    <ChatFrame chat_id={model.chat_id} history_messages={model.messages}></ChatFrame>
-                }
+                <CContainer fluid className="vh-90" style={{paddingTop: '10px'}}>
+                    <CRow>
+                        <Header userName={username} chatId={model.chat_id}></Header>
+                    </CRow>
+                    <br/>
+                    {
+                        model.messages !== null &&
+                        <ChatFrame chat_id={model.chat_id} history_messages={model.messages}></ChatFrame>
+                    }
+                </CContainer>
+
             </main>
         </>
     )
@@ -192,4 +298,6 @@ const model = JSON.parse(model_data)
 const sessions_data = document.getElementById("sessions").innerText
 const sessions = JSON.parse(sessions_data)
 
-root.render(<App model={model} sessions={sessions}/>)
+const username = document.getElementById("username").innerText
+
+root.render(<App model={model} sessions={sessions} username={username}/>)
