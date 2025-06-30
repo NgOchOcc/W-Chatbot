@@ -31,6 +31,7 @@ def init_db():
     from weschatbot.models.user import User  # noqa
     from weschatbot.models.user import ChatSession  # noqa
     from weschatbot.models.user import ChatMessage  # noqa
+    from weschatbot.models.user import ChatStatus  # noqa
 
     Base.metadata.create_all(setting.mysql_engine)
 

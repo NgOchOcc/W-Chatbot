@@ -75,6 +75,25 @@ class UserStatus(Base):
 
 
 @basic_fields
+class ChatStatus(Base):
+    __tablename__ = "chat_statuses"
+
+    id = Column(Integer, primary_key=True, nullable=False, autoincrement=True)
+    name = Column(String(31), nullable=False, unique=True)
+
+    chats: Mapped[List["ChatSession"]] = relationship(back_populates="status")
+
+    def to_dict(self, session=None):
+        return {
+            "id": self.id,
+            "name": self.name
+        }
+
+    def __repr__(self):
+        return self.name
+
+
+@basic_fields
 class ChatSession(Base):
     __tablename__ = "chats"
 
@@ -86,6 +105,9 @@ class ChatSession(Base):
 
     messages: Mapped[List["ChatMessage"]] = relationship(back_populates="chat")
     uuid = Column(String(36), nullable=False, unique=True)
+
+    status: Mapped["ChatStatus"] = relationship(back_populates="chats")  # noqa
+    status_id = Column(Integer, ForeignKey('chat_statuses.id'), nullable=False)
 
     def to_dict(self, session=None):
         return {

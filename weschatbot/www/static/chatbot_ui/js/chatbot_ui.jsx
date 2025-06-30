@@ -219,9 +219,17 @@ function ChatFrame({chat_id, history_messages}) {
 }
 
 function Sidebar({sessions}) {
-
     const deleteSession = (chat_id) => {
-        console.log("Click deleteSession")
+        if (!window.confirm("Are you sure to delete this conversation?")) return
+
+        fetch(`/chats/${chat_id}`, {method: 'DELETE'})
+            .then((res) => {
+                if (!res.ok) throw new Error("Error")
+            })
+            .then(() => alert("Success!"))
+            .catch((err) => {
+                alert("Error!")
+            });
     }
 
     return (

@@ -1,6 +1,6 @@
 import json
 
-from fastapi import Depends, Form, FastAPI, WebSocket, Request, Cookie, status
+from fastapi import Depends, Form, FastAPI, WebSocket, Request, Cookie, status, HTTPException
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
@@ -16,7 +16,7 @@ from weschatbot.exceptions.user_exceptions import InvalidUserError
 from weschatbot.schemas.chat import Message
 from weschatbot.security.cookie_jwt_manager import FastAPICookieJwtManager
 from weschatbot.security.exceptions import TokenInvalidError, TokenExpiredError
-from weschatbot.services.session_service import SessionService
+from weschatbot.services.session_service import SessionService, NotPermissionError
 from weschatbot.services.user_service import UserService
 from weschatbot.utils.config import config
 from weschatbot.www.chatbot_ui.csrfsettings import CsrfSettings
@@ -156,6 +156,15 @@ async def get_chat(request: Request, chat_id: str, payload: dict = Depends(jwt_m
             "username": payload["username"],
         }
     )
+
+
+@app.delete("/chats/{chat_id}")
+async def delete_chat(request: Request, chat_id: str, payload: dict = Depends(jwt_manager.required)):
+    user_id = int(payload.get("sub"))
+    try:
+        session_service.delete_session(user_id=user_id, chat_id=chat_id)
+    except NotPermissionError as e:
+        raise HTTPException(status_code=401, detail=e)
 
 
 @app.websocket("/ws")
