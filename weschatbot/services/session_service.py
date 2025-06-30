@@ -7,6 +7,10 @@ from weschatbot.utils.db import provide_session
 from weschatbot.utils.redis_config import provide_redis, DB_CHAT
 
 
+class NotPermissionError(Exception):
+    pass
+
+
 class SessionService(LoggingMixin):
     KEY_FMT = 'ss_{chat_id}'
     REDIS_DB = DB_CHAT
@@ -48,7 +52,7 @@ class SessionService(LoggingMixin):
         if chat:
             add_messages(chat.id)
         else:
-            new_chat = ChatSession(name=messages[0].message[0:31], uuid=chat_id, user_id=user_id)
+            new_chat = ChatSession(name=messages[0].message[0:31], uuid=chat_id, user_id=user_id, status_id=1)
             session.add(new_chat)
             session.commit()
             session.refresh(new_chat)
@@ -65,9 +69,18 @@ class SessionService(LoggingMixin):
         self.store_chat(chat)
 
     @provide_session
+    def delete_session(self, user_id, chat_id, session=None):
+        chat_session = session.query(ChatSession).filter(ChatSession.uuid == chat_id).first()
+
+        if chat_session and chat_session.user_id == user_id:
+            chat_session.status_id = 2
+        else:
+            raise NotPermissionError("This session doesn't belong to you")
+
+    @provide_session
     def get_sessions(self, user_id, session=None):
         def query_sessions(ss=None):
-            return ss.query(ChatSession).filter(ChatSession.user_id == user_id).all()
+            return ss.query(ChatSession).filter(ChatSession.user_id == user_id).filter(ChatSession.status_id == 1).all()
 
         res = query_sessions(session)
         return [x.to_dict(session=session) for x in res]
