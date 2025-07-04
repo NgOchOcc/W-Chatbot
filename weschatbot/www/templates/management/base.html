@@ -41,6 +41,9 @@
 
 </main>
 </body>
+<div hidden id="current_user">
+    {{current_user.to_json()}}
+</div>
 {% block footer %}
 <script src="{{ url_for('management.static', filename='dist/sidebar_menu.js') }}"></script>
 {% endblock %}

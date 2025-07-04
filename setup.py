@@ -36,6 +36,7 @@ setup(
         "alembic==1.16.2",
         "fastapi-csrf-protect==1.0.3",
         "python-multipart==0.0.20",
+        "flask_login==0.6.3",
         "build==1.2.2"
     ]
 )

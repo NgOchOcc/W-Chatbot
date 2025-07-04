@@ -26,7 +26,6 @@ def db():
 
 
 def init_db():
-    from weschatbot.models.user import UserStatus  # noqa
     from weschatbot.models.user import Role  # noqa
     from weschatbot.models.user import User  # noqa
     from weschatbot.models.user import ChatSession  # noqa

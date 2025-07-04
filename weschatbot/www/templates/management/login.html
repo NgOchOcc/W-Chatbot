@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Westaco Chatbot</title>
+    <link href="{{ url_for('management.static', filename='css/style.css') }}" rel="stylesheet">
+    <script src="{{ url_for('management.static', filename='dist/index.js') }}"></script>
+</head>
+<body>
+<div hidden id="csrf_token">
+    {{ csrf_token() }}
+</div>
+
+<div id="root_container"></div>
+<h1>Login</h1>
+<script src="{{ url_for('management.static', filename='dist/login.js') }}"></script>
+</body>
+</html>

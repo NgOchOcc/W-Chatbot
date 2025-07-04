@@ -46,3 +46,15 @@ def get_auto_field_types(model_class, fields, overwrite_field_types):
         res[field] = is_relationship(model_class, field) or type(getattr(model_class, field).type).__name__.lower()
     res.update(overwrite_field_types)
     return res
+
+
+def inheritors(klass):
+    subclasses = set()
+    work = [klass]
+    while work:
+        parent = work.pop()
+        for child in parent.__subclasses__():
+            if child not in subclasses:
+                subclasses.add(child)
+                work.append(child)
+    return subclasses

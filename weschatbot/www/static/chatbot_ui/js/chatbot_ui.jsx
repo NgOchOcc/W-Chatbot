@@ -27,35 +27,36 @@ import {
     CSidebarToggler,
 } from '@coreui/react'
 
-const colors = [
-    '#f44336',
-    '#e91e63',
-    '#9c27b0',
-    '#3f51b5',
-    '#2196f3',
-    '#009688',
-    '#4caf50',
-    '#ff9800',
-    '#795548',
-]
 
-function pickColorFromString(str) {
-    let hash = 0
-    for (let i = 0; i < str.length; i++) {
-        hash = str.charCodeAt(i) + ((hash << 5) - hash)
+function Header({userName, chatId, logoutUrl}) {
+
+    const colors = [
+        '#f44336',
+        '#e91e63',
+        '#9c27b0',
+        '#3f51b5',
+        '#2196f3',
+        '#009688',
+        '#4caf50',
+        '#ff9800',
+        '#795548',
+    ]
+
+    function pickColorFromString(str) {
+        let hash = 0
+        for (let i = 0; i < str.length; i++) {
+            hash = str.charCodeAt(i) + ((hash << 5) - hash)
+        }
+        const idx = Math.abs(hash) % colors.length
+        return colors[idx]
     }
-    const idx = Math.abs(hash) % colors.length
-    return colors[idx]
-}
-
-function Header({userName, chatId}) {
 
     const initial = userName.trim().charAt(0).toUpperCase()
     const bgColor = pickColorFromString(userName)
 
     const onLogout = () => {
         console.log("Click Logout")
-        window.location.replace("/logout")
+        window.location.replace(logoutUrl)
     }
 
     return (
@@ -256,7 +257,7 @@ function Sidebar({sessions}) {
                                 {session.name}
                                 <span className="trash-icon"
                                       onClick={(e) => {
-                                          e.preventDefault()       // chặn link
+                                          e.preventDefault()
                                           deleteSession(session.uuid)
                                       }}>
                                     <i className="bi bi-trash"/>
@@ -283,7 +284,7 @@ function App({model, sessions, username}) {
                 </div>
                 <CContainer fluid className="vh-90" style={{paddingTop: '10px'}}>
                     <CRow>
-                        <Header userName={username} chatId={model.chat_id}></Header>
+                        <Header userName={username} chatId={model.chat_id} logoutUrl={"/logout"}></Header>
                     </CRow>
                     <br/>
                     {
