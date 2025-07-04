@@ -6,12 +6,12 @@ from sqlalchemy import pool
 from alembic import context
 
 from weschatbot.models.base import Base
-from weschatbot.models.user import UserStatus  # noqa
 from weschatbot.models.user import Role  # noqa
 from weschatbot.models.user import User  # noqa
 from weschatbot.models.user import ChatMessage  # noqa
 from weschatbot.models.user import ChatStatus  # noqa
 from weschatbot.models.user import ChatSession  # noqa
+from weschatbot.models.user import *
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

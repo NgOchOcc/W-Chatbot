@@ -3,7 +3,7 @@ import random
 import string
 
 from weschatbot.exceptions.user_exceptions import InvalidUserError
-from weschatbot.models.user import Role, UserStatus, User
+from weschatbot.models.user import Role, User
 from weschatbot.utils.db import provide_session
 
 
@@ -33,12 +33,11 @@ class UserService:
         user.salt = salt
 
     @provide_session
-    def create_user(self, user_name, password, role_name, status_name="new", session=None):
+    def create_user(self, user_name, password, role_name, is_active=False, session=None):
         salt = generate_random_string()
         hashed_password = MD5.hash_string(password, salt)
         role = session.query(Role).filter_by(name=role_name).first()
-        status = session.query(UserStatus).filter_by(name=status_name).first()
-        user = User(name=user_name, password=hashed_password, salt=salt, role=role, status=status)
+        user = User(name=user_name, password=hashed_password, salt=salt, role=role, is_active=is_active)
         session.add(user)
 
     @provide_session
@@ -48,7 +47,7 @@ class UserService:
             raise InvalidUserError("Invalid username")
         if not MD5.validate_string(password, user.salt, user.password):
             raise InvalidUserError("Invalid password")
-        if user.status.name != "active":
+        if not user.is_active:
             raise InvalidUserError("User is not active")
         return user
 

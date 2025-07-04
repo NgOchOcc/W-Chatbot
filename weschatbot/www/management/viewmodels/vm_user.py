@@ -2,7 +2,7 @@ import json
 
 from flask import request, redirect, abort, url_for, render_template, jsonify
 
-from weschatbot.models.user import Role, UserStatus, User
+from weschatbot.models.user import Role, User
 from weschatbot.services.user_service import generate_random_string, UserService
 from weschatbot.utils.db import provide_session
 from weschatbot.www.management.model_vm import ViewModel
@@ -12,10 +12,10 @@ user_service = UserService()
 
 
 class ViewModelUser(ViewModel):
-    list_fields = ["id", "name", "role", "status", "modified_date"]
-    update_fields = ["name", "role", "status"]
-    add_fields = ["name", "role", "status"]
-    detail_fields = ["id", "name", "role", "status", "modified_date"]
+    list_fields = ["id", "name", "role", "is_active", "modified_date"]
+    update_fields = ["name", "role", "is_active"]
+    add_fields = ["name", "role", "is_active"]
+    detail_fields = ["id", "name", "role", "is_active", "modified_date"]
     search_fields = ["name"]
 
     actions = {
@@ -30,11 +30,9 @@ class ViewModelUser(ViewModel):
 
         user_name = request.form.get("name", None)
         role_id = int(request.form.get("role", None))
-        status_id = int(request.form.get("status", None))
         role_name = session.query(Role).get(role_id).name
-        status_name = session.query(UserStatus).get(status_id).name
         password = generate_random_string()
-        user_service.create_user(user_name, password, role_name, status_name, session=session)
+        user_service.create_user(user_name, password, role_name, session=session)
         return redirect(self.list_view_model.search_url_func()), 302
 
     @provide_session

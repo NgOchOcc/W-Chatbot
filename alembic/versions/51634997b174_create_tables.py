@@ -8,14 +8,59 @@ Create Date: 2025-06-30 21:10:31.748861
 from datetime import datetime
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
+
+from weschatbot.models.user import Permission, Role
+from weschatbot.services.user_service import UserService
+from weschatbot.utils.db import provide_session
+from weschatbot.www.management.model_vm import ViewModel
+from weschatbot.www.management.utils import inheritors
+from weschatbot.www.management.viewmodels.vm_chat import ViewModelChat  # noqa
+from weschatbot.www.management.viewmodels.vm_permission import ViewModelPermission  # noqa
+from weschatbot.www.management.viewmodels.vm_role import ViewModelRole  # noqa
+from weschatbot.www.management.viewmodels.vm_user import ViewModelUser  # noqa
 
 # revision identifiers, used by Alembic.
 revision: str = '51634997b174'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
+
+
+def init_permissions():
+    view_model_classes = map(lambda x: x.__name__, inheritors(ViewModel))
+    base_permissions = {
+        "edit.all",
+        "delete.all",
+        "edit",
+        "delete",
+        "add",
+        "list",
+        "list.all"
+    }
+
+    @provide_session
+    def add_permissions(perms, session=None):
+        session.bulk_save_objects(perms)
+        session.commit()
+
+    permissions = [Permission(name=f"{vmc.lower()}.{p}") for vmc in view_model_classes for p in
+                   base_permissions]
+    add_permissions(permissions)
+
+
+@provide_session
+def init_roles(session=None):
+    admin_role = Role(name="admin", id=1)
+    user_role = Role(name="user", id=2)
+    session.add_all([admin_role, user_role])
+
+
+@provide_session
+def init_admin_user(session=None):
+    user_service = UserService()
+    user_service.create_user(user_name="admin", password="admin", role_name="admin", is_active=True)
 
 
 def upgrade() -> None:
@@ -28,31 +73,36 @@ def upgrade() -> None:
                     sa.PrimaryKeyConstraint('id'),
                     sa.UniqueConstraint('name')
                     )
+    op.create_table('permissions',
+                    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+                    sa.Column('name', sa.String(length=31), nullable=False),
+                    sa.PrimaryKeyConstraint('id')
+                    )
     op.create_table('roles',
                     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
                     sa.Column('name', sa.String(length=31), nullable=False),
                     sa.PrimaryKeyConstraint('id'),
                     sa.UniqueConstraint('name')
                     )
-    op.create_table('user_statuses',
-                    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-                    sa.Column('name', sa.String(length=31), nullable=False),
-                    sa.Column('modified_date', sa.TIMESTAMP(), nullable=False),
-                    sa.PrimaryKeyConstraint('id'),
-                    sa.UniqueConstraint('name')
+    op.create_table('role_permissions',
+                    sa.Column('role_id', sa.Integer(), nullable=False),
+                    sa.Column('permission_id', sa.Integer(), nullable=False),
+                    sa.ForeignKeyConstraint(['permission_id'], ['permissions.id'], ),
+                    sa.ForeignKeyConstraint(['role_id'], ['roles.id'], ),
+                    sa.PrimaryKeyConstraint('role_id', 'permission_id')
                     )
     op.create_table('users',
                     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
                     sa.Column('name', sa.String(length=31), nullable=False),
                     sa.Column('password', sa.String(length=2047), nullable=False),
                     sa.Column('salt', sa.String(length=7), nullable=False),
-                    sa.Column('status_id', sa.Integer(), nullable=False),
+                    sa.Column('is_active', sa.Boolean(), nullable=False),
                     sa.Column('role_id', sa.Integer(), nullable=False),
                     sa.Column('modified_date', sa.TIMESTAMP(), nullable=False),
                     sa.ForeignKeyConstraint(['role_id'], ['roles.id'], ),
-                    sa.ForeignKeyConstraint(['status_id'], ['user_statuses.id'], ),
                     sa.PrimaryKeyConstraint('id')
                     )
+    op.create_index(op.f('ix_users_is_active'), 'users', ['is_active'], unique=False)
     op.create_table('chats',
                     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
                     sa.Column('name', sa.String(length=31), nullable=False),
@@ -75,24 +125,11 @@ def upgrade() -> None:
                     sa.ForeignKeyConstraint(['chat_id'], ['chats.id'], ),
                     sa.PrimaryKeyConstraint('id')
                     )
+    # ### end Alembic commands ###
 
     conn = op.get_bind()
-    conn.execute(
-        sa.text("INSERT INTO roles (name) VALUES (:name)"),
-        [{"name": "admin"}, {"name": "user"}]
-    )
 
     now = datetime.now()
-    conn.execute(
-        sa.text("""
-                INSERT INTO user_statuses (name, modified_date)
-                VALUES (:name, :modified_date)
-            """),
-        [
-            {"name": "active", "modified_date": now},
-            {"name": "inactive", "modified_date": now}
-        ]
-    )
 
     conn.execute(
         sa.text("""
@@ -105,6 +142,10 @@ def upgrade() -> None:
         ]
     )
 
+    init_roles()
+    init_admin_user()
+    init_permissions()
+
     # ### end Alembic commands ###
 
 
@@ -113,8 +154,10 @@ def downgrade() -> None:
     # ### commands auto generated by Alembic - please adjust! ###
     op.drop_table('messages')
     op.drop_table('chats')
+    op.drop_index(op.f('ix_users_is_active'), table_name='users')
     op.drop_table('users')
-    op.drop_table('user_statuses')
+    op.drop_table('role_permissions')
     op.drop_table('roles')
+    op.drop_table('permissions')
     op.drop_table('chat_statuses')
     # ### end Alembic commands ###

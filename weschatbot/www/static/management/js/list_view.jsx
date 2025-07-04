@@ -1,5 +1,6 @@
 import {createRoot} from "react-dom/client";
 import React, {useState} from "react";
+import {CBadge, CFormSwitch} from "@coreui/react";
 
 
 function SearchBox({search_url, keyword, page_size}) {
@@ -131,6 +132,39 @@ function Pagination({search_url, page, page_size, total, keyword}) {
 
 
 function DataListView({items, data_types, list_fields}) {
+    const fieldHelper = (data, data_type) => {
+        switch (data_type) {
+            case "boolean":
+                return (
+                    <CFormSwitch
+                        checked={data}
+                        onChange={(e) => {
+                            onToggle && onToggle(e.target.checked)
+                        }}
+                        style={{fontSize: '1rem'}}
+                    />
+                )
+
+            case "relationship_many":
+                return (
+                    <>
+                        {data.map((item, idx) => (
+                            <CBadge
+                                key={idx}
+                                color="secondary"
+                                className="me-1"
+                                style={{fontSize: '0.8rem', padding: '0.5em 0.75em'}}
+                            >
+                                {item}
+                            </CBadge>
+                        ))}
+                    </>
+                )
+            default:
+                return <span>{data}</span>
+        }
+    }
+
     return (
         <>
             <table className={"table table-bordered table-hover table-sm"}>
@@ -153,7 +187,7 @@ function DataListView({items, data_types, list_fields}) {
                             </td>
                             {
                                 list_fields.map((field) => {
-                                    return <td key={`${x.id}_${field}`}>{x[field]}</td>
+                                    return <td key={`${x.id}_${field}`}>{fieldHelper(x[field], data_types[field])}</td>
                                 })
                             }
                         </tr>

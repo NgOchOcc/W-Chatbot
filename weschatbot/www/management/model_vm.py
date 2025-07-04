@@ -1,11 +1,45 @@
 import json
 from datetime import datetime
-from functools import reduce
+from functools import reduce, wraps
+
 from flask import Blueprint, request, abort, render_template, redirect, flash
+from flask_login import current_user
+
 from weschatbot.log.logging_mixin import LoggingMixin
 from weschatbot.utils.db import provide_session
 from weschatbot.www.management.utils import get_auto_field_types, is_relationship, relationship_class, \
     relationship_data, outside_url_for
+
+
+@provide_session
+def permissions_by_user(user_id, session=None):
+    res = current_user.role.permissions
+    return res
+
+
+def check_permission(permission):
+    def check_func(func):
+        @wraps(func)
+        def wrap(self_object, *args, **kwargs):
+            if current_user.role.name == "admin":
+                return func(self_object, *args, **kwargs)
+            view_model_name = self_object.__class__.__name__
+            required_permission = f"{view_model_name.lower()}.{permission}"
+            permissions = permissions_by_user(current_user.id)
+
+            all_permission = list(
+                filter(lambda x: required_permission in x.name and x.name.endswith(".all"), permissions))
+            if all_permission:
+                return func(self_object, *args, **kwargs)
+
+            existed_permission = list(filter(lambda x: required_permission in x.name, permissions))
+            if existed_permission:
+                return func(self_object, *args, **kwargs)
+            return abort(403)
+
+        return wrap
+
+    return check_func
 
 
 class Field:
@@ -388,6 +422,7 @@ class ViewModel(LoggingMixin):
         flask_app_or_bp.register_blueprint(self.bp)
 
     @provide_session
+    @check_permission("list")
     def list_items(self, session=None):
         keyword = request.args.get("keyword", None)
         page = max(int(request.args.get("page", 1)), 1)
@@ -482,7 +517,11 @@ class ViewModel(LoggingMixin):
                 value = request.form.get(field, None)
                 match field_types[field].lower():
                     case "boolean":
-                        res = UpdateValue(bool(int(request.form.get(field, False))))
+                        value = request.form.get(field, False)
+                        if value in ("true", "True", "1", 1):
+                            res = UpdateValue(True)
+                        else:
+                            res = UpdateValue(False)
                     case "date":
                         res = UpdateValue(datetime.fromtimestamp(int(value) / 1000.0))
                     case "string":
@@ -501,11 +540,13 @@ class ViewModel(LoggingMixin):
         return redirect(self.list_view_model.search_url_func()), 302
 
     @provide_session
+    @check_permission("edit")
     def update_item(self, item_id, session=None):
         return request.method == "GET" and self.update_item_get(item_id, session=session) or self.update_item_post(
             item_id, session=session)
 
     @provide_session
+    @check_permission("delete")
     def delete_item(self, item_id, session=None):
         item = session.query(self.model_class).filter_by(id=item_id).one_or_none()
         if request.method == "GET":
@@ -521,6 +562,7 @@ class ViewModel(LoggingMixin):
             return redirect(self.list_view_model.search_url_func()), 302
 
     @provide_session
+    @check_permission("list")
     def detail_item(self, item_id, session=None):
         item = session.query(self.model_class).filter_by(id=item_id).one_or_none()
         if not item:
