@@ -32,7 +32,7 @@ class User(Base, UserMixin):
         return {
             "id": self.id,
             "name": self.name,
-            "role": self.role.name,
+            "role": self.role.to_dict(session=session),
             "is_active": self.is_active,
         }
 
@@ -95,7 +95,7 @@ class Role(Base):
         return {
             "id": self.id,
             "name": self.name,
-            "permissions": [p.to_dict() for p in self.permissions]
+            "permissions": [p.to_dict(session=session) for p in self.permissions]
         }
 
 

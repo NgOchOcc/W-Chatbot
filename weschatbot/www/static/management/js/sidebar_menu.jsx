@@ -1,5 +1,5 @@
 import {createRoot} from "react-dom/client";
-import React from "react";
+import React, {useEffect} from "react";
 
 import {
     CDropdown, CDropdownItem, CDropdownMenu, CDropdownToggle,
@@ -24,8 +24,20 @@ const stringToColor = (str) => {
     return `hsl(${hue}, 70%, 40%)`
 }
 
-function SidebarMenu({userName = 'User', onLogout}) {
+function NavItem({value, href, permissions, icon, role}) {
+    const permission = href.split("/").slice(-2).join(".").toLowerCase()
+    const show = role === "admin" || permissions.includes(permission)
+    return show &&
+        <CNavItem href={href}>
+            <CIcon customClassName="nav-icon" icon={icon}/> {value}
+        </CNavItem>
+}
+
+function SidebarMenu({userName = 'User', onLogout, currentUser}) {
     const avatarColor = stringToColor(userName)
+    const permissions = currentUser.role.permissions.map(permission => {
+        return permission.name
+    })
 
     return (
         <CSidebar className="border-end" colorScheme="dark" style={{height: '100vh', position: 'relative'}}>
@@ -37,18 +49,14 @@ function SidebarMenu({userName = 'User', onLogout}) {
 
             <CSidebarNav>
                 <CNavTitle>Administration</CNavTitle>
-                <CNavItem href="/management/ViewModelUser/list">
-                    <CIcon customClassName="nav-icon" icon={cilUser}/> Users
-                </CNavItem>
-                <CNavItem href="/management/ViewModelChat/list">
-                    <CIcon customClassName="nav-icon" icon={cilChatBubble}/> Chat Sessions
-                </CNavItem>
-                <CNavItem href="/management/ViewModelRole/list">
-                    <CIcon customClassName="nav-icon" icon={cilBank}/> Role
-                </CNavItem>
-                <CNavItem href="/management/ViewModelPermission/list">
-                    <CIcon customClassName="nav-icon" icon={cilBookmark}/> Permissions
-                </CNavItem>
+                <NavItem href={"/management/ViewModelUser/list"} icon={cilUser} role={currentUser.role.name}
+                         permissions={permissions} value={"Users"}></NavItem>
+                <NavItem href={"/management/ViewModelChat/list"} icon={cilChatBubble} role={currentUser.role.name}
+                         permissions={permissions} value={"Chats"}></NavItem>
+                <NavItem href={"/management/ViewModelRole/list"} icon={cilBank} role={currentUser.role.name}
+                         permissions={permissions} value={"Roles"}></NavItem>
+                <NavItem href={"/management/ViewModelPermission/list"} icon={cilBookmark} role={currentUser.role.name}
+                         permissions={permissions} value={"Permissions"}></NavItem>
             </CSidebarNav>
             <CSidebarHeader className="border-top">
                 <div
@@ -99,4 +107,4 @@ const container = document.getElementById("sidebar_menu")
 const sidebar = createRoot(container)
 
 const current_user = JSON.parse(document.getElementById("current_user").innerText)
-sidebar.render(<SidebarMenu userName={current_user.name} onLogout={logout}/>)
+sidebar.render(<SidebarMenu userName={current_user.name} onLogout={logout} currentUser={current_user}/>)
