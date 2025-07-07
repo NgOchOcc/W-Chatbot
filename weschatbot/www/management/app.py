@@ -1,6 +1,6 @@
 from functools import wraps, reduce
 
-from flask import Flask
+from flask import Flask, render_template
 from flask_login import LoginManager, login_required
 from flask_wtf import CSRFProtect
 
@@ -80,8 +80,31 @@ login_manager.login_view = "management.login"
 def load_user(user_id, session=None):
     user = session.query(User).filter(User.id == user_id).one_or_none()
     role = user.role
-    permissions = role.permissions
     return user
+
+
+@app.errorhandler(500)
+def server_error(error):
+    return render_template('management/error.html', code=500, title="Houston, we have a problem!",  # noqa
+                           description="The page you are looking for is temporarily unavailable."), 500
+
+
+@app.errorhandler(401)
+def unauthorized_error(error):
+    return render_template('management/error.html', code=401, title="Unauthorized Access",  # noqa
+                           description="Please login to view this page."), 500
+
+
+@app.errorhandler(403)
+def forbidden_error(error):
+    return render_template('management/error.html', code=403, title="Access Denied",  # noqa
+                           description="You don’t have permission to access this page."), 403
+
+
+@app.errorhandler(404)
+def notfound_error(error):
+    return render_template('management/error.html', code=404, title="Oops! Page not found",  # noqa
+                           description="Looks like this page doesn't exist anymore or has been moved."), 404
 
 
 user_service = UserService()
