@@ -31,13 +31,10 @@ depends_on: Union[str, Sequence[str], None] = None
 def init_permissions():
     view_model_classes = map(lambda x: x.__name__, inheritors(ViewModel))
     base_permissions = {
-        "edit.all",
-        "delete.all",
         "edit",
         "delete",
         "add",
-        "list",
-        "list.all"
+        "list"
     }
 
     @provide_session
