@@ -6,6 +6,7 @@ from flask import Blueprint, request, abort, render_template, redirect, flash
 from flask_login import current_user
 
 from weschatbot.log.logging_mixin import LoggingMixin
+from weschatbot.services.rbac_service import RBACService
 from weschatbot.utils.db import provide_session
 from weschatbot.www.management.utils import get_auto_field_types, is_relationship, relationship_class, \
     relationship_data, outside_url_for
@@ -13,7 +14,7 @@ from weschatbot.www.management.utils import get_auto_field_types, is_relationshi
 
 @provide_session
 def permissions_by_user(user_id, session=None):
-    res = current_user.role.permissions
+    res = RBACService.get_object_permissions(current_user.role.id, session=session)
     return res
 
 

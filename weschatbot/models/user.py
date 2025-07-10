@@ -27,7 +27,6 @@ class User(Base, UserMixin):
     def __repr__(self):
         return "user:{self.name}".format(self=self)
 
-    @provide_session
     def to_dict(self, session=None):
         return {
             "id": self.id,
@@ -94,8 +93,7 @@ class Role(Base):
     def to_dict(self, session=None):
         return {
             "id": self.id,
-            "name": self.name,
-            "permissions": [p.to_dict(session=session) for p in self.permissions]
+            "name": self.name
         }
 
 
