@@ -3,6 +3,7 @@ from functools import wraps, reduce
 from flask import Flask, render_template
 from flask_login import LoginManager, login_required
 from flask_wtf import CSRFProtect
+from sqlalchemy.orm import selectinload
 
 from weschatbot.models.user import User
 from weschatbot.security.flask_jwt_manager import FlaskJWTManager
@@ -78,8 +79,7 @@ login_manager.login_view = "management.login"
 @login_manager.user_loader
 @provide_session
 def load_user(user_id, session=None):
-    user = session.query(User).filter(User.id == user_id).one_or_none()
-    role = user.role
+    user = session.query(User).options(selectinload(User.role)).filter(User.id == user_id).one_or_none()
     return user
 
 

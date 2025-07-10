@@ -33,9 +33,9 @@ function NavItem({value, href, permissions, icon, role}) {
         </CNavItem>
 }
 
-function SidebarMenu({userName = 'User', onLogout, currentUser}) {
+function SidebarMenu({userName = 'User', onLogout, currentUser, userPermissions}) {
     const avatarColor = stringToColor(userName)
-    const permissions = currentUser.role.permissions.map(permission => {
+    const permissions = userPermissions.map(permission => {
         return permission.name
     })
 
@@ -106,5 +106,6 @@ const logout = () => {
 const container = document.getElementById("sidebar_menu")
 const sidebar = createRoot(container)
 
-const current_user = JSON.parse(document.getElementById("current_user").innerText)
-sidebar.render(<SidebarMenu userName={current_user.name} onLogout={logout} currentUser={current_user}/>)
+const currentUser = JSON.parse(document.getElementById("current_user").innerText)
+const permissions = JSON.parse(document.getElementById("permissions").innerText)
+sidebar.render(<SidebarMenu userName={currentUser.name} onLogout={logout} currentUser={currentUser} userPermissions={permissions}/>)

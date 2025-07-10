@@ -44,6 +44,9 @@
 <div hidden id="current_user">
     {{current_user.to_json()}}
 </div>
+<div hidden id="permissions">
+    {{ json_dumps(user_permissions(current_user.role.id)) }}
+</div>
 {% block footer %}
 <script src="{{ url_for('management.static', filename='dist/sidebar_menu.js') }}"></script>
 {% endblock %}
