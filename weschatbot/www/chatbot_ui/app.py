@@ -1,4 +1,5 @@
 import json
+import aiohttp
 
 from fastapi import Depends, Form, FastAPI, WebSocket, Request, Cookie, status, HTTPException
 from fastapi.responses import RedirectResponse
@@ -17,6 +18,7 @@ from weschatbot.schemas.chat import Message
 from weschatbot.security.cookie_jwt_manager import FastAPICookieJwtManager
 from weschatbot.security.exceptions import TokenInvalidError, TokenExpiredError
 from weschatbot.services.session_service import SessionService, NotPermissionError
+from weschatbot.services.ollama_client import OllamaClient
 from weschatbot.services.user_service import UserService
 from weschatbot.utils.config import config
 from weschatbot.www.chatbot_ui.csrfsettings import CsrfSettings
@@ -39,10 +41,14 @@ kb_collection.load()
 
 embedding_model = SentenceTransformer('all-mpnet-base-v2')
 
-generator = pipeline('text-generation', model='gpt2')
+# Initialize Ollama client instead of transformers pipeline
+ollama_client = OllamaClient(
+    base_url=config.get("ollama", {}).get("base_url", "http://localhost:11434"),
+    model=config.get("ollama", {}).get("model", "llama2")
+)
 
-# qa_pipeline = pipeline("question-answering", model="bert-large-uncased-whole-word-masking-finetuned-squad")
-qa_pipeline = pipeline("question-answering", model="distilbert-base-cased-distilled-squad")
+# Comment out the old qa_pipeline
+# qa_pipeline = pipeline("question-answering", model="distilbert-base-cased-distilled-squad")
 
 set_seed(42)
 
@@ -217,17 +223,23 @@ async def websocket_endpoint(websocket: WebSocket,
                 await websocket.send_text(json.dumps({"text": "Information is not found"}))
                 continue
 
-            qa_input = {
-                "question": question,
-                "context": context
-            }
+            # Create prompt for Ollama
+            prompt = f"""Based on the following context, answer the question. Only use information from the context provided.
 
-            prompt = f"Milvus context:\n{context}\n\nQuestion: {question}. Only get answer in context.\nAnswer:"
-            print(prompt)
+Context:
+{context}
+
+Question: {question}
+
+Answer:"""
+
+            print(f"Ollama prompt: {prompt}")
 
             try:
-                answer_result = qa_pipeline(qa_input)
-                answer = answer_result.get("answer", "Answer is not found")
+                # Use Ollama instead of qa_pipeline
+                answer = await ollama_client.generate(prompt)
+                if not answer or answer.strip() == "":
+                    answer = "Answer is not found"
             except Exception as e:
                 answer = f"Error: {str(e)}"
 
@@ -245,3 +257,9 @@ async def websocket_endpoint(websocket: WebSocket,
             await websocket.send_text(json.dumps(res))
     except WebSocketDisconnect:
         print("Client disconnected")
+
+
+# Cleanup on shutdown
+@app.on_event("shutdown")
+async def shutdown_event():
+    await ollama_client.close()
