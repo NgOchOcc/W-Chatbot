@@ -1,0 +1,99 @@
+{
+  "table_of_contents": [
+    {
+      "title": "Evaluare - Combustibili - Evaluare",
+      "heading_level": null,
+      "page_id": 0,
+      "polygon": [
+        [
+          59.949622166246854,
+          62.23152270703473
+        ],
+        [
+          290.0062972292192,
+          62.23152270703473
+        ],
+        [
+          290.0062972292192,
+          77.49853515625
+        ],
+        [
+          59.949622166246854,
+          77.49853515625
+        ]
+      ]
+    },
+    {
+      "title": "04.04.2024 12:18:32",
+      "heading_level": null,
+      "page_id": 0,
+      "polygon": [
+        [
+          188.8413098236776,
+          102.71950133570792
+        ],
+        [
+          284.1357421875,
+          102.71950133570792
+        ],
+        [
+          284.1357421875,
+          113.96616206589492
+        ],
+        [
+          188.8413098236776,
+          113.96616206589492
+        ]
+      ]
+    }
+  ],
+  "page_stats": [
+    {
+      "page_id": 0,
+      "text_extraction_method": "surya",
+      "block_counts": [
+        [
+          "TableCell",
+          84
+        ],
+        [
+          "Line",
+          11
+        ],
+        [
+          "Span",
+          11
+        ],
+        [
+          "Text",
+          6
+        ],
+        [
+          "SectionHeader",
+          2
+        ],
+        [
+          "PageFooter",
+          2
+        ],
+        [
+          "PageHeader",
+          1
+        ],
+        [
+          "Table",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 2,
+        "llm_error_count": 0,
+        "llm_tokens_used": 6032,
+        "previous_text": "",
+        "previous_type": "",
+        "previous_order": 0
+      }
+    }
+  ],
+  "debug_data_path": "debug_data/Anexa 12 Raport Evaluare Combustibili"
+}

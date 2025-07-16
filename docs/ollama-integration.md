@@ -24,7 +24,7 @@ model = llama3.2
 ### 2. Available Configuration Options
 
 - `base_url`: The URL where Ollama is running (default: http://localhost:11434)
-- `model`: The model name to use (default: llama2)
+- `model`: The model name to use (default: llama3.2)
 
 ## Setup Steps
 

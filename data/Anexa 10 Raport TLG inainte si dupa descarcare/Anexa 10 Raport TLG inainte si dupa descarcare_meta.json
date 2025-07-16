@@ -1,0 +1,72 @@
+{
+  "table_of_contents": [
+    {
+      "title": "INVENTORY REPORT",
+      "heading_level": null,
+      "page_id": 0,
+      "polygon": [
+        [
+          254.46347607052894,
+          182.94568121104186
+        ],
+        [
+          348.927734375,
+          182.94568121104186
+        ],
+        [
+          348.927734375,
+          192.101806640625
+        ],
+        [
+          254.46347607052894,
+          192.101806640625
+        ]
+      ]
+    }
+  ],
+  "page_stats": [
+    {
+      "page_id": 0,
+      "text_extraction_method": "surya",
+      "block_counts": [
+        [
+          "TableCell",
+          134
+        ],
+        [
+          "Span",
+          79
+        ],
+        [
+          "Line",
+          70
+        ],
+        [
+          "Text",
+          6
+        ],
+        [
+          "Table",
+          2
+        ],
+        [
+          "PageFooter",
+          1
+        ],
+        [
+          "SectionHeader",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 3,
+        "llm_error_count": 0,
+        "llm_tokens_used": 9539,
+        "previous_text": "",
+        "previous_type": "",
+        "previous_order": 0
+      }
+    }
+  ],
+  "debug_data_path": "debug_data/Anexa 10 Raport TLG inainte si dupa descarcare"
+}

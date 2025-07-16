@@ -1,0 +1,99 @@
+{
+  "table_of_contents": [
+    {
+      "title": "Data si ora tip\u0103ririi 29.04.2024 - 15:27:16",
+      "heading_level": null,
+      "page_id": 0,
+      "polygon": [
+        [
+          427.1410579345088,
+          48.73552983081033
+        ],
+        [
+          577.015113350126,
+          48.73552983081033
+        ],
+        [
+          577.015113350126,
+          59.982190560997324
+        ],
+        [
+          427.1410579345088,
+          59.982190560997324
+        ]
+      ]
+    },
+    {
+      "title": "Serii Pompe",
+      "heading_level": null,
+      "page_id": 0,
+      "polygon": [
+        [
+          57.7015113350126,
+          65.2306322350846
+        ],
+        [
+          143.12972292191438,
+          65.2306322350846
+        ],
+        [
+          143.12972292191438,
+          83.97506678539625
+        ],
+        [
+          57.7015113350126,
+          83.97506678539625
+        ]
+      ]
+    }
+  ],
+  "page_stats": [
+    {
+      "page_id": 0,
+      "text_extraction_method": "surya",
+      "block_counts": [
+        [
+          "TableCell",
+          442
+        ],
+        [
+          "Line",
+          7
+        ],
+        [
+          "Span",
+          7
+        ],
+        [
+          "PageHeader",
+          3
+        ],
+        [
+          "SectionHeader",
+          2
+        ],
+        [
+          "Table",
+          1
+        ],
+        [
+          "PageFooter",
+          1
+        ],
+        [
+          "Text",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 2,
+        "llm_error_count": 0,
+        "llm_tokens_used": 7963,
+        "previous_text": "",
+        "previous_type": "",
+        "previous_order": 0
+      }
+    }
+  ],
+  "debug_data_path": "debug_data/Anexa 13 Serii pompe inainte si dupa descarcare"
+}
