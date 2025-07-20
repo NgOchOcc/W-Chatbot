@@ -38,6 +38,14 @@ setup(
         "python-multipart==0.0.20",
         "flask_login==0.6.3",
         "build==1.2.2",
-        "aiohttp==3.9.1"
+        "aiohttp==3.9.1",
+        "llama-index==0.12.50",
+        "llama-index-embeddings-openai==0.3.1",
+        "llama-index-vector-stores-milvus==0.8.6",
+        "huggingface-hub==0.33.2",
+        "tiktoken==0.9.0",
+        "torch==2.7.1",
+        "transformers==4.53.0",
+        "tokenizers==0.21.2",
     ]
 )
