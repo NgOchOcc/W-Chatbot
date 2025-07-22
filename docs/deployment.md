@@ -26,7 +26,12 @@ docker network create -d bridge westaco_chatbot
 
 #### Start mysql
 ```shell
-docker run --network westaco_chatbot --name local-mysql -p 3306:3306 -p 33060:33060 -e MYSQL_ROOT_PASSWORD=Adcef#1234 -d mysql:8.0.40-debian --default-authentication-plugin=mysql_native_password
+docker run --platform linux/amd64 --network westaco_chatbot \
+  --name local-mysql \
+  -p 3306:3306 -p 33060:33060 \
+  -e MYSQL_ROOT_PASSWORD=Adcef#1234 \
+  -d mysql:8.0.40 \
+  --default-authentication-plugin=mysql_native_password
 ```
 
 #### Start milvus

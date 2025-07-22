@@ -1,36 +1,41 @@
+import requests
 import aiohttp
 
-class OllamaClient:
-    def __init__(self, base_url: str = "http://localhost:11434", model: str = "llama3.2"):
+from typing import List, Dict, Any
+
+class OllamaClient:    
+    def __init__(self, base_url: str = "http://localhost:11434"):
         self.base_url = base_url
-        self.model = model
-        self.session = None
-    
-    async def _get_session(self):
-        if self.session is None:
-            self.session = aiohttp.ClientSession()
-        return self.session
-    
-    async def generate(self, prompt: str, **kwargs) -> str:
-        session = await self._get_session()
+        self.OLLAMA_API_BASE_URL = "http://localhost:11434/api/generate" 
+        self.OLLAMA_MODEL_NAME = "llama2" 
         
+    def generate(self, model: str, prompt: str, context: List[int] = None, stream: bool = False) -> Dict[str, Any]:
+        url = f"{self.base_url}/api/generate"
         payload = {
-            "model": self.model,
+            "model": model,
             "prompt": prompt,
-            "stream": False,
-            **kwargs
+            "stream": stream,
+            "context": context or []
         }
         
         try:
-            async with session.post(f"{self.base_url}/api/generate", json=payload) as response:
-                if response.status == 200:
-                    result = await response.json()
-                    return result.get("response", "")
-                else:
-                    raise Exception(f"Ollama API error: {response.status}")
-        except Exception as e:
-            raise Exception(f"Failed to call Ollama API: {str(e)}")
+            response = requests.post(url, json=payload, timeout=30)
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            raise Exception(f"Ollama API error: {str(e)}")
     
-    async def close(self):
-        if self.session:
-            await self.session.close()
+    def chat(self, model: str, messages: List[Dict[str, str]], stream: bool = False) -> Dict[str, Any]:
+        url = f"{self.base_url}/api/chat"
+        payload = {
+            "model": model,
+            "messages": messages,
+            "stream": stream
+        }
+        
+        try:
+            response = requests.post(url, json=payload, timeout=30)
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            raise Exception(f"Ollama Chat API error: {str(e)}")
