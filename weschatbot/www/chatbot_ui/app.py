@@ -259,7 +259,11 @@ Answer:"""
         print("Client disconnected")
 
 
+<<<<<<< HEAD
 # Cleanup on shutdown
 @app.on_event("shutdown")
 async def shutdown_event():
     await ollama_client.close()
+=======
+print('Done')
+>>>>>>> bbe73e7a4917ebc7595625a1366f8613324eab37
