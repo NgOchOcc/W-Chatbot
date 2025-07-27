@@ -1,4 +1,7 @@
+import hashlib
 import json
+import os
+import uuid
 from datetime import datetime
 from functools import reduce, wraps
 
@@ -7,6 +10,7 @@ from flask_login import current_user
 
 from weschatbot.log.logging_mixin import LoggingMixin
 from weschatbot.services.rbac_service import RBACService
+from weschatbot.utils.config import config
 from weschatbot.utils.db import provide_session
 from weschatbot.www.management.utils import get_auto_field_types, is_relationship, relationship_class, \
     relationship_data, outside_url_for
@@ -41,6 +45,14 @@ def check_permission(permission):
         return wrap
 
     return check_func
+
+
+def secure_filename(file_name):
+    ext = file_name.rsplit(".")[-1:][0]
+    std_file_name = "_".join(file_name.rsplit(".")[:-1]).replace(" ", "_")
+    hash_part = hashlib.sha256(
+        bytes(f"{std_file_name}.{uuid.uuid4().hex}", "UTF-8")).hexdigest()
+    return f"{std_file_name}.{hash_part}.{ext}"
 
 
 class Field:
@@ -469,6 +481,15 @@ class ViewModel(LoggingMixin):
                     req_value = request.form.getlist(field)
                     rel_class = relationship_class(self.model_class, field)
                     res = UpdateValue(session.query(rel_class).filter(rel_class.id.in_(req_value)).all())
+                case "file_upload":
+                    if field in request.files and request.files[field].filename:
+                        upload_file_name = secure_filename(request.files[field].filename)
+                        upload_file_path = f"{config['core']['upload_file_folder']}/{upload_file_name}"
+                        file = request.files[field]
+                        file.save(os.path.join(config["core"]["upload_file_folder"], upload_file_name))
+                        res = UpdateValue(upload_file_path)
+                    else:
+                        res = NoUpdate()
                 case _:
                     res = NoUpdate()
             if res.is_updated():
@@ -514,6 +535,14 @@ class ViewModel(LoggingMixin):
                 req_value = request.form[field]
                 rel_class = relationship_class(self.model_class, field)
                 res = UpdateValue(session.query(rel_class).filter_by(id=req_value).one_or_none())
+            elif field_types[field] == "file_upload":
+                if field in request.files and request.files[field].filename:
+                    upload_file_name = secure_filename(request.files[field].filename)
+                    file = request.files[field]
+                    file.save(os.path.join("/tmp/flask_files", upload_file_name))
+                    res = UpdateValue(upload_file_name)
+                else:
+                    res = NoUpdate()
             else:
                 value = request.form.get(field, None)
                 match field_types[field].lower():

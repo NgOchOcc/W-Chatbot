@@ -164,3 +164,21 @@ class ChatMessage(Base):
 
     def __repr__(self):
         return f"{self.sender}: {self.content}\n"
+
+
+@basic_fields
+class Document(Base):
+    __tablename__ = "documents"
+
+    id = Column(Integer, primary_key=True, nullable=False, autoincrement=True)
+    name = Column(String(255), nullable=False, unique=False)
+    path = Column(String(2047), nullable=False, unique=False)
+    is_used = Column(Boolean, nullable=False, default=False)
+
+    def to_dict(self, session=None):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "path": self.path,
+            "is_used": self.is_used
+        }

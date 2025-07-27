@@ -12,7 +12,7 @@ import {
 } from '@coreui/react'
 
 import CIcon from '@coreui/icons-react'
-import {cilUser, cilChatBubble, cilBank, cilBookmark} from '@coreui/icons'
+import {cilUser, cilChatBubble, cilBank, cilBookmark, cilNotes} from '@coreui/icons'
 
 
 const stringToColor = (str) => {
@@ -57,6 +57,8 @@ function SidebarMenu({userName = 'User', onLogout, currentUser, userPermissions}
                          permissions={permissions} value={"Roles"}></NavItem>
                 <NavItem href={"/management/ViewModelPermission/list"} icon={cilBookmark} role={currentUser.role.name}
                          permissions={permissions} value={"Permissions"}></NavItem>
+                <NavItem href={"/management/ViewModelDocument/list"} icon={cilNotes} role={currentUser.role.name}
+                         permissions={permissions} value={"Documents"}></NavItem>
             </CSidebarNav>
             <CSidebarHeader className="border-top">
                 <div
@@ -108,4 +110,5 @@ const sidebar = createRoot(container)
 
 const currentUser = JSON.parse(document.getElementById("current_user").innerText)
 const permissions = JSON.parse(document.getElementById("permissions").innerText)
-sidebar.render(<SidebarMenu userName={currentUser.name} onLogout={logout} currentUser={currentUser} userPermissions={permissions}/>)
+sidebar.render(<SidebarMenu userName={currentUser.name} onLogout={logout} currentUser={currentUser}
+                            userPermissions={permissions}/>)
