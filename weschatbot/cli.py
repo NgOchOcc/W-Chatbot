@@ -10,6 +10,16 @@ def cli():
     pass
 
 
+@cli.group("worker")
+def worker():
+    pass
+
+
+@cli.group("scheduler")
+def scheduler():
+    pass
+
+
 @cli.group("chatbot")
 def chatbot():
     pass
@@ -25,6 +35,12 @@ def db():
     pass
 
 
+@worker.command("start")
+def worker_start():
+    from weschatbot.worker.celery_worker import worker as celery_worker
+    celery_worker().start()
+
+
 def init_db():
     from weschatbot.models.user import Role  # noqa
     from weschatbot.models.user import User  # noqa
@@ -38,6 +54,12 @@ def init_db():
 @db.command("migrate")
 def db_migrate():
     init_db()
+
+
+@scheduler.command("start")
+def scheduler_start():
+    from weschatbot.worker.scheduler import schedule
+    schedule()
 
 
 @chatbot.command("start")
