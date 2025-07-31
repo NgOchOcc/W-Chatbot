@@ -1,41 +1,30 @@
-from functools import reduce
+from typing import List
 
+from weschatbot.log.logging_mixin import LoggingMixin
 from weschatbot.models.user import Document, DocumentStatus
 from weschatbot.utils.db import provide_session
-
-
-class Embedding:
-    def __init__(self, *args, **kwargs):
-        pass
-
-    def encode(self, documents):
-        pass
-
-    def index(self, documents, collection_name):
-        pass
-
-
-class Chunking:
-    def __init__(self, *args, **kwargs):
-        pass
-
-    def chunk(self, document):
-        pass
 
 
 class DocumentConverter:
     def __init__(self, *args, **kwargs):
         pass
 
-    def convert(self, document_path):
+    def convert(self, document_path: str) -> str:
         return ""
 
 
-class IndexDocumentService:
-    def __init__(self, converter, chunking, embedding, collection_name, *args, **kwargs):
+class Pipeline:
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def run(self, documents: List[str]):
+        pass
+
+
+class IndexDocumentService(LoggingMixin):
+    def __init__(self, converter, pipeline, collection_name, *args, **kwargs):
         self.converter = converter
-        self.chunking = chunking
-        self.embedding = embedding
+        self.pipeline = pipeline
         self.collection_name = collection_name
 
     @provide_session
@@ -55,14 +44,15 @@ class IndexDocumentService:
 
     @provide_session
     def index(self, session=None):
+        self.log.info("Start indexing documents...")
         self.mark_in_progress(session)
         doc_entities = self.get_documents(session)
         while doc_entities:
             converted_docs = [self.converter.convert(doc.path) for doc in doc_entities]
-            chunked_docs = reduce(lambda r, x: r + self.chunking.chunk(x), converted_docs, [])
-            self.embedding.index(chunked_docs)
+            self.pipeline.run(converted_docs)
             self.mark_done(doc_entities, session)
             doc_entities = self.get_documents(session)
+        self.log.info("Finish indexing documents...")
 
     @provide_session
     def get_documents(self, session=None):

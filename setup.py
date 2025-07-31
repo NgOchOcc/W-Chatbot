@@ -24,7 +24,7 @@ setup(
     install_requires=[
         "importlib_metadata==8.5.0",
         "cookiecutter==2.6.0",
-        "click==8.1.7",
+        "click==8.2.1",
         "flask==3.1.1",
         "sqlalchemy==2.0.41",
         "gunicorn==23.0.0",
@@ -37,6 +37,8 @@ setup(
         "fastapi-csrf-protect==1.0.3",
         "python-multipart==0.0.20",
         "flask_login==0.6.3",
+        "marker-pdf==1.8.2",
+        "markitdown==0.1.2",
         "build==1.2.2"
     ]
 )
