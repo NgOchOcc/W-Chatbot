@@ -1,13 +1,15 @@
-from typing import List
+from typing import List, Optional
 from pathlib import Path
-import tempfile
-import subprocess
-import sys
-import shutil
 
 from llama_index.core import Document as LlamaDocument, VectorStoreIndex, StorageContext
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.vector_stores.milvus import MilvusVectorStore
+
+from marker.converters.pdf import PdfConverter
+from marker.models import create_model_dict
+from marker.output import text_from_rendered
+
+from markitdown import MarkItDown
 
 from weschatbot.log.logging_mixin import LoggingMixin
 from weschatbot.models.user import Document, DocumentStatus
@@ -16,9 +18,32 @@ from weschatbot.utils.config import config
 from weschatbot.services.document.chunking_strategy import AdvancedChunkingStrategy
 
 
+class MarkerConverter:
+    def __init__(self):
+        self.converter = PdfConverter(
+            artifact_dict=create_model_dict(),
+        )
+    
+    def convert(self, document_path: str) -> str:
+        rendered = self.converter(str(document_path))
+
+        markdown_text, metadata, images = text_from_rendered(rendered)        
+        return markdown_text
+
+
+class MarkitdownConverter:
+    def __init__(self):
+        self.converter = MarkItDown()
+    
+    def convert(self, document_path: str) -> str:
+        rendered = self.converter.convert((document_path))
+        return rendered.text_content
+               
+
 class DocumentConverter:
     def __init__(self, *args, **kwargs):
-        pass
+        self.marker_convert = MarkerConverter()
+        self.markitdown_convert = MarkitdownConverter()
 
     def convert(self, document_path: str) -> str:
         input_path = Path(document_path)
@@ -29,65 +54,38 @@ class DocumentConverter:
         
         try:
             if file_ext == '.pdf':
-                return self._convert_pdf(input_path)
+                return self.marker_convert.convert(input_path)
             else:
-                return self._convert_with_markitdown(input_path)
+                return self.markitdown_convert.convert(input_path)
         except Exception as e:
             raise Exception(f"Error converting file {input_path}: {str(e)}")
-    
-    def _convert_pdf(self, file_path: Path) -> str:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            output_dir = Path(temp_dir)
-            
-            marker_path = shutil.which("marker_single", path=str(Path(sys.executable).parent))
-            if not marker_path:
-                raise RuntimeError("Could not find 'marker_single' in current virtual environment.")
-            
-            command = [marker_path, str(file_path), "--output_dir", str(output_dir)]
-            process_result = subprocess.run(
-                command,
-                capture_output=True,
-                text=True,
-                check=True
-            )
-            
-            # Marker creates output in a subdirectory with the same name as the file
-            output_subdir = output_dir / file_path.stem
-            output_md_file = output_subdir / (file_path.stem + ".md")
-            
-            # If not in subdirectory, check root directory
-            if not output_md_file.exists():
-                output_md_file = output_dir / (file_path.stem + ".md")
-            
-            if not output_md_file.exists():
-                # Try to find any .md file
-                md_files = list(output_dir.rglob("*.md"))
-                if md_files:
-                    output_md_file = md_files[0]
-                else:
-                    raise FileNotFoundError(
-                        f"Marker did not produce any markdown file in: {output_dir}\n"
-                        f"Marker stderr: {process_result.stderr}"
-                    )
-            
-            with open(output_md_file, 'r', encoding='utf-8') as f:
-                return f.read()
-    
-    def _convert_with_markitdown(self, file_path: Path) -> str:
-        from markitdown import MarkItDown
-        md = MarkItDown()
-        result = md.convert(str(file_path))
-        return result.text_content
+        
 
-class Pipeline(LoggingMixin):
-    def __init__(self, collection_name: str, embedding_model_name: str = "Qwen/Qwen3-Embedding-0.6B", dim: int = 1024, *args, **kwargs):
+
+class Pipeline:
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def run(self, documents: List[str], metadata_list: List[dict] = None):
+        pass
+    
+class PipelineMilvusStore(Pipeline, LoggingMixin):
+    def __init__(
+            self, collection_name: str, 
+            dim: int = 1024, 
+            embedding_model_name: str = "Qwen/Qwen3-Embedding-0.6B", 
+            milvus_host: Optional[str] = None, 
+            milvus_port: Optional[int] = None, 
+            *args, **kwargs
+        ):
+        super().__init__(*args, **kwargs)
+        self.dim = dim
         self.collection_name = collection_name
         self.embedding_model_name = embedding_model_name
-        self.dim = dim
-        
         self.embed_model = HuggingFaceEmbedding(model_name=self.embedding_model_name)
-        self.milvus_host = 'localhost'
-        self.milvus_port = 19530
+        
+        self.milvus_host = milvus_host if milvus_host is not None else 'localhost'
+        self.milvus_port = milvus_port if milvus_port is not None else 19530
         
         self.vector_store = MilvusVectorStore(
             uri=f"http://{self.milvus_host}:{self.milvus_port}",
@@ -106,7 +104,6 @@ class Pipeline(LoggingMixin):
         
         try:
             all_chunks = []
-            
             for i, content in enumerate(documents):
                 if content:
                     if metadata_list and i < len(metadata_list):

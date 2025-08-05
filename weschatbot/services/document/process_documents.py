@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import List, Dict
 import json
 
-from weschatbot.services.document.index_document_service import DocumentConverter, Pipeline
+from weschatbot.services.document.index_document_service import DocumentConverter, PipelineMilvusStore
 from weschatbot.services.document.chunking_strategy import AdvancedChunkingStrategy
 from weschatbot.utils.config import config
 from weschatbot.log.logging_mixin import LoggingMixin
@@ -33,7 +33,7 @@ class DocumentProcessor(LoggingMixin):
         
         # Initialize components
         self.converter = DocumentConverter()
-        self.pipeline = Pipeline(
+        self.pipeline = PipelineMilvusStore(
             collection_name=self.collection_name,
             embedding_model_name=self.embedding_model,
             dim=self.embedding_dim
