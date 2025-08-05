@@ -23,15 +23,16 @@ from weschatbot.log.logging_mixin import LoggingMixin
 class DocumentProcessor(LoggingMixin):
     """Main processor for document pipeline"""
     
-    def __init__(self, 
-                 collection_name: str = "westaco_documents",
-                 embedding_model: str = "Qwen/Qwen3-Embedding-0.6B",
-                 embedding_dim: int = 1024):
+    def __init__(
+        self, 
+        collection_name: str = "westaco_documents",
+        embedding_model: str = "Qwen/Qwen3-Embedding-0.6B",
+        embedding_dim: int = 1024
+    ):
         self.collection_name = collection_name
         self.embedding_model = embedding_model
         self.embedding_dim = embedding_dim
         
-        # Initialize components
         self.converter = DocumentConverter()
         self.pipeline = PipelineMilvusStore(
             collection_name=self.collection_name,
@@ -131,17 +132,17 @@ def main():
     )
     parser.add_argument(
         "--collection",
-        default="westaco_documents",
+        default="westaco_documents_v2",
         help="Milvus collection name"
     )
     parser.add_argument(
-        "--embedding-model",
-        default="Qwen/Qwen3-Embedding-0.6B",
+        "--embedding-model",  
+        default="sentence-transformers/all-mpnet-base-v2",
         help="Embedding model name"
     )
     parser.add_argument(
         "--embedding-dim",
-        default=1024,
+        default=768,
         type=int,
         help="Embedding dimension"
     )

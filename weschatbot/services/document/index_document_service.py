@@ -87,12 +87,22 @@ class PipelineMilvusStore(Pipeline, LoggingMixin):
         self.milvus_host = milvus_host if milvus_host is not None else 'localhost'
         self.milvus_port = milvus_port if milvus_port is not None else 19530
         
-        self.vector_store = MilvusVectorStore(
-            uri=f"http://{self.milvus_host}:{self.milvus_port}",
-            collection_name=self.collection_name,
-            dim=self.dim,
-            overwrite=False  
-        )
+        try:
+            self.vector_store = MilvusVectorStore(
+                uri=f"http://{self.milvus_host}:{self.milvus_port}",
+                collection_name=self.collection_name,
+                dim=self.dim,
+                overwrite=True  
+            )
+            self.log.info(f"Created/Updated Milvus collection '{self.collection_name}' with dimension {self.dim}")
+        except Exception as e:
+            self.log.error(f"Error creating Milvus vector store: {str(e)}")
+            self.vector_store = MilvusVectorStore(
+                uri=f"http://{self.milvus_host}:{self.milvus_port}",
+                collection_name=self.collection_name,
+                dim=self.dim,
+                overwrite=False
+            )
         
         self.storage_context = StorageContext.from_defaults(vector_store=self.vector_store)
         self.chunking_strategy = AdvancedChunkingStrategy()
@@ -119,7 +129,7 @@ class PipelineMilvusStore(Pipeline, LoggingMixin):
                 self.log.warning("No valid chunks to index after processing")
                 return
             
-            self.log.info(f"Indexing {len(all_chunks)} chunks from {len(documents)} documents into collection '{self.collection_name}'")            
+            self.log.info(f"Indexing {len(all_chunks)} chunks from {len(documents)} documents into collection '{self.collection_name}'")
             index = VectorStoreIndex.from_documents(
                 all_chunks,
                 storage_context=self.storage_context,
