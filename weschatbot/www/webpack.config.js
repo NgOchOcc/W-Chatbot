@@ -59,6 +59,8 @@ const managementConfig = {
         delete_view: [`${MANAGEMENT_JS_DIR}/delete_view.jsx`],
         user_change_password: [`${MANAGEMENT_JS_DIR}/user_change_password.jsx`],
         login: [`${MANAGEMENT_JS_DIR}/login.jsx`],
+        collections_list: [`${MANAGEMENT_JS_DIR}/collections_list.jsx`],
+
     },
     output: {
         path: MANAGEMENT_BUILD_DIR,
