@@ -12,7 +12,7 @@ import {
 } from '@coreui/react'
 
 import CIcon from '@coreui/icons-react'
-import {cilUser, cilChatBubble, cilBank, cilBookmark} from '@coreui/icons'
+import {cilUser, cilChatBubble, cilBank, cilBookmark, cilNotes} from '@coreui/icons'
 
 
 const stringToColor = (str) => {
@@ -57,6 +57,13 @@ function SidebarMenu({userName = 'User', onLogout, currentUser, userPermissions}
                          permissions={permissions} value={"Roles"}></NavItem>
                 <NavItem href={"/management/ViewModelPermission/list"} icon={cilBookmark} role={currentUser.role.name}
                          permissions={permissions} value={"Permissions"}></NavItem>
+                <NavItem href={"/management/ViewModelDocument/list"} icon={cilNotes} role={currentUser.role.name}
+                         permissions={permissions} value={"Documents"}></NavItem>
+                <NavItem href={"/management/ViewModelJob/list"} icon={cilNotes} role={currentUser.role.name}
+                         permissions={permissions} value={"Jobs"}></NavItem>
+                <NavItem href={"/management/ViewModelCollections/list_collections"} icon={cilNotes}
+                         role={currentUser.role.name}
+                         permissions={permissions} value={"Collections"}></NavItem>
             </CSidebarNav>
             <CSidebarHeader className="border-top">
                 <div
@@ -64,7 +71,7 @@ function SidebarMenu({userName = 'User', onLogout, currentUser, userPermissions}
                         bottom: '1rem',
                         width: '100%',
                     }}>
-                    <CDropdown direction="up" style={{display: 'inline-block'}}>
+                    <CDropdown direction="dropup" style={{display: 'inline-block'}}>
                         <CDropdownToggle
                             caret={false}
                             className="d-inline-flex align-items-center p-0 border-0 bg-transparent"
@@ -108,4 +115,5 @@ const sidebar = createRoot(container)
 
 const currentUser = JSON.parse(document.getElementById("current_user").innerText)
 const permissions = JSON.parse(document.getElementById("permissions").innerText)
-sidebar.render(<SidebarMenu userName={currentUser.name} onLogout={logout} currentUser={currentUser} userPermissions={permissions}/>)
+sidebar.render(<SidebarMenu userName={currentUser.name} onLogout={logout} currentUser={currentUser}
+                            userPermissions={permissions}/>)

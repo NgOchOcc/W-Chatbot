@@ -10,6 +10,16 @@ def cli():
     pass
 
 
+@cli.group("worker")
+def worker():
+    pass
+
+
+@cli.group("scheduler")
+def scheduler():
+    pass
+
+
 @cli.group("chatbot")
 def chatbot():
     pass
@@ -23,6 +33,12 @@ def management():
 @cli.group("db")
 def db():
     pass
+
+
+@worker.command("start")
+def worker_start():
+    from weschatbot.worker.celery_worker import worker as celery_worker
+    celery_worker().start()
 
 
 def init_db():
@@ -40,10 +56,16 @@ def db_migrate():
     init_db()
 
 
+@scheduler.command("start")
+def scheduler_start():
+    from weschatbot.worker.scheduler import schedule
+    schedule()
+
+
 @chatbot.command("start")
 def chatbot_start():
     from weschatbot.www.chatbot_ui.app import app
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=3000)
 
 
 @cli.command()

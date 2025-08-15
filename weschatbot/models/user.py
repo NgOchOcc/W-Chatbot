@@ -2,7 +2,7 @@ import json
 from typing import List
 
 from flask_login import UserMixin
-from sqlalchemy import Integer, Column, String, ForeignKey, Table, Boolean
+from sqlalchemy import Integer, Column, String, ForeignKey, Table, Boolean, Text
 from sqlalchemy.orm import mapped_column, relationship, Mapped
 
 from weschatbot.models.base import basic_fields, Base
@@ -138,7 +138,7 @@ class ChatSession(Base):
             "name": self.name,
             "user": self.user and self.user.to_dict(session=session) or {},
             "uuid": self.uuid,
-            "modified_date": self.modified_date.strftime("%Y-%m-%d %H:%M:%S"),
+            "modified_date": self.modified_date.strftime("%Y-%m-%d %H:%M:%S"),  # noqa
             # "messages": [x.to_dict() for x in self.messages],
         }
 
@@ -149,7 +149,7 @@ class ChatMessage(Base):
 
     id = Column(Integer, primary_key=True, nullable=False, autoincrement=True)
     name = Column(String(31), nullable=False, unique=False)
-    content = Column(String(2047), nullable=False)
+    content = Column(Text, nullable=False)
     sender = Column(String(4), nullable=False)
 
     chat: Mapped["ChatSession"] = relationship(back_populates="messages")
@@ -164,3 +164,42 @@ class ChatMessage(Base):
 
     def __repr__(self):
         return f"{self.sender}: {self.content}\n"
+
+
+@basic_fields
+class Document(Base):
+    __tablename__ = "documents"
+
+    id = Column(Integer, primary_key=True, nullable=False, autoincrement=True)
+    name = Column(String(255), nullable=False, unique=False)
+    path = Column(String(2047), nullable=False, unique=False)
+    is_used = Column(Boolean, nullable=False, default=False)
+    status: Mapped["DocumentStatus"] = relationship(back_populates="documents")
+    status_id = Column(Integer, ForeignKey('document_statuses.id'), nullable=False)
+
+    def to_dict(self, session=None):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "path": self.path,
+            "is_used": self.is_used,
+            "status": self.status.name
+        }
+
+
+class DocumentStatus(Base):
+    __tablename__ = "document_statuses"
+
+    id = Column(Integer, primary_key=True, nullable=False, autoincrement=True)
+    name = Column(String(255), nullable=False, unique=False)
+
+    documents: Mapped[List["Document"]] = relationship(back_populates="status")
+
+    def to_dict(self, session=None):
+        return {
+            "id": self.id,
+            "name": self.name,
+        }
+
+    def __repr__(self):
+        return self.name

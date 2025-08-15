@@ -2,9 +2,10 @@ import {createRoot} from "react-dom/client";
 import React, {useState} from "react";
 import {CSRFToken} from "./utils";
 import Select from "react-select";
+import {CButton, CFormInput, CFormLabel} from "@coreui/react";
 
 
-function AddFormHelper({ name, data_type, relationships = {}, select_items={} }) {
+function AddFormHelper({name, data_type, relationships = {}, select_items = {}}) {
     switch (data_type) {
         case "select": {
             const options = select_items[name].map((item) => {
@@ -75,6 +76,14 @@ function AddFormHelper({ name, data_type, relationships = {}, select_items={} })
                 </>
             )
         }
+        case "file_upload": {
+            return (
+                <div>
+                    <label htmlFor={`file_${name}`} className="form-label">{name}</label>
+                    <input className="form-control" type="file" id={`file_${name}`} name={name}/>
+                </div>
+            )
+        }
         default:
             return (
                 <>
@@ -101,13 +110,14 @@ function App({model, csrf_token}) {
             <br/>
             <div className={"row"}>
                 <div className={"col-md-6"}>
-                    <form name={"addForm"} method={"post"}>
+                    <form name={"addForm"} method={"post"} encType={"multipart/form-data"}>
                         <CSRFToken csrf_token={csrf_token}></CSRFToken>
                         {add_fields.map(x => {
                             return (
                                 <div className={"mb-3 form-group"}>
                                     <AddFormHelper name={x} data_type={data_types[x]}
-                                                   relationships={relationships} select_items={select_items}></AddFormHelper>
+                                                   relationships={relationships}
+                                                   select_items={select_items}></AddFormHelper>
                                 </div>
                             )
                         })}

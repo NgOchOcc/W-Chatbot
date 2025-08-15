@@ -31,5 +31,5 @@ conda install -c conda-forge jupyterlab jupyterhub
 ```shell
 jupyterhub --generate-config
 
-sudo env "PATH=$PATH" ~/miniconda3/bin/jupyterhub -f jupyterhub_config.py
+sudo env "PATH=$PATH" ~/miniconda3/envs/jupyterhub/bin/jupyterhub -f jupyterhub_config.py
 ```

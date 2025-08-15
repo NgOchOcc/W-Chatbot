@@ -1,25 +1,67 @@
 import json
+from typing import List, Dict
 
+import httpx
+import requests
 from fastapi import Depends, Form, FastAPI, WebSocket, Request, Cookie, status, HTTPException
+from fastapi.responses import JSONResponse
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.websockets import WebSocketDisconnect
 from fastapi_csrf_protect import CsrfProtect
 from pymilvus import Collection, connections
 from sentence_transformers import SentenceTransformer
-from transformers import pipeline
-from transformers import set_seed
 
 from weschatbot.exceptions.user_exceptions import InvalidUserError
 from weschatbot.schemas.chat import Message
 from weschatbot.security.cookie_jwt_manager import FastAPICookieJwtManager
 from weschatbot.security.exceptions import TokenInvalidError, TokenExpiredError
+from weschatbot.services.ollama_client import OllamaClient
 from weschatbot.services.session_service import SessionService, NotPermissionError
 from weschatbot.services.user_service import UserService
 from weschatbot.utils.config import config
 from weschatbot.www.chatbot_ui.csrfsettings import CsrfSettings
+
+
+class ConversationManager:
+    """Manage conversation history for each of user and session"""
+
+    def __init__(self):
+        self.conversations = {}
+
+    def get_conversation_history(self, user_id: int, chat_id: str) -> List[Dict[str, str]]:
+        """Get conversation history of user and particular session"""
+        if user_id not in self.conversations:
+            self.conversations[user_id] = {}
+
+        if chat_id not in self.conversations[user_id]:
+            self.conversations[user_id][chat_id] = []
+
+        return self.conversations[user_id][chat_id]
+
+    def add_message(self, user_id: int, chat_id: str, role: str, content: str):
+        """Add message to conversation history"""
+        if user_id not in self.conversations:
+            self.conversations[user_id] = {}
+
+        if chat_id not in self.conversations[user_id]:
+            self.conversations[user_id][chat_id] = []
+
+        self.conversations[user_id][chat_id].append({
+            "role": role,
+            "content": content
+        })
+
+    def clear_conversation(self, user_id: int, chat_id: str):
+        """Clear conversation history for particular session"""
+        if user_id in self.conversations and chat_id in self.conversations[user_id]:
+            self.conversations[user_id][chat_id] = []
+
+    def delete_user_conversation(self, user_id: int, chat_id: str):
+        """Clear conversation of user and session"""
+        if user_id in self.conversations and chat_id in self.conversations[user_id]:
+            del self.conversations[user_id][chat_id]
 
 
 @CsrfProtect.load_config
@@ -31,20 +73,24 @@ app = FastAPI()
 app.mount("/static", StaticFiles(directory="weschatbot/www/static"), name="static")
 templates = Jinja2Templates(directory="weschatbot/www/templates")
 
+# Connect Milvus
 connections.connect("default", host=config["milvus"]["host"], port=int(config["milvus"]["port"]))
 
-KB_COLLECTION_NAME = "enterprise_kb"
+KB_COLLECTION_NAME = "doc_v2"
 kb_collection = Collection(KB_COLLECTION_NAME)
 kb_collection.load()
 
-embedding_model = SentenceTransformer('all-mpnet-base-v2')
+# Initial embedding model
+embedding_model = SentenceTransformer('Qwen/Qwen3-Embedding-0.6B')
 
-generator = pipeline('text-generation', model='gpt2')
+# Initial Ollama client and conversation manager
+ollama_client = OllamaClient(
+    base_url=f"http://{config['ollama']['host']}:{config['ollama']['port']}"
+)
+conversation_manager = ConversationManager()
 
-# qa_pipeline = pipeline("question-answering", model="bert-large-uncased-whole-word-masking-finetuned-squad")
-qa_pipeline = pipeline("question-answering", model="distilbert-base-cased-distilled-squad")
-
-set_seed(42)
+# Model name from config or default
+OLLAMA_MODEL = config['ollama']['model']
 
 session_service = SessionService()
 user_service = UserService()
@@ -65,8 +111,10 @@ async def catch_exceptions_middleware(request: Request, call_next):
         )
 
 
-jwt_manager = FastAPICookieJwtManager(secret_key=config["jwt"]["secret_key"],
-                                      security_algorithm=config["jwt"]["security_algorithm"])
+jwt_manager = FastAPICookieJwtManager(
+    secret_key=config["jwt"]["secret_key"],
+    security_algorithm=config["jwt"]["security_algorithm"]
+)
 
 
 def return_login_form(request: Request, csrf: CsrfProtect, error=None):
@@ -106,8 +154,6 @@ def login_post(request: Request, username: str = Form(...), password: str = Form
         response = RedirectResponse(url=url, status_code=302)
         jwt_manager.set_token_cookie(token=token, response=response)
         return response
-
-
     except InvalidUserError as e:
         return return_login_form(request, csrf, str(e))
 
@@ -163,8 +209,18 @@ async def delete_chat(request: Request, chat_id: str, payload: dict = Depends(jw
     user_id = int(payload.get("sub"))
     try:
         session_service.delete_session(user_id=user_id, chat_id=chat_id)
+        # Clear conversation history
+        conversation_manager.delete_user_conversation(user_id, chat_id)
     except NotPermissionError as e:
         raise HTTPException(status_code=401, detail=e)
+
+
+@app.post("/chats/{chat_id}/clear")
+async def clear_chat_history(chat_id: str, payload: dict = Depends(jwt_manager.required)):
+    """Clear conversation history for particular session"""
+    user_id = int(payload.get("sub"))
+    conversation_manager.clear_conversation(user_id, chat_id)
+    return {"message": "Conversation history cleared"}
 
 
 @app.websocket("/ws")
@@ -195,12 +251,12 @@ async def websocket_endpoint(websocket: WebSocket,
 
             query_emb = embedding_model.encode([question])[0].tolist()
 
-            search_params = {"metric_type": "L2", "params": {"nprobe": 10}}
+            search_params = {"metric_type": "IP", "params": {"nprobe": 10}}
             results = kb_collection.search(
                 data=[query_emb],
                 anns_field="embedding",
                 param=search_params,
-                limit=3,
+                limit=5,
                 expr=None,
                 output_fields=["text"]
             )
@@ -217,19 +273,65 @@ async def websocket_endpoint(websocket: WebSocket,
                 await websocket.send_text(json.dumps({"text": "Information is not found"}))
                 continue
 
-            qa_input = {
-                "question": question,
-                "context": context
-            }
+            prompt = f"""
+You are a helpful and knowledgeable chatbot. Your primary function is to answer user queries based on the provided context.
+Core Instructions
+    - Context-Based Answering: You must first attempt to answer the user's query using only the information in the provided context.
+    - Language Adaptation: Your response language must match the language of the user's query. Prioritize English and Romanian, defaulting to Romanian if the language cannot be identified.
+    - Knowledge Fallback: If the provided context does not contain the information required to answer the query, or if no context is provided, use your general knowledge to formulate a helpful and accurate response.
+    - Persona: Maintain the persona of a friendly and helpful chatbot. Feel free to answer common, general knowledge questions as a typical chatbot would.
 
-            prompt = f"Milvus context:\n{context}\n\nQuestion: {question}. Only get answer in context.\nAnswer:"
-            print(prompt)
+Constraints
+    - Do not mention the context. The user should not be aware that you are referencing an external context.
+    - Prioritize clarity and directness. Provide concise answers without unnecessary fluff.
 
+Example of a good response:
+    Query: "What is the capital of France?"
+    Context: (No context provided)
+    Response: "The capital of France is Paris."
+
+Example of a bad response:
+    Query: "What is the capital of France?"
+    Context: (No context provided)
+    Response: "Based on my internal knowledge, the capital of France is Paris." (Breaks the "Do not mention the context" rule).
+---
+Context:
+{context}
+---
+
+Question:
+{question}
+---
+
+Answer:
+"""
+            print(f"Prompt sent to Ollama:\n{prompt}")
+            answer = "Error: Could not get answer from Ollama."
             try:
-                answer_result = qa_pipeline(qa_input)
-                answer = answer_result.get("answer", "Answer is not found")
+                async with httpx.AsyncClient() as client:
+                    response = await client.post(
+                        f"{ollama_client.base_url}/api/generate",
+                        json={
+                            "model": OLLAMA_MODEL,
+                            "prompt": prompt,
+                            "stream": False  # Set to stream text response
+                        },
+                        timeout=120.0
+                    )
+                    response.raise_for_status()
+                    ollama_response = response.json()
+                    answer = ollama_response.get("response", "No response from Ollama model.")
+                    answer = answer.split('</think>')[-1]
+            except httpx.HTTPStatusError as e:
+                answer = f"Ollama API HTTP error: {e.response.status_code} - {e.response.text}"
+                print(f"Ollama API HTTP error: {e}")
+            except httpx.RequestError as e:
+                raise e
+                answer = f"Ollama API network error: {e}"
+                print(f"Ollama API network error: {e}")
             except Exception as e:
-                answer = f"Error: {str(e)}"
+                answer = f"An unexpected error occurred with Ollama: {e}"
+                print(f"Unexpected error with Ollama: {e}")
 
             res = {
                 "text": f"{answer}"
@@ -247,4 +349,39 @@ async def websocket_endpoint(websocket: WebSocket,
         print("Client disconnected")
 
 
-print('Done')
+# Endpoint for test Ollama connection
+@app.get("/health/ollama")
+async def check_ollama_health():
+    """Check connection with Ollama"""
+    try:
+        response = requests.get(f"{ollama_client.base_url}/api/tags", timeout=5)
+        response.raise_for_status()
+        return {"status": "healthy", "models": response.json()}
+    except Exception as e:
+        return {"status": "unhealthy", "error": str(e)}
+
+
+# Endpoint for test Ollama connection
+@app.get("/health/ollama")
+async def check_ollama_health():
+    """Check connection with Ollama"""
+    try:
+        response = requests.post(
+            f"{ollama_client.base_url}/api/generate",
+            json={
+                "model": OLLAMA_MODEL,
+                "prompt": prompt,
+                "stream": False  # Set to stream text response
+            },
+            timeout=120.0
+        )
+        response.raise_for_status()
+        return {"status": "healthy", "models": response.json()}
+    except Exception as e:
+        return {"status": "unhealthy", "error": str(e)}
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run(app, host="0.0.0.0", port=8000)
