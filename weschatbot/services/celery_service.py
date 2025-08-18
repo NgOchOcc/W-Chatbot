@@ -1,5 +1,6 @@
 import logging
 
+from weschatbot.models.collection import CollectionStatus, Collection
 from weschatbot.models.job import Job, JobStatus
 from weschatbot.services.document.index_document_service import IndexDocumentService, DocumentConverter, \
     PipelineMilvusStore
@@ -43,12 +44,50 @@ def add(a, b):
     return a + b
 
 
+# @app.task
+# @update_job_status
+# def index_documents():
+#     converter = DocumentConverter()
+#     pipeline = PipelineMilvusStore(collection_name=config["core"]["milvus_collection_name"],
+#                                    milvus_host=config["milvus"]["host"],
+#                                    milvus_port=config["milvus"]["port"])
+#     indexer = IndexDocumentService(converter=converter, pipeline=pipeline)
+#     indexer.index()
+
+
+def update_collection_status(func):
+    @provide_session
+    def update(collection_id, status, session=None):
+        status_entity = session.query(CollectionStatus).filter(CollectionStatus.name == status).one_or_none()
+        if not status_entity:
+            raise ValueError(f"Unknown status '{status}'. Please run command 'alembic upgrade head' to upgrade db.")
+        collection = session.get(Collection, collection_id)
+        collection.status = status_entity
+
+    @wraps(func)
+    def wrapper(collection_id, *args, **kwargs):
+        try:
+            update(collection_id, "running")
+            logging.info(f"Running {func.__name__}; job run {collection_id}")
+            func(collection_id, *args, **kwargs)
+            status = "done"
+            logging.info(f"Finished {func.__name__}; job run {collection_id}")
+        except Exception as e:
+            logging.error(e)
+            status = "failed"
+            logging.error(f"Failed {func.__name__}; job run {collection_id}")
+        update(collection_id, status)
+
+    return wrapper
+
+
 @app.task
-@update_job_status
-def index_documents():
+@update_collection_status
+def index_collection_to_milvus(collection_id, collection_name):
     converter = DocumentConverter()
-    pipeline = PipelineMilvusStore(collection_name=config["core"]["milvus_collection_name"],
+    pipeline = PipelineMilvusStore(collection_name=collection_name,
                                    milvus_host=config["milvus"]["host"],
                                    milvus_port=config["milvus"]["port"])
-    indexer = IndexDocumentService(converter=converter, pipeline=pipeline)
+    indexer = IndexDocumentService(converter=converter, pipeline=pipeline, collection_name=collection_name,
+                                   collection_id=collection_id)
     indexer.index()

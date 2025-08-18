@@ -61,8 +61,7 @@ function SidebarMenu({userName = 'User', onLogout, currentUser, userPermissions}
                          permissions={permissions} value={"Documents"}></NavItem>
                 <NavItem href={"/management/ViewModelJob/list"} icon={cilNotes} role={currentUser.role.name}
                          permissions={permissions} value={"Jobs"}></NavItem>
-                <NavItem href={"/management/ViewModelCollections/list_collections"} icon={cilNotes}
-                         role={currentUser.role.name}
+                <NavItem href={"/management/ViewModelCollection/list"} icon={cilNotes} role={currentUser.role.name}
                          permissions={permissions} value={"Collections"}></NavItem>
             </CSidebarNav>
             <CSidebarHeader className="border-top">

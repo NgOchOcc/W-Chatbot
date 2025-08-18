@@ -3,7 +3,7 @@ import logging
 from time import sleep
 
 from weschatbot.models.job import Job, JobStatus
-from weschatbot.utils.common import create_object_from_class_name, get_function_by_fullname
+from weschatbot.utils.common import get_function_by_fullname
 from weschatbot.utils.db import provide_session
 
 

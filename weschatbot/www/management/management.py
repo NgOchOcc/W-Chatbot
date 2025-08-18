@@ -6,11 +6,13 @@ from flask_login import login_user, logout_user
 
 from weschatbot.exceptions.user_exceptions import InvalidUserError
 from weschatbot.log.logging_mixin import LoggingMixin
+from weschatbot.models.collection import Collection, Document
 from weschatbot.models.job import Job
-from weschatbot.models.user import User, ChatSession, Role, Permission, Document
+from weschatbot.models.user import User, ChatSession, Role, Permission
 from weschatbot.www.management.addition_blueprint import addition_blueprint
 from weschatbot.www.management.utils import outside_url_for
 from weschatbot.www.management.viewmodels.vm_chat import ViewModelChat
+from weschatbot.www.management.viewmodels.vm_collection import ViewModelCollection
 from weschatbot.www.management.viewmodels.vm_collections import ViewModelCollections
 from weschatbot.www.management.viewmodels.vm_document import ViewModelDocument
 from weschatbot.www.management.viewmodels.vm_job import ViewModelJob
@@ -72,6 +74,7 @@ class Management(LoggingMixin):
         ViewModelDocument(Document, auth=self.auth.required).register(self.bp)
         ViewModelJob(Job, auth=self.auth.required).register(self.bp)
         ViewModelCollections(None, auth=self.auth.required).register(self.bp)
+        ViewModelCollection(Collection, auth=self.auth.required).register(self.bp)
 
         self.bp.register_blueprint(addition_blueprint)
         return self.bp
