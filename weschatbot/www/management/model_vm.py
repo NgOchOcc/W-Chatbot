@@ -576,20 +576,28 @@ class ViewModel(LoggingMixin):
             item_id, session=session)
 
     @provide_session
+    def delete_item_get(self, item, session=None):
+        if not item:
+            flash("Item not found", "error")
+            return abort(404)
+        res = self.delete_view_model
+        res.item = item
+        return render_template(self.delete_template, model=json.dumps(res.to_dict(), default=str)), 200
+
+    @provide_session
+    def delete_item_post(self, item, session=None):
+        session.delete(item)
+        flash("Successfully deleted the item", "success")
+        return redirect(self.list_view_model.search_url_func()), 302
+
+    @provide_session
     @check_permission("delete")
     def delete_item(self, item_id, session=None):
         item = session.query(self.model_class).filter_by(id=item_id).one_or_none()
         if request.method == "GET":
-            if not item:
-                flash("Item not found", "error")
-                return abort(404)
-            res = self.delete_view_model
-            res.item = item
-            return render_template(self.delete_template, model=json.dumps(res.to_dict(), default=str)), 200
+            return self.delete_item_get(item, session=session)
         else:
-            session.delete(item)
-            flash("Successfully deleted the item", "success")
-            return redirect(self.list_view_model.search_url_func()), 302
+            return self.delete_item_post(item, session=session)
 
     @provide_session
     @check_permission("list")

@@ -21,7 +21,7 @@ class CeleryWorker:
         if self.celery is None:
             self.celery = Celery(broker=config["celery"]["broker_url"],
                                  backend=config["celery"]["backend_url"],
-                                 include=get_all_modules())
+                                 include=get_all_modules() + ["weschatbot.services.celery_service"])
 
     def get_celery_app(self):
         return self.celery
