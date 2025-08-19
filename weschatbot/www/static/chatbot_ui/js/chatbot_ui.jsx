@@ -1,5 +1,7 @@
-import {createRoot} from "react-dom/client";
-import React, {useEffect, useRef, useState} from "react";
+import {createRoot} from "react-dom/client"
+import React, {useEffect, useRef, useState} from "react"
+import ReactMarkdown from 'react-markdown'
+import 'github-markdown-css/github-markdown.css'
 
 import {
     CAvatar,
@@ -106,6 +108,26 @@ function Header({userName, chatId, logoutUrl}) {
     )
 }
 
+function normalizeMarkdown(input) {
+    if (!input || typeof input !== 'string') return '';
+
+    let s = input.replace(/\r\n?/g, '\n').replace(/[ \t]+/g, ' ').trim();
+
+    s = s.replace(/([^\n])\s+(#{1,6}\s)/g, '$1\n\n$2');
+
+    s = s.replace(/([^\n])\s+(-{3,})/g, '$1\n\n$2')
+        .replace(/(-{3,})([^\n])/g, '$1\n\n$2')
+
+    s = s.replace(/([^\n])\s+(\d+\.\s)/g, '$1\n$2');
+
+    s = s.replace(/([^\n])\s+(-\s)/g, '$1\n$2');
+    s = s.replace(/([^\n])\n((?:-|\d+\.)\s)/g, '$1\n\n$2')
+        .replace(/([^\n])\n(#{1,6}\s)/g, '$1\n\n$2');
+    s = s.replace(/^(#{1,6} .+?)(?=\n(?!\n))/gm, '$1\n');
+    s = s.replace(/\n{3,}/g, '\n\n');
+
+    return s;
+}
 
 function ChatFrame({chat_id, history_messages}) {
 
@@ -180,7 +202,7 @@ function ChatFrame({chat_id, history_messages}) {
         display: 'inline-block',
         wordBreak: 'break-word',
         maxWidth: '80%',
-    };
+    }
 
     return (
         <CRow className="h-90 justify-content-center">
@@ -196,7 +218,9 @@ function ChatFrame({chat_id, history_messages}) {
 
                             return (
                                 <div key={index} style={messageStyle}>
-                                    {msg.text}
+                                    <ReactMarkdown>
+                                        {normalizeMarkdown(msg.text)}
+                                    </ReactMarkdown>
                                 </div>
                             );
                         })}

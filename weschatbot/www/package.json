@@ -27,10 +27,12 @@
     "@coreui/react": "^5.7.0",
     "bootstrap": "^5.3.6",
     "bootstrap-icons": "^1.11.3",
+    "github-markdown-css": "^5.8.1",
     "react": "^18.3.1",
     "react-datetime": "^3.2.0",
     "react-dom": "^18.3.1",
     "react-hook-form": "^7.51.5",
+    "react-markdown": "^10.1.0",
     "react-select": "^5.8.0"
   }
 }
