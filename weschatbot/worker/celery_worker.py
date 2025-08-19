@@ -21,8 +21,7 @@ class CeleryWorker:
         if self.celery is None:
             self.celery = Celery(broker=config["celery"]["broker_url"],
                                  backend=config["celery"]["backend_url"],
-                                 include=["westaco_ocr.services.celery_services.ocr_celery_service"])
-
+                                 include=get_all_modules() + ["weschatbot.services.celery_service"])
             self.celery.conf.update(config["celery"])
 
             if "worker_concurrency" in config["celery"]:
