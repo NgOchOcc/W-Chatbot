@@ -1,12 +1,12 @@
 import json
-from typing import List, Dict
-
 import httpx
 import requests
+from typing import List, Dict, Any
+
 from fastapi import Depends, Form, FastAPI, WebSocket, Request, Cookie, status, HTTPException
-from fastapi.responses import JSONResponse
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.websockets import WebSocketDisconnect
 from fastapi_csrf_protect import CsrfProtect
@@ -17,10 +17,10 @@ from weschatbot.exceptions.user_exceptions import InvalidUserError
 from weschatbot.schemas.chat import Message
 from weschatbot.security.cookie_jwt_manager import FastAPICookieJwtManager
 from weschatbot.security.exceptions import TokenInvalidError, TokenExpiredError
-from weschatbot.services.ollama_client import OllamaClient
 from weschatbot.services.session_service import SessionService, NotPermissionError
 from weschatbot.services.user_service import UserService
 from weschatbot.utils.config import config
+from weschatbot.services.ollama_service import VLLMClient
 from weschatbot.www.chatbot_ui.csrfsettings import CsrfSettings
 
 
@@ -83,15 +83,15 @@ kb_collection.load()
 # Initial embedding model
 embedding_model = SentenceTransformer('Qwen/Qwen3-Embedding-0.6B')
 
-# Initial Ollama client and conversation manager
-ollama_client = OllamaClient(
-    base_url=f"http://{config['ollama']['host']}:{config['ollama']['port']}"
+# vLLM configuration
+VLLM_MODEL = config['vllm']['model']
+VLLM_BASE_URL = config['vllm']['base_url']
+
+vllm_client = VLLMClient(
+    base_url=VLLM_BASE_URL,
+    model=VLLM_MODEL
 )
 conversation_manager = ConversationManager()
-
-# Model name from config or default
-OLLAMA_MODEL = config['ollama']['model']
-
 session_service = SessionService()
 user_service = UserService()
 
@@ -185,7 +185,8 @@ async def new_chat(payload: dict = Depends(jwt_manager.required)):
 
 @app.get("/chats/{chat_id}")
 async def get_chat(request: Request, chat_id: str, payload: dict = Depends(jwt_manager.required)):
-    all_sessions = session_service.get_sessions(int(payload.get("sub")))
+    user_id = int(payload.get("sub"))
+    all_sessions = session_service.get_sessions(user_id)
     valid_sessions = [x["uuid"] for x in all_sessions]
     if chat_id not in valid_sessions:
         chat = session_service.get_session(chat_id)
@@ -193,6 +194,18 @@ async def get_chat(request: Request, chat_id: str, payload: dict = Depends(jwt_m
             return RedirectResponse(app.url_path_for("new_chat"), 302)
     chat = session_service.get_session(chat_id)
     model = chat.to_dict()
+
+    # Load conversation history from session messages if available
+    if model.get("messages"):
+        # Clear existing history for this chat
+        conversation_manager.clear_conversation(user_id, chat_id)
+        # Rebuild conversation history from stored messages
+        for msg in model["messages"]:
+            if msg.get("sender") == "user":
+                conversation_manager.add_message(user_id, chat_id, "user", msg.get("message", ""))
+            elif msg.get("sender") == "bot":
+                conversation_manager.add_message(user_id, chat_id, "assistant", msg.get("message", ""))
+
     return templates.TemplateResponse(
         "chatbot_ui/index.html",
         {
@@ -205,7 +218,7 @@ async def get_chat(request: Request, chat_id: str, payload: dict = Depends(jwt_m
 
 
 @app.delete("/chats/{chat_id}")
-async def delete_chat(request: Request, chat_id: str, payload: dict = Depends(jwt_manager.required)):
+async def delete_chat(chat_id: str, payload: dict = Depends(jwt_manager.required)):
     user_id = int(payload.get("sub"))
     try:
         session_service.delete_session(user_id=user_id, chat_id=chat_id)
@@ -221,6 +234,14 @@ async def clear_chat_history(chat_id: str, payload: dict = Depends(jwt_manager.r
     user_id = int(payload.get("sub"))
     conversation_manager.clear_conversation(user_id, chat_id)
     return {"message": "Conversation history cleared"}
+
+
+@app.get("/chats/{chat_id}/history")
+async def get_chat_history(chat_id: str, payload: dict = Depends(jwt_manager.required)):
+    """Get conversation history for debugging"""
+    user_id = int(payload.get("sub"))
+    history = conversation_manager.get_conversation_history(user_id, chat_id)
+    return {"chat_id": chat_id, "history": history, "message_count": len(history)}
 
 
 @app.websocket("/ws")
@@ -269,69 +290,24 @@ async def websocket_endpoint(websocket: WebSocket,
 
             context = "\n".join(text for text in relevant_texts if text.strip() != "")
 
-            if not context:
-                await websocket.send_text(json.dumps({"text": "Information is not found"}))
-                continue
-
-            prompt = f"""
-You are a helpful and knowledgeable chatbot. Your primary function is to answer user queries based on the provided context.
-Core Instructions
-    - Context-Based Answering: You must first attempt to answer the user's query using only the information in the provided context.
-    - Language Adaptation: Your response language must match the language of the user's query. Prioritize English and Romanian, defaulting to Romanian if the language cannot be identified.
-    - Knowledge Fallback: If the provided context does not contain the information required to answer the query, or if no context is provided, use your general knowledge to formulate a helpful and accurate response.
-    - Persona: Maintain the persona of a friendly and helpful chatbot. Feel free to answer common, general knowledge questions as a typical chatbot would.
-
-Constraints
-    - Do not mention the context. The user should not be aware that you are referencing an external context.
-    - Prioritize clarity and directness. Provide concise answers without unnecessary fluff.
-
-Example of a good response:
-    Query: "What is the capital of France?"
-    Context: (No context provided)
-    Response: "The capital of France is Paris."
-
-Example of a bad response:
-    Query: "What is the capital of France?"
-    Context: (No context provided)
-    Response: "Based on my internal knowledge, the capital of France is Paris." (Breaks the "Do not mention the context" rule).
----
-Context:
-{context}
----
-
-Question:
-{question}
----
-
-Answer:
-"""
-            print(f"Prompt sent to Ollama:\n{prompt}")
+            # Get conversation history for this user and chat
+            conversation_history = conversation_manager.get_conversation_history(user_id, chat_id)
+            conversation_manager.add_message(user_id, chat_id, "user", question)
             answer = "Error: Could not get answer from Ollama."
             try:
-                async with httpx.AsyncClient() as client:
-                    response = await client.post(
-                        f"{ollama_client.base_url}/api/generate",
-                        json={
-                            "model": OLLAMA_MODEL,
-                            "prompt": prompt,
-                            "stream": False  # Set to stream text response
-                        },
-                        timeout=120.0
-                    )
-                    response.raise_for_status()
-                    ollama_response = response.json()
-                    answer = ollama_response.get("response", "No response from Ollama model.")
-                    answer = answer.split('</think>')[-1]
-            except httpx.HTTPStatusError as e:
-                answer = f"Ollama API HTTP error: {e.response.status_code} - {e.response.text}"
-                print(f"Ollama API HTTP error: {e}")
-            except httpx.RequestError as e:
-                raise e
-                answer = f"Ollama API network error: {e}"
-                print(f"Ollama API network error: {e}")
+                answer = await vllm_client.chat_with_context(
+                    question=question,
+                    context=context,
+                    conversation_history=conversation_history[:-1] if conversation_history else None
+                    # Exclude the just-added message
+                )
+
+                answer = answer.split('</think>')[-1]
+                conversation_manager.add_message(user_id, chat_id, "assistant", answer)
+
             except Exception as e:
-                answer = f"An unexpected error occurred with Ollama: {e}"
-                print(f"Unexpected error with Ollama: {e}")
+                answer = f"An error occurred: {str(e)}"
+                print(f"Error calling Ollama: {e}")
 
             res = {
                 "text": f"{answer}"
@@ -349,39 +325,9 @@ Answer:
         print("Client disconnected")
 
 
-# Endpoint for test Ollama connection
-@app.get("/health/ollama")
-async def check_ollama_health():
-    """Check connection with Ollama"""
-    try:
-        response = requests.get(f"{ollama_client.base_url}/api/tags", timeout=5)
-        response.raise_for_status()
-        return {"status": "healthy", "models": response.json()}
-    except Exception as e:
-        return {"status": "unhealthy", "error": str(e)}
-
-
-# Endpoint for test Ollama connection
-@app.get("/health/ollama")
-async def check_ollama_health():
-    """Check connection with Ollama"""
-    try:
-        response = requests.post(
-            f"{ollama_client.base_url}/api/generate",
-            json={
-                "model": OLLAMA_MODEL,
-                "prompt": prompt,
-                "stream": False  # Set to stream text response
-            },
-            timeout=120.0
-        )
-        response.raise_for_status()
-        return {"status": "healthy", "models": response.json()}
-    except Exception as e:
-        return {"status": "unhealthy", "error": str(e)}
-
-
 if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
+
