@@ -18,6 +18,7 @@ from weschatbot.services.document.chunking_strategy import AdvancedChunkingStrat
 from weschatbot.utils.db import provide_session
 
 
+
 class MarkerConverter:
     def __init__(self):
         self.converter = PdfConverter(
