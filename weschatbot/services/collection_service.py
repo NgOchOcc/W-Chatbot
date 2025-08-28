@@ -4,6 +4,7 @@ from functools import wraps
 from pymilvus import connections, FieldSchema, CollectionSchema, DataType, utility
 from pymilvus import list_collections
 from pymilvus.orm.collection import Collection
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import joinedload
 
 from weschatbot.exceptions.collection_exception import CollectionNotFoundException, ExistingCollectionDocumentException, \
@@ -75,14 +76,21 @@ class CollectionService:
 
     @provide_session
     def delete_collection(self, collection_id, session=None):
-        collection = session.query(WCollection).filter(WCollection.id == collection_id).one_or_none()
+        collection = session.get(WCollection, collection_id)
         if collection:
             collection_name = collection.name
             self.connect()
             if utility.has_collection(collection_name):
                 utility.drop_collection(collection_name)
-                session.delete(collection)
-                return True
+                try:
+                    session.query(CollectionDocument) \
+                        .filter_by(collection_id=collection_id) \
+                        .delete(synchronize_session=False)
+                    session.delete(collection)
+                    return True
+                except SQLAlchemyError:
+                    session.rollback()
+                    raise
             else:
                 raise CollectionNotFoundException(f"Collection {collection_name} is not found")
 
