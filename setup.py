@@ -42,6 +42,9 @@ setup(
         "build==1.2.2",
         "llama-index==0.12.52",
         "llama-index-embeddings-huggingface==0.5.5",
-        "llama-index-vector-stores-milvus==0.8.7"
+        "llama-index-vector-stores-milvus==0.8.7",
+        "celery==5.5.3",
+        "pymilvus==2.5.10",
+        "fastapi==0.115.12"
     ]
 )
