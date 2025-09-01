@@ -106,6 +106,7 @@ class CollectionService:
                 print(f"Dropped existing collection '{collection_name}'")
             else:
                 print(f"Collection '{collection_name}' already exists, will refer to this collection.")
+                return True
 
         fields = [
             FieldSchema(name="row_id", dtype=DataType.INT64, is_primary=True, auto_id=True),

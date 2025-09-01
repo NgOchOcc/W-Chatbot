@@ -24,6 +24,12 @@ docker build -t westaco-chatbot:0.0.1 .
 docker network create -d bridge westaco_chatbot
 ```
 
+#### Volumes
+
+```shell
+docker volume create weschatbot_uploads_volume
+```
+
 #### Start mysql
 
 ```shell
@@ -57,7 +63,7 @@ docker compose up -d
 ##### Chatbot UI
 
 ```shell
-docker run -d -p 8000:8000 \
+docker run -d -p 3000:3000 --gpus all \
   --restart=always \
   --name westaco-chatbot-ui \
   --network westaco_chatbot \
@@ -67,6 +73,7 @@ docker run -d -p 8000:8000 \
   -e WESCHATBOT__REDIS__HOST=westaco-redis \
   -e WESCHATBOT__REDIS__PORT=6379 \
   --network milvus \
+  -v weschatbot_uploads_volume:/srv/weschatbot/uploads \
   westaco-chatbot:0.0.1 \
   weschatbot chatbot start
 ```
@@ -74,7 +81,7 @@ docker run -d -p 8000:8000 \
 ##### Management
 
 ```shell
-docker run -d -p 5000:5000 \
+docker run -d -p 9090:5000 --gpus all \
   --restart=always \
   --name westaco-chatbot-management \
   --network westaco_chatbot \
@@ -84,6 +91,7 @@ docker run -d -p 5000:5000 \
   -e WESCHATBOT__REDIS__HOST=westaco-redis \
   -e WESCHATBOT__REDIS__PORT=6379 \
   --network milvus \
+  -v weschatbot_uploads_volume:/srv/weschatbot/uploads \
   westaco-chatbot:0.0.1 \
   weschatbot management start bind=0.0.0.0:5000
 ```
@@ -91,7 +99,7 @@ docker run -d -p 5000:5000 \
 ##### Worker
 
 ```shell
-docker run -d -p 5000:5000 \
+docker run -d --gpus all \
   --restart=always \
   --name westaco-chatbot-worker \
   --network westaco_chatbot \
@@ -101,6 +109,7 @@ docker run -d -p 5000:5000 \
   -e WESCHATBOT__REDIS__HOST=westaco-redis \
   -e WESCHATBOT__REDIS__PORT=6379 \
   --network milvus \
+  -v weschatbot_uploads_volume:/srv/weschatbot/uploads \
   westaco-chatbot:0.0.1 \
   weschatbot worker start
 ```
