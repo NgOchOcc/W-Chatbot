@@ -84,10 +84,23 @@ def update_collection_status(func):
 @app.task
 @update_collection_status
 def index_collection_to_milvus(collection_id, collection_name):
-    converter = DocumentConverter()
-    pipeline = PipelineMilvusStore(collection_name=collection_name,
-                                   milvus_host=config["milvus"]["host"],
-                                   milvus_port=config["milvus"]["port"])
-    indexer = IndexDocumentService(converter=converter, pipeline=pipeline, collection_name=collection_name,
-                                   collection_id=collection_id)
-    indexer.index()
+    import asyncio
+
+    async def run_indexing():
+        converter = DocumentConverter()
+        pipeline = PipelineMilvusStore(
+            collection_name=collection_name,
+            milvus_host=config["milvus"]["host"],
+            milvus_port=config["milvus"]["port"]
+        )
+        indexer = IndexDocumentService(
+            converter=converter,
+            pipeline=pipeline,
+            collection_name=collection_name,
+            collection_id=collection_id
+        )
+        indexer.index()
+
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(run_indexing())

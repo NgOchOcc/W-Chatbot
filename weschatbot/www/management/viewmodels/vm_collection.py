@@ -109,6 +109,12 @@ class ViewModelCollection(ViewModel):
         res = self.collection_service.get_collection(collection_id=collection_id, session=session)
         return jsonify(res), 200
 
+    @provide_session
+    def flush(self, session=None):
+        collection_id = int(request.args.get("collection_id"))
+        self.collection_service.flush(collection_id=collection_id, session=session)
+        return jsonify({"status": "success"}), 200
+
     def register(self, flask_app_or_bp):
         super(ViewModelCollection, self).register(flask_app_or_bp)
         self.bp.route("/all_documents", methods=["GET"])(self.auth(self.all_documents))
@@ -119,3 +125,4 @@ class ViewModelCollection(ViewModel):
         self.bp.route("/get_documents_by_collection_id", methods=["GET"])(
             self.auth(self.get_documents_by_collection_id))
         self.bp.route("/index_collection", methods=["POST"])(self.auth(self.index_collection))
+        self.bp.route("/flush_collection", methods=["GET"])(self.auth(self.flush))

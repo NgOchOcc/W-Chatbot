@@ -1,23 +1,15 @@
-import logging
-from functools import wraps
-
-from pymilvus import connections, FieldSchema, CollectionSchema, DataType, utility
+from pymilvus import connections, FieldSchema, CollectionSchema, DataType, utility, Collection
 from pymilvus import list_collections
-from pymilvus.orm.collection import Collection
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import joinedload
 
 from weschatbot.exceptions.collection_exception import CollectionNotFoundException, ExistingCollectionDocumentException, \
     StatusNotFound
 from weschatbot.models.collection import Collection as WCollection, Document, CollectionDocument, \
-    CollectionDocumentStatus, CollectionStatus
+    CollectionDocumentStatus
 from weschatbot.schemas.collection import CollectionDesc
-from weschatbot.services.document.index_document_service import DocumentConverter, PipelineMilvusStore, \
-    IndexDocumentService
-from weschatbot.utils.config import config
-from weschatbot.utils.db import provide_session
-from weschatbot.worker.celery_worker import celery_app
 from weschatbot.services.celery_service import index_collection_to_milvus
+from weschatbot.utils.db import provide_session
 
 
 class CollectionService:
@@ -113,19 +105,18 @@ class CollectionService:
                 utility.drop_collection(collection_name)
                 print(f"Dropped existing collection '{collection_name}'")
             else:
-                print(f"Collection '{collection_name}' already exists")
-                return False
+                print(f"Collection '{collection_name}' already exists, will refer to this collection.")
 
         fields = [
             FieldSchema(name="row_id", dtype=DataType.INT64, is_primary=True, auto_id=True),
             FieldSchema(name="document_name", dtype=DataType.VARCHAR, max_length=512),
-            FieldSchema(name="modified_date", dtype=DataType.VARCHAR, max_length=128),
-            FieldSchema(name="text_chunk", dtype=DataType.VARCHAR, max_length=65535),
+            FieldSchema(name="modified_date", dtype=DataType.VARCHAR, max_length=128, nullable=True),
+            FieldSchema(name="text_chunk", dtype=DataType.VARCHAR, max_length=65535, nullable=True),
             FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=dim),
             FieldSchema(name="doc_id", dtype=DataType.VARCHAR, max_length=128),
-            FieldSchema(name="chunk_index", dtype=DataType.INT64),
+            FieldSchema(name="chunk_index", dtype=DataType.INT64, nullable=True),
             FieldSchema(name="file_path", dtype=DataType.VARCHAR, max_length=1024),
-            FieldSchema(name="created_at", dtype=DataType.VARCHAR, max_length=128),
+            FieldSchema(name="created_at", dtype=DataType.VARCHAR, max_length=128, nullable=True),
         ]
 
         schema = CollectionSchema(
@@ -133,9 +124,11 @@ class CollectionService:
             description=f"Document collection with chunked text and embeddings"
         )
 
+        schema.enable_dynamic_field = True
+
         collection = Collection(
             name=collection_name,
-            schema=schema
+            schema=schema,
         )
 
         index_params = {
@@ -232,3 +225,17 @@ class CollectionService:
         if collection:
             collection_name = collection.name
             index_collection_to_milvus.delay(collection_id, collection_name)
+
+    @provide_session
+    def flush(self, collection_id, session=None):
+        collection = session.get(WCollection, collection_id)
+        if collection:
+            collection_name = collection.name
+            self.connect()
+            if utility.has_collection(collection_name):
+                collection = Collection(collection_name)
+                collection.flush()
+            else:
+                raise CollectionNotFoundException(f"Collection {collection_name} is not found")
+        else:
+            raise CollectionNotFoundException(f"Collection {collection_id} is not found")
