@@ -44,7 +44,8 @@ function CollectionInfoPage({data}) {
     const [availableDocuments, setAvailableDocuments] = useState([])
     const [refreshFlag, setRefreshFlag] = useState(0)
 
-    const [isIndexing, setIsIndexing] = useState(status === "running");
+    const [isIndexing, setIsIndexing] = useState(status === "running")
+    const [isFlushing, setIsFlushing] = useState(false)
 
 
     useEffect(() => {
@@ -135,6 +136,23 @@ function CollectionInfoPage({data}) {
             })
             .catch((err) => {
                 alert("Error: " + err);
+            })
+    }
+
+    function handleFlushCollection() {
+        setIsFlushing(true)
+        fetch("/management/ViewModelCollection/flush_collection?collection_id=" + collection_id, {
+            method: "GET",
+            headers: {
+                "X-CSRFToken": csrf_token,
+            }
+        })
+            .then((res) => {
+                if (!res.ok) throw new Error("Failed to flush collection")
+                setIsFlushing(false)
+            })
+            .catch((err) => {
+                console.error("Error flush collection:", err)
             })
     }
 
@@ -332,6 +350,25 @@ function CollectionInfoPage({data}) {
                                         Indexing...
                                     </>
                                 ) : ("Index")}
+                            </button>
+                        </CCardBody>
+                    </CCard>
+                    <CCard>
+                        <CCardHeader>Flushing</CCardHeader>
+                        <CCardBody>
+                            <p>Flush on this collection.</p>
+                            <button
+                                className="btn btn-success"
+                                onClick={handleFlushCollection}
+                                disabled={isFlushing}
+                            >
+                                {isFlushing ? (
+                                    <>
+                                        <span className="spinner-border spinner-border-sm me-2" role="status"
+                                              aria-hidden="true"></span>
+                                        Flushing...
+                                    </>
+                                ) : ("Flush")}
                             </button>
                         </CCardBody>
                     </CCard>

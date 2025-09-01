@@ -9,14 +9,12 @@ from marker.converters.pdf import PdfConverter
 from marker.models import create_model_dict
 from marker.output import text_from_rendered
 from markitdown import MarkItDown
-from pymilvus import connections, Collection, FieldSchema, CollectionSchema, DataType, utility
 from sqlalchemy.orm import joinedload
 
 from weschatbot.log.logging_mixin import LoggingMixin
-from weschatbot.models.collection import Document, DocumentStatus, CollectionDocumentStatus, CollectionDocument
+from weschatbot.models.collection import Document, CollectionDocumentStatus, CollectionDocument
 from weschatbot.services.document.chunking_strategy import AdvancedChunkingStrategy
 from weschatbot.utils.db import provide_session
-
 
 
 class MarkerConverter:
@@ -103,63 +101,6 @@ class PipelineMilvusStore(Pipeline, LoggingMixin):
         self.storage_context = StorageContext.from_defaults(vector_store=self.vector_store)
         self.chunking_strategy = AdvancedChunkingStrategy()
 
-    def init_collection(self, collection_name: str = None, dim: int = None, overwrite: bool = False):
-        collection_name = collection_name or self.collection_name
-        dim = dim or self.dim
-        try:
-            connections.connect(
-                alias="default",
-                host=self.milvus_host,
-                port=self.milvus_port
-            )
-
-            if utility.has_collection(collection_name):
-                if overwrite:
-                    utility.drop_collection(collection_name)
-                    self.log.info(f"Dropped existing collection '{collection_name}'")
-                else:
-                    self.log.info(f"Collection '{collection_name}' already exists")
-                    return False
-
-            fields = [
-                FieldSchema(name="row_id", dtype=DataType.INT64, is_primary=True, auto_id=True),
-                FieldSchema(name="document_name", dtype=DataType.VARCHAR, max_length=512),
-                FieldSchema(name="modified_date", dtype=DataType.VARCHAR, max_length=128),
-                FieldSchema(name="text_chunk", dtype=DataType.VARCHAR, max_length=65535),
-                FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=dim),
-                FieldSchema(name="doc_id", dtype=DataType.VARCHAR, max_length=128),
-                FieldSchema(name="chunk_index", dtype=DataType.INT64),
-                FieldSchema(name="file_path", dtype=DataType.VARCHAR, max_length=1024),
-                FieldSchema(name="created_at", dtype=DataType.VARCHAR, max_length=128),
-            ]
-
-            schema = CollectionSchema(
-                fields=fields,
-                description=f"Document collection with chunked text and embeddings"
-            )
-
-            collection = Collection(
-                name=collection_name,
-                schema=schema
-            )
-
-            index_params = {
-                "metric_type": "COSINE",
-                "index_type": "IVF_FLAT",
-                "params": {"nlist": 128}
-            }
-            collection.create_index(
-                field_name="embedding",
-                index_params=index_params
-            )
-
-            self.log.info(f"Successfully created collection '{collection_name}' with custom schema (dim={dim})")
-            return True
-
-        except Exception as e:
-            self.log.error(f"Error initializing collection '{collection_name}': {str(e)}")
-            raise
-
     def run(self, documents: List[str], metadata_list: List[dict] = None):
         if not documents:
             self.log.warning("No documents provided to index")
@@ -180,14 +121,6 @@ class PipelineMilvusStore(Pipeline, LoggingMixin):
                     chunks = self.chunking_strategy.chunk_markdown(content, metadata)
                     chunks = self.chunking_strategy.add_context_to_chunks(chunks)
 
-                    for idx, chunk in enumerate(chunks):
-                        if not chunk.metadata:
-                            chunk.metadata = {}
-                        chunk.metadata['chunk_index'] = idx
-                        chunk.metadata['text_chunk'] = chunk.text[:65535]
-                        chunk.metadata['document_name'] = metadata['document_name']
-                        chunk.metadata['modified_date'] = metadata['modified_date']
-
                     all_chunks.extend(chunks)
 
             if not all_chunks:
@@ -196,7 +129,7 @@ class PipelineMilvusStore(Pipeline, LoggingMixin):
 
             self.log.info(
                 f"Indexing {len(all_chunks)} chunks from {len(documents)} documents into collection '{self.collection_name}'")
-            index = VectorStoreIndex.from_documents(
+            VectorStoreIndex.from_documents(
                 all_chunks,
                 storage_context=self.storage_context,
                 embed_model=self.embed_model,
@@ -296,7 +229,7 @@ class IndexDocumentService(LoggingMixin):
                     "file_path": doc.path,
                     "file_name": file_path.name,
                     "document_name": file_path.name,
-                    "created_at": str(doc.created_at) if hasattr(doc, 'created_at') else None,
+                    "created_at": str(doc.created_at) if hasattr(doc, 'created_at') else "",
                     "modified_date": datetime.fromtimestamp(
                         file_path.stat().st_mtime).isoformat() if file_path.exists() else datetime.now().isoformat(),
                 }
