@@ -1,12 +1,10 @@
 import json
-import httpx
-import requests
-from typing import List, Dict, Any
+from typing import List, Dict
 
 from fastapi import Depends, Form, FastAPI, WebSocket, Request, Cookie, status, HTTPException
+from fastapi.responses import JSONResponse
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.websockets import WebSocketDisconnect
 from fastapi_csrf_protect import CsrfProtect
@@ -17,10 +15,10 @@ from weschatbot.exceptions.user_exceptions import InvalidUserError
 from weschatbot.schemas.chat import Message
 from weschatbot.security.cookie_jwt_manager import FastAPICookieJwtManager
 from weschatbot.security.exceptions import TokenInvalidError, TokenExpiredError
+from weschatbot.services.ollama_service import VLLMClient
 from weschatbot.services.session_service import SessionService, NotPermissionError
 from weschatbot.services.user_service import UserService
 from weschatbot.utils.config import config
-from weschatbot.services.ollama_service import VLLMClient
 from weschatbot.www.chatbot_ui.csrfsettings import CsrfSettings
 
 

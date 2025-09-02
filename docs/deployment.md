@@ -28,6 +28,7 @@ docker network create -d bridge westaco_chatbot
 
 ```shell
 docker volume create weschatbot_uploads_volume
+docker volume create weschatbot_models_volume
 ```
 
 #### Start mysql
@@ -72,6 +73,8 @@ docker run -d -p 3000:3000 --gpus all \
   -e WESCHATBOT__DB__ASYNC_SQL_ALCHEMY_CONN=mysql+aiomysql://root:Adcef#1234@westaco-mysql:3306/chatbot \
   -e WESCHATBOT__REDIS__HOST=westaco-redis \
   -e WESCHATBOT__REDIS__PORT=6379 \
+  -e WESCHATBOT__VLLM__BASE_URL=http://westaco-chatbot-vllm:9292 \
+  -e WESCHATBOT__VLLM__MODEL=AlphaGaO/Qwen3-14B-GPTQ \
   --network milvus \
   -v weschatbot_uploads_volume:/srv/weschatbot/uploads \
   westaco-chatbot:0.0.1 \
@@ -112,4 +115,27 @@ docker run -d --gpus all \
   -v weschatbot_uploads_volume:/srv/weschatbot/uploads \
   westaco-chatbot:0.0.1 \
   weschatbot worker start
+```
+
+
+##### VLLM
+```shell
+docker run -d --gpus all \
+    -p 9292:9292 \
+    --restart=always \
+    --name westaco-chatbot-vllm \
+    --network westaco_chatbot \
+    --env-file .env \
+    -e WESCHATBOT__DB__SQL_ALCHEMY_CONN=mysql://root:Adcef#1234@westaco-mysql:3306/chatbot \
+    -e WESCHATBOT__DB__ASYNC_SQL_ALCHEMY_CONN=mysql+aiomysql://root:Adcef#1234@westaco-mysql:3306/chatbot \
+    -e WESCHATBOT__REDIS__HOST=westaco-redis \
+    -e WESCHATBOT__REDIS__PORT=6379 \
+    -v weschatbot_uploads_volume:/srv/weschatbot/uploads \
+    -v weschatbot_models_volume:/root/.cache/huggingface \
+    westaco-chatbot:0.0.1 \
+    python -m vllm.entrypoints.openai.api_server \
+    --model AlphaGaO/Qwen3-14B-GPTQ \
+    --max-model-len 5500 \
+    --gpu-memory-utilization 0.75 \
+    --port 9292
 ```

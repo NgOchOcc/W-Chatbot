@@ -21,6 +21,7 @@ RUN pip install --upgrade pip setuptools wheel
 RUN pip install build
 RUN pip install 'uvicorn[standard]'
 RUN pip install fastapi uvicorn transformers sentence-transformers pymilvus
+RUN pip install vllm
 
 
 COPY . ./
@@ -30,5 +31,9 @@ COPY --from=node_builder /opt/app/weschatbot/www/static/management/dist /opt/app
 
 RUN python -m build \
     && pip install dist/weschatbot-0.0.1-py3-none-any.whl
+
+EXPOSE 9292
+EXPOSE 3000
+EXPOSE 5000
 
 CMD []
