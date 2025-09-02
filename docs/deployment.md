@@ -93,6 +93,8 @@ docker run -d -p 9090:5000 --gpus all \
   -e WESCHATBOT__DB__ASYNC_SQL_ALCHEMY_CONN=mysql+aiomysql://root:Adcef#1234@westaco-mysql:3306/chatbot \
   -e WESCHATBOT__REDIS__HOST=westaco-redis \
   -e WESCHATBOT__REDIS__PORT=6379 \
+  -e WESCHATBOT__CELERY__BROKER_URL=redis://westaco-redis:6379/2 \
+  -e WESCHATBOT__CELERY__BACKEND_URL=redis://westaco-redis:6379/3 \
   --network milvus \
   -v weschatbot_uploads_volume:/srv/weschatbot/uploads \
   westaco-chatbot:0.0.1 \
@@ -111,6 +113,8 @@ docker run -d --gpus all \
   -e WESCHATBOT__DB__ASYNC_SQL_ALCHEMY_CONN=mysql+aiomysql://root:Adcef#1234@westaco-mysql:3306/chatbot \
   -e WESCHATBOT__REDIS__HOST=westaco-redis \
   -e WESCHATBOT__REDIS__PORT=6379 \
+  -e WESCHATBOT__CELERY__BROKER_URL=redis://westaco-redis:6379/2 \
+  -e WESCHATBOT__CELERY__BACKEND_URL=redis://westaco-redis:6379/3 \
   --network milvus \
   -v weschatbot_uploads_volume:/srv/weschatbot/uploads \
   westaco-chatbot:0.0.1 \
