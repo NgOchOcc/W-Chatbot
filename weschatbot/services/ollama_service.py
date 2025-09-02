@@ -1,46 +1,6 @@
-# import requests
-# import aiohttp
-
-# from typing import List, Dict, Any
-
-# class OllamaClient:    
-#     def __init__(self, base_url: str = "http://localhost:11434"):
-#         self.base_url = base_url
-#         self.OLLAMA_API_BASE_URL = "http://localhost:11434/api/generate" 
-        
-#     def generate(self, model: str, prompt: str, context: List[int] = None, stream: bool = False) -> Dict[str, Any]:
-#         url = f"{self.base_url}/api/generate"
-#         payload = {
-#             "model": model,
-#             "prompt": prompt,
-#             "stream": stream,
-#             "context": context or []
-#         }
-        
-#         try:
-#             response = requests.post(url, json=payload, timeout=30)
-#             response.raise_for_status()
-#             return response.json()
-#         except requests.exceptions.RequestException as e:
-#             raise Exception(f"Ollama API error: {str(e)}")
-    
-#     def chat(self, model: str, messages: List[Dict[str, str]], stream: bool = False) -> Dict[str, Any]:
-#         url = f"{self.base_url}/api/chat"
-#         payload = {
-#             "model": model,
-#             "messages": messages,
-#             "stream": stream
-#         }
-        
-#         try:
-#             response = requests.post(url, json=payload, timeout=30)
-#             response.raise_for_status()
-#             return response.json()
-#         except requests.exceptions.RequestException as e:
-#             raise Exception(f"Ollama Chat API error: {str(e)}")
-
 import aiohttp
 from typing import List, Dict, Optional
+import json
 
 class VLLMClient:
     def __init__(self, base_url: str = "http://localhost:9292", model: str = "AlphaGaO/Qwen3-14B-GPTQ"):
@@ -52,27 +12,93 @@ class VLLMClient:
         if self.session is None:
             self.session = aiohttp.ClientSession()
         return self.session
+    
+    async def _count_tokens(self, text: str) -> int:
+        try:
+            session = await self._get_session()
+            payload = {
+                "model": self.model,
+                "prompt": text,
+                "add_generation_prompt": False
+            }
+            
+            async with session.post(
+                f"{self.base_url}/tokenize",
+                json=payload,
+                timeout=aiohttp.ClientTimeout(total=30)
+            ) as response:
+                if response.status == 200:
+                    result = await response.json()
+                    return len(result.get("tokens", []))
+                else:
+                    return len(text) // 2
+        except Exception:
+            return len(text) // 2
+    
+    async def _truncate_messages(self, messages: List[Dict[str, str]], max_tokens: int = 5120) -> List[Dict[str, str]]:
+        if not messages:
+            return messages
+        
+        truncated_messages = []
+        total_tokens = 0
+        system_message = None
+        start_idx = 0
+        if messages and messages[0].get("role") == "system":
+            system_message = messages[0]
+            system_tokens = await self._count_tokens(system_message["content"])
+            if system_tokens < max_tokens:
+                truncated_messages.append(system_message)
+                total_tokens += system_tokens
+                start_idx = 1
+            else:
+                max_system_tokens = max_tokens // 2  
+                system_content = system_message["content"]
+                while await self._count_tokens(system_content) > max_system_tokens and len(system_content) > 100:
+                    system_content = system_content[:int(len(system_content) * 0.9)]
+                truncated_messages.append({"role": "system", "content": system_content})
+                total_tokens += await self._count_tokens(system_content)
+                start_idx = 1
+        
+        remaining_messages = messages[start_idx:]
+        for message in reversed(remaining_messages):
+            message_tokens = await self._count_tokens(message["content"])
+            if total_tokens + message_tokens <= max_tokens:
+                truncated_messages.insert(-len([m for m in truncated_messages if m.get("role") != "system"]) or len(truncated_messages), message)
+                total_tokens += message_tokens
+            else:
+                content = message["content"]
+                available_tokens = max_tokens - total_tokens
+                if available_tokens > 50: 
+                    while await self._count_tokens(content) > available_tokens and len(content) > 50:
+                        content = content[:int(len(content) * 0.9)]
+                    truncated_message = {"role": message["role"], "content": content}
+                    truncated_messages.insert(-len([m for m in truncated_messages if m.get("role") != "system"]) or len(truncated_messages), truncated_message)
+                break
+        
+        return truncated_messages
         
     async def generate(self, prompt: str, **kwargs) -> str:
         """Generate text using vLLM API with prompt format"""
-        # Set default temperature to 0 for deterministic results
         if 'temperature' not in kwargs:
             kwargs['temperature'] = 0
             
         messages = [
             {"role": "user", "content": prompt}
         ]
+        
+        messages = await self._truncate_messages(messages, max_tokens=5120)
+
         response = await self.chat(messages=messages, stream=False, **kwargs)
         return response.get("choices", [{}])[0].get("message", {}).get("content", "")
     
     async def chat(self, messages: List[Dict[str, str]], stream: bool = False, **kwargs):
         session = await self._get_session()
         
-        # Set default temperature to 0 for deterministic results
         if 'temperature' not in kwargs:
             kwargs['temperature'] = 0
+        
+        messages = await self._truncate_messages(messages, max_tokens=5120)
     
-        # vLLM OpenAI-compatible API format
         payload = {
             "model": self.model,
             "messages": messages,
@@ -126,14 +152,14 @@ class VLLMClient:
     ) -> str:
         messages = []
         
-        # Set default temperature to 0 for deterministic results
         if 'temperature' not in kwargs:
             kwargs['temperature'] = 0
-    
-        if conversation_history:
-            messages.extend(conversation_history)
-    
-        # Improved system prompt with better structure and instructions
+        
+        if conversation_history and len(conversation_history) > 0:
+            # Take only the last 2 messages (1 conversation turn)
+            limited_history = conversation_history[-2:] if len(conversation_history) >= 2 else conversation_history[-1:]
+            messages.extend(limited_history)
+
         system_message = f"""You are **Westaco-chatbot**, an expert AI assistant developed by **OMV AG**. Your purpose is to provide accurate and official information about Westaco, Westaco Express, and OMV AG.
 
 *Core Principles:*
@@ -164,20 +190,18 @@ class VLLMClient:
 *Context:*
 {context}
 """
-    
-    
-        if not conversation_history or len(conversation_history) == 0:
+        
+        if not messages or messages[0].get("role") != "system":
             messages.insert(0, {"role": "system", "content": system_message})
         
         messages.append({"role": "user", "content": question})
-        
+        messages = await self._truncate_messages(messages, max_tokens=5120)
         response = await self.chat(
             messages=messages,
             stream=False,
             **kwargs
         )
         
-        # vLLM returns OpenAI-compatible format
         if response and "choices" in response and len(response["choices"]) > 0:
             return response["choices"][0]["message"]["content"]
         else:
@@ -186,5 +210,4 @@ class VLLMClient:
     async def close(self):
         if self.session:
             await self.session.close()
-
 

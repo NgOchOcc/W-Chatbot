@@ -22,46 +22,6 @@ from weschatbot.utils.config import config
 from weschatbot.www.chatbot_ui.csrfsettings import CsrfSettings
 
 
-class ConversationManager:
-    """Manage conversation history for each of user and session"""
-
-    def __init__(self):
-        self.conversations = {}
-
-    def get_conversation_history(self, user_id: int, chat_id: str) -> List[Dict[str, str]]:
-        """Get conversation history of user and particular session"""
-        if user_id not in self.conversations:
-            self.conversations[user_id] = {}
-
-        if chat_id not in self.conversations[user_id]:
-            self.conversations[user_id][chat_id] = []
-
-        return self.conversations[user_id][chat_id]
-
-    def add_message(self, user_id: int, chat_id: str, role: str, content: str):
-        """Add message to conversation history"""
-        if user_id not in self.conversations:
-            self.conversations[user_id] = {}
-
-        if chat_id not in self.conversations[user_id]:
-            self.conversations[user_id][chat_id] = []
-
-        self.conversations[user_id][chat_id].append({
-            "role": role,
-            "content": content
-        })
-
-    def clear_conversation(self, user_id: int, chat_id: str):
-        """Clear conversation history for particular session"""
-        if user_id in self.conversations and chat_id in self.conversations[user_id]:
-            self.conversations[user_id][chat_id] = []
-
-    def delete_user_conversation(self, user_id: int, chat_id: str):
-        """Clear conversation of user and session"""
-        if user_id in self.conversations and chat_id in self.conversations[user_id]:
-            del self.conversations[user_id][chat_id]
-
-
 @CsrfProtect.load_config
 def get_csrf_config(*args, **kwargs):
     return CsrfSettings()
@@ -89,7 +49,6 @@ vllm_client = VLLMClient(
     base_url=VLLM_BASE_URL,
     model=VLLM_MODEL
 )
-conversation_manager = ConversationManager()
 session_service = SessionService()
 user_service = UserService()
 
@@ -193,17 +152,6 @@ async def get_chat(request: Request, chat_id: str, payload: dict = Depends(jwt_m
     chat = session_service.get_session(chat_id)
     model = chat.to_dict()
 
-    # Load conversation history from session messages if available
-    if model.get("messages"):
-        # Clear existing history for this chat
-        conversation_manager.clear_conversation(user_id, chat_id)
-        # Rebuild conversation history from stored messages
-        for msg in model["messages"]:
-            if msg.get("sender") == "user":
-                conversation_manager.add_message(user_id, chat_id, "user", msg.get("message", ""))
-            elif msg.get("sender") == "bot":
-                conversation_manager.add_message(user_id, chat_id, "assistant", msg.get("message", ""))
-
     return templates.TemplateResponse(
         "chatbot_ui/index.html",
         {
@@ -220,17 +168,17 @@ async def delete_chat(chat_id: str, payload: dict = Depends(jwt_manager.required
     user_id = int(payload.get("sub"))
     try:
         session_service.delete_session(user_id=user_id, chat_id=chat_id)
-        # Clear conversation history
-        conversation_manager.delete_user_conversation(user_id, chat_id)
     except NotPermissionError as e:
-        raise HTTPException(status_code=401, detail=e)
+        raise HTTPException(status_code=401, detail=str(e))
 
 
 @app.post("/chats/{chat_id}/clear")
 async def clear_chat_history(chat_id: str, payload: dict = Depends(jwt_manager.required)):
     """Clear conversation history for particular session"""
     user_id = int(payload.get("sub"))
-    conversation_manager.clear_conversation(user_id, chat_id)
+    chat = session_service.get_session(chat_id)
+    chat.messages = []
+    session_service.store_chat(chat)
     return {"message": "Conversation history cleared"}
 
 
@@ -238,8 +186,27 @@ async def clear_chat_history(chat_id: str, payload: dict = Depends(jwt_manager.r
 async def get_chat_history(chat_id: str, payload: dict = Depends(jwt_manager.required)):
     """Get conversation history for debugging"""
     user_id = int(payload.get("sub"))
-    history = conversation_manager.get_conversation_history(user_id, chat_id)
+    chat = session_service.get_session(chat_id)
+    
+    history = []
+    for msg in chat.messages:
+        if msg.sender == "user":
+            history.append({"role": "user", "content": msg.message})
+        elif msg.sender == "bot":
+            history.append({"role": "assistant", "content": msg.message})
+    
     return {"chat_id": chat_id, "history": history, "message_count": len(history)}
+
+
+def get_conversation_history_from_chat(chat) -> List[Dict[str, str]]:
+    """Convert chat messages to conversation history format for vLLM"""
+    history = []
+    for msg in chat.messages:
+        if msg.sender == "user":
+            history.append({"role": "user", "content": msg.message})
+        elif msg.sender == "bot":
+            history.append({"role": "assistant", "content": msg.message})
+    return history
 
 
 @app.websocket("/ws")
@@ -288,20 +255,19 @@ async def websocket_endpoint(websocket: WebSocket,
 
             context = "\n".join(text for text in relevant_texts if text.strip() != "")
 
-            # Get conversation history for this user and chat
-            conversation_history = conversation_manager.get_conversation_history(user_id, chat_id)
-            conversation_manager.add_message(user_id, chat_id, "user", question)
+            # Get current chat and conversation history
+            chat = session_service.get_session(chat_id)
+            conversation_history = get_conversation_history_from_chat(chat)
             answer = "Error: Could not get answer from Ollama."
+            
             try:
                 answer = await vllm_client.chat_with_context(
                     question=question,
                     context=context,
-                    conversation_history=conversation_history[:-1] if conversation_history else None
-                    # Exclude the just-added message
+                    conversation_history=conversation_history
                 )
 
                 answer = answer.split('</think>')[-1]
-                conversation_manager.add_message(user_id, chat_id, "assistant", answer)
 
             except Exception as e:
                 answer = f"An error occurred: {str(e)}"
@@ -311,13 +277,13 @@ async def websocket_endpoint(websocket: WebSocket,
                 "text": f"{answer}"
             }
 
+            # Create message objects and update session
             messages = [
                 Message(sender="user", receiver="bot", message=question),
                 Message(sender="bot", receiver="user", message=answer),
             ]
 
             session_service.update_session(user_id, chat_id, messages)
-
             await websocket.send_text(json.dumps(res))
     except WebSocketDisconnect:
         print("Client disconnected")
@@ -327,5 +293,4 @@ if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(app, host="0.0.0.0", port=8000)
-
 
