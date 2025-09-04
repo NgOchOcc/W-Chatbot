@@ -117,20 +117,8 @@ def login_post(request: Request, username: str = Form(...), password: str = Form
 
 @app.get("/")
 async def get(request: Request, payload: dict = Depends(jwt_manager.required)):
-    model = {
-        "chat_id": None,
-        "messages": None
-    }
-    user_id = int(payload["sub"])
-    all_sessions = session_service.get_sessions(user_id)
-    return templates.TemplateResponse(
-        "chatbot_ui/index.html",
-        {
-            "model": json.dumps(model),
-            "request": request,
-            "sessions": json.dumps(all_sessions),
-            "username": payload["username"],
-        })
+    url = app.url_path_for("new_chat")
+    return RedirectResponse(url, status_code=302)
 
 
 @app.get("/new_chat")
@@ -172,30 +160,30 @@ async def delete_chat(chat_id: str, payload: dict = Depends(jwt_manager.required
         raise HTTPException(status_code=401, detail=str(e))
 
 
-@app.post("/chats/{chat_id}/clear")
-async def clear_chat_history(chat_id: str, payload: dict = Depends(jwt_manager.required)):
-    """Clear conversation history for particular session"""
-    user_id = int(payload.get("sub"))
-    chat = session_service.get_session(chat_id)
-    chat.messages = []
-    session_service.store_chat(chat)
-    return {"message": "Conversation history cleared"}
+# @app.post("/chats/{chat_id}/clear")
+# async def clear_chat_history(chat_id: str, payload: dict = Depends(jwt_manager.required)):
+#     """Clear conversation history for particular session"""
+#     user_id = int(payload.get("sub"))
+#     chat = session_service.get_session(chat_id)
+#     chat.messages = []
+#     session_service.store_chat(chat)
+#     return {"message": "Conversation history cleared"}
 
 
-@app.get("/chats/{chat_id}/history")
-async def get_chat_history(chat_id: str, payload: dict = Depends(jwt_manager.required)):
-    """Get conversation history for debugging"""
-    user_id = int(payload.get("sub"))
-    chat = session_service.get_session(chat_id)
-    
-    history = []
-    for msg in chat.messages:
-        if msg.sender == "user":
-            history.append({"role": "user", "content": msg.message})
-        elif msg.sender == "bot":
-            history.append({"role": "assistant", "content": msg.message})
-    
-    return {"chat_id": chat_id, "history": history, "message_count": len(history)}
+# @app.get("/chats/{chat_id}/history")
+# async def get_chat_history(chat_id: str, payload: dict = Depends(jwt_manager.required)):
+#     """Get conversation history for debugging"""
+#     user_id = int(payload.get("sub"))
+#     chat = session_service.get_session(chat_id)
+#
+#     history = []
+#     for msg in chat.messages:
+#         if msg.sender == "user":
+#             history.append({"role": "user", "content": msg.message})
+#         elif msg.sender == "bot":
+#             history.append({"role": "assistant", "content": msg.message})
+#
+#     return {"chat_id": chat_id, "history": history, "message_count": len(history)}
 
 
 def get_conversation_history_from_chat(chat) -> List[Dict[str, str]]:
@@ -259,7 +247,7 @@ async def websocket_endpoint(websocket: WebSocket,
             chat = session_service.get_session(chat_id)
             conversation_history = get_conversation_history_from_chat(chat)
             answer = "Error: Could not get answer from Ollama."
-            
+
             try:
                 answer = await vllm_client.chat_with_context(
                     question=question,
@@ -293,4 +281,3 @@ if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(app, host="0.0.0.0", port=8000)
-

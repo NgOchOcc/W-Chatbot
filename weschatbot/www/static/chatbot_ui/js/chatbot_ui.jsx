@@ -16,7 +16,7 @@ import {
     CDropdownMenu,
     CDropdownToggle,
     CForm,
-    CFormInput,
+    CFormTextarea,
     CHeader,
     CHeaderNav,
     CNavItem,
@@ -129,25 +129,121 @@ function normalizeMarkdown(input) {
     return s;
 }
 
-function ChatFrame({chat_id, history_messages}) {
+function BotMessageBox({msg, index}) {
+    const baseMessageStyle = {
+        padding: '10px 15px',
+        borderRadius: '12px',
+        marginBottom: '10px',
+        display: 'inline-block',
+        wordBreak: 'break-word',
+        maxWidth: '100%',
+    };
 
-    const initialMessages = history_messages !== null && history_messages.map((x) => {
-        if (x.sender === "bot") {
-            return {text: x.message, from: "recv"}
-        } else {
-            return {text: x.message, from: "sent"}
-        }
-    }) || []
+    const messageStyle = {
+        ...baseMessageStyle,
+        backgroundColor: 'transparent',
+        alignSelf: 'flex-start'
+    };
+
+    return (
+        <div key={index} style={messageStyle}>
+            <ReactMarkdown>
+                {normalizeMarkdown(msg.text)}
+            </ReactMarkdown>
+        </div>
+    );
+}
+
+
+function SentMessageBox({msg, index}) {
+    const baseMessageStyle = {
+        padding: '10px 15px',
+        borderRadius: '12px',
+        marginBottom: '10px',
+        display: 'inline-block',
+        wordBreak: 'break-word',
+        maxWidth: '80%',
+    };
+
+    const messageStyle = {
+        ...baseMessageStyle,
+        backgroundColor: msg.from === 'sent' ? 'rgba(176,200,243,0.84)' : 'rgba(243,222,171,0.84)',
+        alignSelf: msg.from === 'sent' ? 'flex-end' : 'flex-start'
+    };
+
+    return (
+        <div key={index} style={messageStyle}>
+            <ReactMarkdown>
+                {normalizeMarkdown(msg.text)}
+            </ReactMarkdown>
+        </div>
+    );
+}
+
+function NormalMessageBox({msg, index}) {
+    return (
+        <>
+            {msg.from === 'sent' ? <SentMessageBox msg={msg} index={index}></SentMessageBox> :
+                <BotMessageBox msg={msg} index={index}></BotMessageBox>
+            }
+        </>
+    )
+
+}
+
+function PlaceholderMessageBox({msg, index}) {
+    return (
+        <span style={{display: 'inline-block', animation: 'blink 2s infinite'}}>
+          <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+            <i>Thinking ...</i>
+          <style>
+            {`
+              @keyframes blink {
+                0% { opacity: 0.2; }
+                50% { opacity: 1; }
+                100% { opacity: 0.2; }
+              }
+            `}
+          </style>
+        </span>
+    )
+}
+
+function MessageBox({msg, index}) {
+    return (
+        <>
+            {msg.isPlaceholder && <PlaceholderMessageBox index={index} msg={msg}/> ||
+                <NormalMessageBox index={index} msg={msg}/>}
+        </>
+    )
+}
+
+function ChatFrame({chat_id, history_messages, userName}) {
+    const initialMessages = history_messages !== null && history_messages.map((x) => ({
+        text: x.message,
+        from: x.sender === "bot" ? "recv" : "sent"
+    })) || [];
 
     const [message, setMessage] = useState('');
     const [messages, setMessages] = useState(initialMessages);
+    const textareaRef = useRef(null);
+    const bottomRef = useRef(null);
+
+
+    useEffect(() => {
+        if (bottomRef.current) {
+            bottomRef.current.scrollIntoView({behavior: 'smooth'});
+        }
+    }, [messages]);
+
+
     const ws = useRef(null);
 
     useEffect(() => {
-        const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://'
-        const host = window.location.host
-        const wsUrl = `${protocol}${host}/ws`
-        ws.current = new WebSocket(wsUrl)
+        const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+        const host = window.location.host;
+        const wsUrl = `${protocol}${host}/ws`;
+        ws.current = new WebSocket(wsUrl);
 
         ws.current.onopen = () => {
             console.log('WebSocket connected');
@@ -156,11 +252,17 @@ function ChatFrame({chat_id, history_messages}) {
         ws.current.onmessage = (event) => {
             console.log('Received message', event.data);
             try {
-                console.log(JSON.parse(event.data));
                 const message = JSON.parse(event.data).text;
                 const incomingMessage = {text: message, from: "recv"};
 
-                setMessages((prev) => [...prev, incomingMessage]);
+                setMessages((prev) => {
+                    const filtered = [...prev];
+                    const lastIndex = filtered.length - 1;
+                    if (lastIndex >= 0 && filtered[lastIndex].isPlaceholder) {
+                        filtered.splice(lastIndex, 1);
+                    }
+                    return [...filtered, incomingMessage];
+                });
             } catch (error) {
                 console.error('Error parsing message:', error);
             }
@@ -176,65 +278,86 @@ function ChatFrame({chat_id, history_messages}) {
     }, []);
 
     const handleSendMessage = (e) => {
-        e.preventDefault()
+        e.preventDefault();
         if (message.trim()) {
-
             const data = {
-                "chat_id": chat_id,
-                "message": message.trim(),
-            }
+                chat_id: chat_id,
+                message: message.trim(),
+            };
 
             if (ws.current && ws.current.readyState === WebSocket.OPEN) {
-                ws.current.send(JSON.stringify(data))
+                ws.current.send(JSON.stringify(data));
             }
 
-            const outgoingMessage = {text: message, from: 'sent'}
+            const outgoingMessage = {text: message, from: 'sent'};
+            const placeholderMessage = {text: '...', from: 'recv', isPlaceholder: true};
 
-            setMessages((prev) => [...prev, outgoingMessage])
-            setMessage('')
+            setMessages((prev) => [...prev, outgoingMessage, placeholderMessage]);
+            setMessage('');
+
+            if (textareaRef.current) {
+                textareaRef.current.style.height = '70px';
+            }
         }
     };
 
-    const baseMessageStyle = {
-        padding: '10px 15px',
-        borderRadius: '12px',
-        marginBottom: '10px',
-        display: 'inline-block',
-        wordBreak: 'break-word',
-        maxWidth: '80%',
-    }
-
     return (
         <CRow className="h-90 justify-content-center">
-            <CCol lg="8" md="10" sm="12">
-                <CCard style={{height: '85vh'}}>
-                    <CCardBody className="d-flex flex-column" style={{overflowY: 'auto'}}>
-                        {messages.map((msg, index) => {
-                            const messageStyle = {
-                                ...baseMessageStyle,
-                                backgroundColor: msg.from === 'sent' ? '#d1e7dd' : '#f1f1f1',
-                                alignSelf: msg.from === 'sent' ? 'flex-end' : 'flex-start',
-                            };
+            <CCol lg="6" md="10" sm="12">
+                <CCard style={{height: '85vh', border: 'none', boxShadow: 'none'}}>
 
-                            return (
-                                <div key={index} style={messageStyle}>
-                                    <ReactMarkdown>
-                                        {normalizeMarkdown(msg.text)}
-                                    </ReactMarkdown>
-                                </div>
-                            );
-                        })}
+                    <CCardBody className="d-flex flex-column scroll-stable">
+                        {messages.length > 0 ? (
+                            <>
+                                {messages.map((msg, index) => (
+                                    <MessageBox key={index} index={index} msg={msg}/>
+                                ))}
+                                <div ref={bottomRef}/>
+                            </>
+                        ) : (
+                            <div className="d-flex justify-content-center align-items-center" style={{height: '100%'}}>
+                                <h3>Hi {userName.trim()}, what should we dive into today?</h3>
+                            </div>
+                        )}
                     </CCardBody>
-                    <CCardFooter>
-                        <CForm className="d-flex" onSubmit={handleSendMessage}>
-                            <CFormInput
+
+                    <CCardFooter style={{border: 'none', background: 'transparent'}}>
+                        <CForm onSubmit={handleSendMessage}>
+                            <CFormTextarea
+                                ref={textareaRef}
                                 placeholder="Question..."
                                 value={message}
-                                onChange={(e) => setMessage(e.target.value)}
+                                onChange={(e) => {
+                                    setMessage(e.target.value);
+                                    const textarea = e.target;
+                                    textarea.style.height = 'auto';
+                                    const maxHeight = 6 * 24;
+                                    textarea.style.height = `${Math.min(textarea.scrollHeight, maxHeight)}px`;
+                                }}
+                                rows={1}
+                                style={{
+                                    resize: 'none',
+                                    overflow: 'hidden',
+                                    minHeight: '70px',
+                                    maxHeight: '144px',
+                                    width: '100%',
+                                    transition: 'height 0.2s ease',
+                                    borderRadius: '12px'
+                                }}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                        e.preventDefault();
+                                        handleSendMessage(e);
+                                    }
+                                }}
                             />
-                            <CButton type="submit" color="primary" className="ms-2">
-                                Send
-                            </CButton>
+                            {/*<CButton type="submit" color="primary">*/}
+                            {/*    <CIcon icon={cilPaperPlane}/>*/}
+                            {/*</CButton>*/}
+
+                            <div className="text-end mt-1" style={{fontSize: '0.85rem', color: '#6c757d'}}>
+                                Shift+Enter to add new line, Enter to send the question
+                            </div>
                         </CForm>
                     </CCardFooter>
                 </CCard>
@@ -242,6 +365,7 @@ function ChatFrame({chat_id, history_messages}) {
         </CRow>
     )
 }
+
 
 function Sidebar({sessions}) {
     const deleteSession = (chat_id) => {
@@ -261,7 +385,29 @@ function Sidebar({sessions}) {
         <>
             <CSidebar className="border-end" colorScheme="dark" style={{height: '100vh'}}>
                 <CSidebarHeader className="border-bottom">
-                    <CSidebarBrand style={{textDecoration: 'none', fontSize: '1.5rem'}}>Westaco Chatbot</CSidebarBrand>
+                    <CSidebarBrand style={{textDecoration: 'none'}}>
+                        <div
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                fontSize: '1.2rem',
+                                padding: '4px 15px',
+                                borderRadius: '6px',
+                                transition: 'background-color 0.3s',
+                                cursor: 'pointer'
+                            }}
+                            onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(184,184,184,0.11)')}
+                            onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
+                        >
+                            <img
+                                src="/static/chatbot_ui/westaco_icon.png"
+                                alt="Logo"
+                                style={{height: '30px', marginRight: '10px', textDecoration: 'none'}}
+                            />
+                            <b>Chatbot</b>
+                        </div>
+                    </CSidebarBrand>
+
                 </CSidebarHeader>
                 <div className="px-3 py-2">
                     <a href="/new_chat" style={{textDecoration: 'none'}}>
@@ -270,15 +416,19 @@ function Sidebar({sessions}) {
                         </CButton>
                     </a>
                 </div>
-                <CSidebarNav>
+                <CSidebarNav className={"scroll-stable"}>
                     <CNavTitle>Sessions</CNavTitle>
                     {
-                        sessions.map((session, index) => (
-                            <CNavItem
+                        sessions.map((session, index) => {
+                            const trimmedName = session.name.length > 20
+                                ? session.name.slice(0, 20) + '...'
+                                : session.name;
+
+                            return (<CNavItem
                                 key={session.uuid}
                                 className="nav-item-with-trash"
                                 href={`/chats/${session.uuid}`}>
-                                {session.name}
+                                {trimmedName}
                                 <span className="trash-icon"
                                       onClick={(e) => {
                                           e.preventDefault()
@@ -286,8 +436,8 @@ function Sidebar({sessions}) {
                                       }}>
                                     <i className="bi bi-trash"/>
                                   </span>
-                            </CNavItem>
-                        ))
+                            </CNavItem>)
+                        })
                     }
 
                 </CSidebarNav>
@@ -313,7 +463,8 @@ function App({model, sessions, username}) {
                     <br/>
                     {
                         model.messages !== null &&
-                        <ChatFrame chat_id={model.chat_id} history_messages={model.messages}></ChatFrame>
+                        <ChatFrame chat_id={model.chat_id} history_messages={model.messages}
+                                   userName={username}></ChatFrame>
                     }
                 </CContainer>
 

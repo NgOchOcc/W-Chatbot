@@ -1,25 +1,45 @@
 .nav-item-with-trash {
-  position: relative;
-  padding-right: 0.0rem;        /* Chừa chỗ cho icon */
-  transition: background-color 0.2s;
+    position: relative;
+    padding-right: 0.0rem;
+    transition: background-color 0.2s;
 }
 
 .nav-item-with-trash .trash-icon {
-  position: absolute;
-  top: 50%;
-  right: 1rem;
-  transform: translateY(-50%);
-  opacity: 0;
-  transition: opacity 0.2s ease;
-  color: #b53744;               /* Màu đỏ */
-  font-size: 1rem;
-  cursor: pointer;
+    position: absolute;
+    top: 50%;
+    right: 1rem;
+    transform: translateY(-50%);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    color: #b53744;
+    font-size: 1rem;
+    cursor: pointer;
 }
 
 .nav-item-with-trash:hover {
-  background-color: rgba(0, 0, 0, 0.05);
+    background-color: rgba(0, 0, 0, 0.05);
 }
 
 .nav-item-with-trash:hover .trash-icon {
-  opacity: 1;
+    opacity: 1;
+}
+
+.scroll-stable {
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+    padding-right: 1rem;
+}
+
+.scroll-stable::-webkit-scrollbar {
+    width: 8px;
+    background: transparent;
+}
+
+.scroll-stable:hover::-webkit-scrollbar {
+    width: 8px;
+}
+
+.scroll-stable:hover::-webkit-scrollbar-thumb {
+    background-color: rgba(100, 100, 100, 0.4);
+    border-radius: 4px;
 }
