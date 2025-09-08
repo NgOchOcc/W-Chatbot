@@ -2,6 +2,7 @@ import click
 import uvicorn
 
 from weschatbot.models.base import Base
+from weschatbot.services.document.document_service import DocumentService
 from weschatbot.utils import setting
 
 
@@ -27,6 +28,11 @@ def chatbot():
 
 @cli.group("management")
 def management():
+    pass
+
+
+@cli.group("document")
+def document():
     pass
 
 
@@ -85,3 +91,11 @@ def management_start(gunicorn_args):
         options[k] = v
 
     StandaloneApplication(app, options).run()
+
+
+@document.command("convert")
+def convert_documents():
+    print("Converting documents")
+    document_service = DocumentService()
+    document_service.convert_all_documents()
+    print("Done")

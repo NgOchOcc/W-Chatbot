@@ -14,7 +14,8 @@ from pathlib import Path
 from typing import List, Dict
 import json
 
-from weschatbot.services.document.index_document_service import DocumentConverter, PipelineMilvusStore
+from weschatbot.services.document.index_document_service import PipelineMilvusStore
+from weschatbot.services.document.converting import DocumentConverter
 from weschatbot.services.document.chunking_strategy import AdvancedChunkingStrategy
 from weschatbot.utils.config import config
 from weschatbot.log.logging_mixin import LoggingMixin

@@ -5,59 +5,12 @@ from typing import List, Optional
 from llama_index.core import VectorStoreIndex, StorageContext
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.vector_stores.milvus import MilvusVectorStore
-from marker.converters.pdf import PdfConverter
-from marker.models import create_model_dict
-from marker.output import text_from_rendered
-from markitdown import MarkItDown
 from sqlalchemy.orm import joinedload
 
 from weschatbot.log.logging_mixin import LoggingMixin
 from weschatbot.models.collection import Document, CollectionDocumentStatus, CollectionDocument
 from weschatbot.services.document.chunking_strategy import AdvancedChunkingStrategy
 from weschatbot.utils.db import provide_session
-
-
-class MarkerConverter:
-    def __init__(self):
-        self.converter = PdfConverter(
-            artifact_dict=create_model_dict(),
-        )
-
-    def convert(self, document_path: str) -> str:
-        rendered = self.converter(str(document_path))
-
-        markdown_text, metadata, images = text_from_rendered(rendered)
-        return markdown_text
-
-
-class MarkitdownConverter:
-    def __init__(self):
-        self.converter = MarkItDown()
-
-    def convert(self, document_path: str) -> str:
-        rendered = self.converter.convert((document_path))
-        return rendered.text_content
-
-
-class DocumentConverter:
-    def __init__(self, *args, **kwargs):
-        self.marker_convert = MarkerConverter()
-        self.markitdown_convert = MarkitdownConverter()
-
-    def convert(self, document_path: str) -> str:
-        input_path = Path(document_path)
-        if not input_path.exists():
-            raise FileNotFoundError(f"Input file not found: {input_path}")
-
-        file_ext = input_path.suffix.lower()
-
-        try:
-            if file_ext == '.pdf':
-                return self.marker_convert.convert(input_path)
-            else:
-                return self.markitdown_convert.convert(input_path)
-        except Exception as e:
-            raise Exception(f"Error converting file {input_path}: {str(e)}")
 
 
 class Pipeline:
@@ -172,8 +125,6 @@ class IndexDocumentService(LoggingMixin):
         if in_progress_status is None:
             raise ValueError("'in progress' status not found. Please upgrade the db by command 'alembic upgrade head'.")
 
-        print(in_progress_status)
-
         links = (
             session.query(CollectionDocument)
             .join(CollectionDocumentStatus)
@@ -210,6 +161,9 @@ class IndexDocumentService(LoggingMixin):
 
         session.commit()
 
+    def convert(self, doc):
+        return self.converter.convert(doc.path)
+
     @provide_session
     def index(self, session=None):
         self.log.info("Start indexing documents...")
@@ -220,7 +174,7 @@ class IndexDocumentService(LoggingMixin):
             metadata_list = []
 
             for doc in doc_entities:
-                converted_content = self.converter.convert(doc.path)
+                converted_content = self.convert(doc)
                 converted_docs.append(converted_content)
 
                 file_path = Path(doc.path)
@@ -254,3 +208,20 @@ class IndexDocumentService(LoggingMixin):
         )
 
         return documents if documents else None
+
+
+class IndexDocumentWithoutConverterService(IndexDocumentService):
+    def __init__(self, pipeline, collection_name, collection_id, converter=None, *args, **kwargs):
+        super().__init__(converter, pipeline, collection_name, collection_id, *args, **kwargs)
+        self.pipeline = pipeline
+        self.collection_name = collection_name
+        self.collection_id = collection_id
+
+    @staticmethod
+    def read_converted_file(converted_path):
+        with open(converted_path, "r") as f:
+            res = f.read()
+        return res
+
+    def convert(self, doc):
+        return self.read_converted_file(doc.converted_path)

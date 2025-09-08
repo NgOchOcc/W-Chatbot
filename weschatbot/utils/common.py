@@ -20,3 +20,13 @@ def get_function_by_fullname(fullname):
 def get_function_by_name(module_name, func_name):
     module = __import__(module_name, fromlist=[func_name])
     return getattr(module, func_name, None)
+
+
+class SingletonMeta(type):
+    _instances = {}
+
+    def __call__(cls, *args, **kwargs):
+        if cls not in cls._instances:
+            instance = super().__call__(*args, **kwargs)
+            cls._instances[cls] = instance
+        return cls._instances[cls]
