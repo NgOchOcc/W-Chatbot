@@ -1,8 +1,8 @@
 from weschatbot.services.collection_service import CollectionService
 import pytest
 
-from weschatbot.services.document.index_document_service import IndexDocumentService, DocumentConverter, \
-    PipelineMilvusStore
+from weschatbot.services.document.index_document_service import IndexDocumentService, PipelineMilvusStore
+from weschatbot.services.document.converting import DocumentConverter
 from weschatbot.utils.config import config
 
 

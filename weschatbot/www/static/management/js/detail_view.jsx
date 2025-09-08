@@ -34,7 +34,7 @@ function ShowView({detail_fields, item}) {
                         </td>
                         <td>
                             {
-                                item[field] && item[field].length > 100 &&<>
+                                item[field] && item[field].length > 150 &&<>
                                 <div className="mb-3">
                                     <textarea className="form-control" id="exampleFormControlTextarea1" disabled={true} rows="5">{item[field]}</textarea>
                                 </div>

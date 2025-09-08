@@ -37,6 +37,7 @@ class Document(Base):
     id = Column(Integer, primary_key=True, autoincrement=True, nullable=False)
     name = Column(String(255), nullable=False)
     path = Column(String(2047), nullable=False)
+    converted_path = Column(String(2047), nullable=True)
     is_used = Column(Boolean, nullable=False, default=False)
     status_id = Column(Integer, ForeignKey('document_statuses.id'), nullable=False)
     status: Mapped["DocumentStatus"] = relationship(back_populates="documents")
@@ -50,7 +51,8 @@ class Document(Base):
             "name": self.name,
             "path": self.path,
             "is_used": self.is_used,
-            "status": self.status.name
+            "status": self.status.name,
+            "converted_path": self.converted_path,
         }
 
 

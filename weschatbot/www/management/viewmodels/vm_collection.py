@@ -3,11 +3,10 @@ import json
 from flask import request, redirect, render_template, flash, jsonify
 
 from weschatbot.models.collection import Collection
-from weschatbot.services import collection_service
 from weschatbot.services.collection_service import CollectionService
 from weschatbot.utils.config import config
 from weschatbot.utils.db import provide_session
-from weschatbot.www.management.model_vm import ViewModel, Pagination
+from weschatbot.www.management.model_vm import ViewModel
 
 
 class ViewModelCollection(ViewModel):

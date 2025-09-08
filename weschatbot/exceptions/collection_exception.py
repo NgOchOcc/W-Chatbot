@@ -8,3 +8,7 @@ class ExistingCollectionDocumentException(Exception):
 
 class StatusNotFound(Exception):
     pass
+
+
+class DocumentNotFoundError(Exception):
+    pass

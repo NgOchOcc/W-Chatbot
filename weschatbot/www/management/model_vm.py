@@ -460,7 +460,7 @@ class ViewModel(LoggingMixin):
         return render_template(self.list_template, model=json.dumps(res.to_dict(), default=str)), 200
 
     @provide_session
-    def add_item_post(self, session=None):
+    def add_item_post(self, callback=lambda item: None, session=None):
         kwargs = {}
 
         for field in self.add_fields:
@@ -496,6 +496,8 @@ class ViewModel(LoggingMixin):
                 kwargs[field] = res.value
         item = self.model_class(**kwargs)
         session.add(item)
+        session.commit()
+        callback(item.to_dict())
         flash(f"Successfully added item {item.id}", "success")
         return redirect(self.list_view_model.search_url_func()), 302
 
