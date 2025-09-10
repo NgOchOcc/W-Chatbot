@@ -580,7 +580,7 @@ class ViewModel(LoggingMixin):
     @provide_session
     def delete_item_get(self, item, session=None):
         if not item:
-            flash("Item not found", "error")
+            flash("Item not found", "danger")
             return abort(404)
         res = self.delete_view_model
         res.item = item
@@ -606,7 +606,7 @@ class ViewModel(LoggingMixin):
     def detail_item(self, item_id, session=None):
         item = session.query(self.model_class).filter_by(id=item_id).one_or_none()
         if not item:
-            flash("Item not found", "error")
+            flash("Item not found", "danger")
             return abort(404)
         res = self.detail_view_model
         res.item = item

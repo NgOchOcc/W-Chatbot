@@ -353,6 +353,7 @@ function CollectionInfoPage({data}) {
                             </button>
                         </CCardBody>
                     </CCard>
+                    <br/>
                     <CCard>
                         <CCardHeader>Flushing</CCardHeader>
                         <CCardBody>
