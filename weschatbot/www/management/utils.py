@@ -6,7 +6,10 @@ from weschatbot.utils.db import provide_session
 
 def outside_url_for(end_point, **kwargs):
     def wrap_url_for(*args, **params):
-        return url_for(end_point, **{**kwargs, **params})
+        try:
+            return url_for(end_point, **{**kwargs, **params})
+        except Exception as e:
+            raise e
 
     return wrap_url_for
 

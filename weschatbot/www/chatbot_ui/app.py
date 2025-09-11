@@ -12,9 +12,11 @@ from pymilvus import Collection, connections
 from sentence_transformers import SentenceTransformer
 
 from weschatbot.exceptions.user_exceptions import InvalidUserError
+from weschatbot.models.collection import ChatbotConfiguration
 from weschatbot.schemas.chat import Message
 from weschatbot.security.cookie_jwt_manager import FastAPICookieJwtManager
 from weschatbot.security.exceptions import TokenInvalidError, TokenExpiredError
+from weschatbot.services.chatbot_configuration_service import ChatbotConfigurationService
 from weschatbot.services.ollama_service import VLLMClient
 from weschatbot.services.session_service import SessionService, NotPermissionError
 from weschatbot.services.user_service import UserService
@@ -34,7 +36,9 @@ templates = Jinja2Templates(directory="weschatbot/www/templates")
 # Connect Milvus
 connections.connect("default", host=config["milvus"]["host"], port=int(config["milvus"]["port"]))
 
-KB_COLLECTION_NAME = "doc_v2"
+chatbot_configuration_service = ChatbotConfigurationService()
+
+KB_COLLECTION_NAME = chatbot_configuration_service.get_collection_name()
 kb_collection = Collection(KB_COLLECTION_NAME)
 kb_collection.load()
 
@@ -51,6 +55,8 @@ vllm_client = VLLMClient(
 )
 session_service = SessionService()
 user_service = UserService()
+
+chatbot_configuration = chatbot_configuration_service.get_configuration()
 
 
 @app.middleware("http")
