@@ -560,8 +560,12 @@ class ViewModel(LoggingMixin):
                         res = UpdateValue(value)
                     case "select":
                         res = UpdateValue(value)
-                    case "TIMESTAMP":
+                    case "timestamp":
                         res = UpdateValue(datetime.fromisoformat(value))
+                    case "float":
+                        res = UpdateValue(float(value))
+                    case "text":
+                        res = UpdateValue(str(value))
                     case _:
                         res = NoUpdate()
             if res.is_updated():
@@ -569,7 +573,10 @@ class ViewModel(LoggingMixin):
 
         session.add(item)
         flash("Successfully updated the item", "success")
-        return redirect(self.list_view_model.search_url_func()), 302
+        try:
+            return redirect(self.list_view_model.search_url_func()), 302
+        except Exception as e:
+            return redirect(self.list_view_model.detail_url_func(item_id=item_id)), 302
 
     @provide_session
     @check_permission("edit")
@@ -611,3 +618,47 @@ class ViewModel(LoggingMixin):
         res = self.detail_view_model
         res.item = item
         return render_template(self.detail_template, model=json.dumps(res.to_dict(), default=str)), 200
+
+
+class SingleViewModel(ViewModel):
+
+    def __init__(self, model_class, auth):
+        super().__init__(model_class, auth)
+        self.detail_url_func = self.detail_enabled() and outside_url_for(".detail_item")
+
+    @provide_session
+    def update_item(self, item_id=None, session=None):
+        return request.method == "GET" and self.update_item_get(item_id, session=session) or self.update_item_post(
+            item_id, session=session)
+
+    @provide_session
+    @check_permission("list")
+    def detail_item(self, item_id=None, session=None):
+        item = session.query(self.model_class).first()
+        if not item:
+            flash("Item not found", "danger")
+            return abort(404)
+        res = self.detail_view_model
+        res.item = item
+        return render_template(self.detail_template, model=json.dumps(res.to_dict(), default=str)), 200
+
+    def register(self, flask_app_or_bp):
+        if self.update_enabled():
+            self.bp.route("/update", methods=["GET", "POST"])(self.auth(self.update_item))
+        if self.detail_enabled():
+            self.bp.route("/", methods=["GET"])(self.auth(self.detail_item))
+
+        flask_app_or_bp.register_blueprint(self.bp)
+
+    @provide_session
+    def update_item_post(self, item_id, session=None):
+        item = session.query(self.model_class).first()
+        item_id = item_id or item.id
+        _, status = super().update_item_post(item_id, session=session)
+        if status == 302:
+            return redirect(self.list_view_model.detail_url_func()), 302
+
+    def update_item_get(self, item_id=None, session=None):
+        item = session.query(self.model_class).first()
+        item_id = item_id or item.id
+        return super().update_item_get(item_id, session=session)
