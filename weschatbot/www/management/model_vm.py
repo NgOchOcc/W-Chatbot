@@ -594,6 +594,7 @@ class ViewModel(LoggingMixin):
         return render_template(self.delete_template, model=json.dumps(res.to_dict(), default=str)), 200
 
     @provide_session
+    @check_permission("delete")
     def delete_item_post(self, item, session=None):
         session.delete(item)
         flash("Successfully deleted the item", "success")

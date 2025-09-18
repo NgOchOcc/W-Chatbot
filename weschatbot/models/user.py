@@ -139,7 +139,8 @@ class ChatSession(Base):
             "user": self.user and self.user.to_dict(session=session) or {},
             "uuid": self.uuid,
             "modified_date": self.modified_date.strftime("%Y-%m-%d %H:%M:%S"),  # noqa
-            # "messages": [x.to_dict() for x in self.messages],
+            "messages": [x.to_dict() for x in self.messages],
+            "status": self.status.name,
         }
 
 
@@ -160,9 +161,9 @@ class ChatMessage(Base):
             "id": self.id,
             "name": self.name,
             "content": self.content,
+            "sender": self.sender,
+            "modified_date": self.modified_date.isoformat(),  # noqa
         }
 
     def __repr__(self):
         return f"{self.sender}: {self.content}\n"
-
-
