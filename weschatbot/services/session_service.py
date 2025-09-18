@@ -1,7 +1,8 @@
 import pickle
 
+from weschatbot.exceptions.user_exceptions import UserNotFoundError
 from weschatbot.log.logging_mixin import LoggingMixin
-from weschatbot.models.user import ChatSession, ChatMessage
+from weschatbot.models.user import ChatSession, ChatMessage, User
 from weschatbot.schemas.chat import Chat
 from weschatbot.utils.db import provide_session
 from weschatbot.utils.redis_config import provide_redis, DB_CHAT
@@ -74,6 +75,11 @@ class SessionService(LoggingMixin):
 
         if chat_session and chat_session.user_id == user_id:
             chat_session.status_id = 2
+            deleted_user = session.query(User).filter(User.name == "anonymous").one_or_none()
+            if deleted_user:
+                chat_session.user_id = deleted_user.id
+            else:
+                raise UserNotFoundError("User: anonymous not found")
         else:
             raise NotPermissionError("This session doesn't belong to you")
 
@@ -84,3 +90,13 @@ class SessionService(LoggingMixin):
 
         res = query_sessions(session)
         return [x.to_dict(session=session) for x in res]
+
+    @provide_session
+    def delete_chat_session_by_id(self, chat_id, session=None):
+        chat = session.query(ChatSession).get(chat_id)
+        if not chat:
+            return False
+
+        session.query(ChatMessage).filter(ChatMessage.chat_id == chat_id).delete()
+        session.delete(chat)
+        return True

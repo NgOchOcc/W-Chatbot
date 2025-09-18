@@ -12,7 +12,6 @@ from pymilvus import Collection, connections
 from sentence_transformers import SentenceTransformer
 
 from weschatbot.exceptions.user_exceptions import InvalidUserError
-from weschatbot.models.collection import ChatbotConfiguration
 from weschatbot.schemas.chat import Message
 from weschatbot.security.cookie_jwt_manager import FastAPICookieJwtManager
 from weschatbot.security.exceptions import TokenInvalidError, TokenExpiredError
@@ -166,32 +165,6 @@ async def delete_chat(chat_id: str, payload: dict = Depends(jwt_manager.required
         raise HTTPException(status_code=401, detail=str(e))
 
 
-# @app.post("/chats/{chat_id}/clear")
-# async def clear_chat_history(chat_id: str, payload: dict = Depends(jwt_manager.required)):
-#     """Clear conversation history for particular session"""
-#     user_id = int(payload.get("sub"))
-#     chat = session_service.get_session(chat_id)
-#     chat.messages = []
-#     session_service.store_chat(chat)
-#     return {"message": "Conversation history cleared"}
-
-
-# @app.get("/chats/{chat_id}/history")
-# async def get_chat_history(chat_id: str, payload: dict = Depends(jwt_manager.required)):
-#     """Get conversation history for debugging"""
-#     user_id = int(payload.get("sub"))
-#     chat = session_service.get_session(chat_id)
-#
-#     history = []
-#     for msg in chat.messages:
-#         if msg.sender == "user":
-#             history.append({"role": "user", "content": msg.message})
-#         elif msg.sender == "bot":
-#             history.append({"role": "assistant", "content": msg.message})
-#
-#     return {"chat_id": chat_id, "history": history, "message_count": len(history)}
-
-
 def get_conversation_history_from_chat(chat) -> List[Dict[str, str]]:
     """Convert chat messages to conversation history format for vLLM"""
     history = []
@@ -281,9 +254,9 @@ async def websocket_endpoint(websocket: WebSocket,
             await websocket.send_text(json.dumps(res))
     except WebSocketDisconnect:
         print("Client disconnected")
-
-
-if __name__ == "__main__":
-    import uvicorn
-
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+#
+#
+# if __name__ == "__main__":
+#     import uvicorn
+#
+#     uvicorn.run(app, host="0.0.0.0", port=8000)
