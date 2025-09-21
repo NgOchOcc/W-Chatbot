@@ -22,12 +22,17 @@ RUN pip install build
 RUN pip install 'uvicorn[standard]'
 RUN pip install fastapi uvicorn transformers sentence-transformers pymilvus
 RUN pip install vllm
+RUN pip install sphinx sphinx-autobuild sphinx-rtd-theme
 
 
 COPY . ./
 
 COPY --from=node_builder /opt/app/weschatbot/www/static/chatbot_ui/dist /opt/app/weschatbot/www/static/chatbot_ui/dist
 COPY --from=node_builder /opt/app/weschatbot/www/static/management/dist /opt/app/weschatbot/www/static/management/dist
+
+RUN cd weschatbot/docs \
+    && make html \
+    && cd ../..
 
 RUN python -m build \
     && pip install dist/weschatbot-0.0.1-py3-none-any.whl

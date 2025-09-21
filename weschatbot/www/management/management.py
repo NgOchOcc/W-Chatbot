@@ -20,6 +20,7 @@ from weschatbot.www.management.viewmodels.vm_job import ViewModelJob
 from weschatbot.www.management.viewmodels.vm_permission import ViewModelPermission
 from weschatbot.www.management.viewmodels.vm_role import ViewModelRole
 from weschatbot.www.management.viewmodels.vm_user import ViewModelUser
+import weschatbot
 
 
 class Management(LoggingMixin):
@@ -27,12 +28,14 @@ class Management(LoggingMixin):
         self.auth = auth
         self.user_service = user_service
 
-        base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-        static_path = os.path.join(base_dir, 'static/management')
+        # base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+        base_dir = os.path.dirname(weschatbot.__file__)
+        print(base_dir)
+        static_path = os.path.join(base_dir, 'www/static/management')
         self.bp = Blueprint('management',
                             import_name="management",
                             url_prefix='/management',
-                            template_folder="weschatbot/www/templates",
+                            template_folder=f"{base_dir}/www/templates",
                             static_folder=static_path, static_url_path='/static')
 
     @staticmethod

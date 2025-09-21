@@ -10,6 +10,7 @@ from weschatbot.security.flask_jwt_manager import FlaskJWTManager
 from weschatbot.services.user_service import UserService
 from weschatbot.utils.config import config
 from weschatbot.utils.db import provide_session
+from weschatbot.www.management.docs_blueprint import docs_bp
 from weschatbot.www.management.management import Management
 
 
@@ -112,4 +113,5 @@ user_service = UserService()
 auth = LoginAuth(login_manager)
 
 bp_management = Management(auth, user_service).register()
+bp_management.register_blueprint(docs_bp)
 app.register_blueprint(bp_management)
