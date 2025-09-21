@@ -14,7 +14,6 @@ from weschatbot.www.management.utils import outside_url_for
 from weschatbot.www.management.viewmodels.vm_chat import ViewModelChat
 from weschatbot.www.management.viewmodels.vm_chatbot_configuration import ViewModelChatbotConfiguration
 from weschatbot.www.management.viewmodels.vm_collection import ViewModelCollection
-from weschatbot.www.management.viewmodels.vm_collections import ViewModelCollections
 from weschatbot.www.management.viewmodels.vm_document import ViewModelDocument
 from weschatbot.www.management.viewmodels.vm_job import ViewModelJob
 from weschatbot.www.management.viewmodels.vm_permission import ViewModelPermission
@@ -77,7 +76,6 @@ class Management(LoggingMixin):
         ViewModelPermission(Permission, auth=self.auth.required).register(self.bp)
         ViewModelDocument(Document, auth=self.auth.required).register(self.bp)
         ViewModelJob(Job, auth=self.auth.required).register(self.bp)
-        ViewModelCollections(None, auth=self.auth.required).register(self.bp)
         ViewModelCollection(Collection, auth=self.auth.required).register(self.bp)
         ViewModelChatbotConfiguration(ChatbotConfiguration, auth=self.auth.required).register(self.bp)
 
