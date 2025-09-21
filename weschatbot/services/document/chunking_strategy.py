@@ -164,11 +164,6 @@ class AdvancedChunkingStrategy:
         enhanced_chunks = []
         
         for i, chunk in enumerate(chunks):
-            prev_context = chunks[i-1].text[-100:] if i > 0 else ""
-            next_context = chunks[i+1].text[:100] if i < len(chunks) - 1 else ""
-            
-            chunk.metadata['prev_context'] = prev_context
-            chunk.metadata['next_context'] = next_context
             chunk.metadata['total_chunks'] = len(chunks)
             chunk.metadata['chunk_position'] = i + 1
             
