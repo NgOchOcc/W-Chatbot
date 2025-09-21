@@ -1,7 +1,10 @@
+from logging import DEBUG
+
 import click
 import uvicorn
 
 from weschatbot.models.base import Base
+from weschatbot.services.document.document_service import DocumentService
 from weschatbot.utils import setting
 
 
@@ -27,6 +30,11 @@ def chatbot():
 
 @cli.group("management")
 def management():
+    pass
+
+
+@cli.group("document")
+def document():
     pass
 
 
@@ -65,7 +73,7 @@ def scheduler_start():
 @chatbot.command("start")
 def chatbot_start():
     from weschatbot.www.chatbot_ui.app import app
-    uvicorn.run(app, host="0.0.0.0", port=3000)
+    uvicorn.run(app, host="0.0.0.0", port=3000, log_level=DEBUG)
 
 
 @cli.command()
@@ -85,3 +93,11 @@ def management_start(gunicorn_args):
         options[k] = v
 
     StandaloneApplication(app, options).run()
+
+
+@document.command("convert")
+def convert_documents():
+    print("Converting documents")
+    document_service = DocumentService()
+    document_service.convert_all_documents()
+    print("Done")

@@ -1,6 +1,6 @@
 from typing import List
 
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Text, Float
 from sqlalchemy.orm import Mapped, relationship
 
 from weschatbot.models.base import Base, basic_fields
@@ -18,6 +18,11 @@ class Collection(Base):
     status: Mapped["CollectionStatus"] = relationship(back_populates="collections")
 
     documents_link: Mapped[List["CollectionDocument"]] = relationship(back_populates="collection")
+
+    chatbot_configurations: Mapped[List["ChatbotConfiguration"]] = relationship(
+        "ChatbotConfiguration",
+        back_populates="collection"
+    )
 
     def __repr__(self):
         return self.name
@@ -37,6 +42,7 @@ class Document(Base):
     id = Column(Integer, primary_key=True, autoincrement=True, nullable=False)
     name = Column(String(255), nullable=False)
     path = Column(String(2047), nullable=False)
+    converted_path = Column(String(2047), nullable=True)
     is_used = Column(Boolean, nullable=False, default=False)
     status_id = Column(Integer, ForeignKey('document_statuses.id'), nullable=False)
     status: Mapped["DocumentStatus"] = relationship(back_populates="documents")
@@ -50,7 +56,8 @@ class Document(Base):
             "name": self.name,
             "path": self.path,
             "is_used": self.is_used,
-            "status": self.status.name
+            "status": self.status.name,
+            "converted_path": self.converted_path,
         }
 
 
@@ -119,4 +126,31 @@ class CollectionStatus(Base):
         return {
             "id": self.id,
             "name": self.name,
+        }
+
+
+@basic_fields
+class ChatbotConfiguration(Base):
+    __tablename__ = "chatbot_configuration"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    prompt = Column(Text, nullable=True)
+
+    collection_id: Mapped[int] = Column(
+        Integer,
+        ForeignKey("collections.id"), nullable=True,
+    )
+
+    collection: Mapped["Collection"] = relationship(
+        "Collection",
+        back_populates="chatbot_configurations",
+    )
+
+    similar_threshold = Column(Float, nullable=False)
+
+    def to_dict(self, session=None):
+        return {
+            "id": self.id,
+            "prompt": self.prompt,
+            "collection": self.collection.name,
+            "similar_threshold": self.similar_threshold,
         }

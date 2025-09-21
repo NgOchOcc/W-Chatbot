@@ -22,7 +22,8 @@ function UpdateFormHelper({name, type, init_value, relationships, select_items})
             return (
                 <>
                     <div className={"form-group"}>
-                        <Select options={options} name={name} closeMenuOnSelect={true} value={selected} onChange={onSelectChangeHandler}></Select>
+                        <Select options={options} name={name} closeMenuOnSelect={true} value={selected}
+                                onChange={onSelectChangeHandler}></Select>
                     </div>
                 </>
             )
@@ -80,7 +81,6 @@ function UpdateFormHelper({name, type, init_value, relationships, select_items})
         }
         case "boolean": {
             const [value, setValue] = useState(Boolean(init_value))
-            console.log(value)
             return (
                 <>
                     <div className={"form-group"}>
@@ -88,6 +88,23 @@ function UpdateFormHelper({name, type, init_value, relationships, select_items})
                                onChange={(e) =>
                                    setValue(e.target.checked)
                                }></input>
+                    </div>
+                </>
+            )
+        }
+        case "text": {
+            const [value, setValue] = useState(String(init_value))
+            return (
+                <>
+                    <div className={"form-group"}>
+                        {/*<input className="form-check-input" name={name} type="checkbox" value={value} checked={value}*/}
+                        {/*       onChange={(e) =>*/}
+                        {/*           setValue(e.target.checked)*/}
+                        {/*       }></input>*/}
+
+                        <textarea className="form-control" name={name} disabled={false} value={value}
+                                  onChange={(e) => setValue(e.target.value)}
+                                  rows="5">{value}</textarea>
                     </div>
                 </>
             )
@@ -120,7 +137,8 @@ function UpdateView({model, csrf_token}) {
                                         <label><strong>{field}</strong></label>
                                         <UpdateFormHelper name={field} type={model["data_types"][field]}
                                                           init_value={model["item"][field]}
-                                                          relationships={relationships} select_items={select_items}></UpdateFormHelper>
+                                                          relationships={relationships}
+                                                          select_items={select_items}></UpdateFormHelper>
                                     </div>
                                 )
                             })

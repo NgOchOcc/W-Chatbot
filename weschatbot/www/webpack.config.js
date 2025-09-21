@@ -61,6 +61,8 @@ const managementConfig = {
         login: [`${MANAGEMENT_JS_DIR}/login.jsx`],
         collections_list: [`${MANAGEMENT_JS_DIR}/collections_list.jsx`],
         collections_detail: [`${MANAGEMENT_JS_DIR}/collections_detail.jsx`],
+        converted_document: [`${MANAGEMENT_JS_DIR}/converted_document.jsx`],
+        chat_details: [`${MANAGEMENT_JS_DIR}/chat_details.jsx`],
 
     },
     output: {

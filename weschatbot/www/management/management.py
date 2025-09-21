@@ -6,19 +6,20 @@ from flask_login import login_user, logout_user
 
 from weschatbot.exceptions.user_exceptions import InvalidUserError
 from weschatbot.log.logging_mixin import LoggingMixin
-from weschatbot.models.collection import Collection, Document
+from weschatbot.models.collection import Collection, Document, ChatbotConfiguration
 from weschatbot.models.job import Job
 from weschatbot.models.user import User, ChatSession, Role, Permission
 from weschatbot.www.management.addition_blueprint import addition_blueprint
 from weschatbot.www.management.utils import outside_url_for
 from weschatbot.www.management.viewmodels.vm_chat import ViewModelChat
+from weschatbot.www.management.viewmodels.vm_chatbot_configuration import ViewModelChatbotConfiguration
 from weschatbot.www.management.viewmodels.vm_collection import ViewModelCollection
-from weschatbot.www.management.viewmodels.vm_collections import ViewModelCollections
 from weschatbot.www.management.viewmodels.vm_document import ViewModelDocument
 from weschatbot.www.management.viewmodels.vm_job import ViewModelJob
 from weschatbot.www.management.viewmodels.vm_permission import ViewModelPermission
 from weschatbot.www.management.viewmodels.vm_role import ViewModelRole
 from weschatbot.www.management.viewmodels.vm_user import ViewModelUser
+import weschatbot
 
 
 class Management(LoggingMixin):
@@ -26,12 +27,14 @@ class Management(LoggingMixin):
         self.auth = auth
         self.user_service = user_service
 
-        base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-        static_path = os.path.join(base_dir, 'static/management')
+        # base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+        base_dir = os.path.dirname(weschatbot.__file__)
+        print(base_dir)
+        static_path = os.path.join(base_dir, 'www/static/management')
         self.bp = Blueprint('management',
                             import_name="management",
                             url_prefix='/management',
-                            template_folder="weschatbot/www/templates",
+                            template_folder=f"{base_dir}/www/templates",
                             static_folder=static_path, static_url_path='/static')
 
     @staticmethod
@@ -73,8 +76,8 @@ class Management(LoggingMixin):
         ViewModelPermission(Permission, auth=self.auth.required).register(self.bp)
         ViewModelDocument(Document, auth=self.auth.required).register(self.bp)
         ViewModelJob(Job, auth=self.auth.required).register(self.bp)
-        ViewModelCollections(None, auth=self.auth.required).register(self.bp)
         ViewModelCollection(Collection, auth=self.auth.required).register(self.bp)
+        ViewModelChatbotConfiguration(ChatbotConfiguration, auth=self.auth.required).register(self.bp)
 
         self.bp.register_blueprint(addition_blueprint)
         return self.bp

@@ -15,6 +15,7 @@ from weschatbot.exceptions.user_exceptions import InvalidUserError
 from weschatbot.schemas.chat import Message
 from weschatbot.security.cookie_jwt_manager import FastAPICookieJwtManager
 from weschatbot.security.exceptions import TokenInvalidError, TokenExpiredError
+from weschatbot.services.chatbot_configuration_service import ChatbotConfigurationService
 from weschatbot.services.ollama_service import VLLMClient
 from weschatbot.services.session_service import SessionService, NotPermissionError
 from weschatbot.services.user_service import UserService
@@ -34,13 +35,18 @@ templates = Jinja2Templates(directory="weschatbot/www/templates")
 # Connect Milvus
 connections.connect("default", host=config["milvus"]["host"], port=int(config["milvus"]["port"]))
 
-KB_COLLECTION_NAME = "v768_cosine_5"
+
+chatbot_configuration_service = ChatbotConfigurationService()
+
+KB_COLLECTION_NAME = chatbot_configuration_service.get_collection_name()
+
 kb_collection = Collection(KB_COLLECTION_NAME)
 kb_collection.load()
 
 # Initial embedding model using LlamaIndex HuggingFace
+EMBEDDING_MODEL = config['embedding-model']['model']
 embedding_model = HuggingFaceEmbedding(
-    model_name='Qwen/Qwen3-Embedding-0.6B',
+    model_name=EMBEDDING_MODEL,
     trust_remote_code=True
 )
 
@@ -54,6 +60,8 @@ vllm_client = VLLMClient(
 )
 session_service = SessionService()
 user_service = UserService()
+
+chatbot_configuration = chatbot_configuration_service.get_configuration()
 
 
 @app.middleware("http")
@@ -292,8 +300,9 @@ async def websocket_endpoint(websocket: WebSocket,
     except WebSocketDisconnect:
         print("Client disconnected")
 
-
-if __name__ == "__main__":
-    import uvicorn
-
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+#
+#
+# if __name__ == "__main__":
+#     import uvicorn
+#
+#     uvicorn.run(app, host="0.0.0.0", port=8000)

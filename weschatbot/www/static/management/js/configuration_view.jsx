@@ -43,6 +43,5 @@ const container = document.getElementById("root_container")
 const root = createRoot(container)
 const model_data = document.getElementById("model").innerText
 const model = JSON.parse(model_data)
-// const csrf_token = document.getElementById("csrf_token").innerText.trim()
 
 root.render(<App model={model}/>)

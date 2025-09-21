@@ -25,7 +25,7 @@ class CollectionService:
         collections = list_collections()
         return collections
 
-    def get_entities(self, collection_name, output_fields=None, limit=100):
+    def get_entities(self, collection_name, output_fields=None, row_id=0, limit=20):
         self.connect()
         collection = Collection(collection_name)
 
@@ -35,7 +35,7 @@ class CollectionService:
             output_fields = [field.name for field in collection.schema.fields]
 
         results = collection.query(
-            expr="id >= ''",
+            expr=f"row_id >= 0" if row_id == 0 else f"row_id == {row_id}",
             output_fields=output_fields,
             limit=limit
         )

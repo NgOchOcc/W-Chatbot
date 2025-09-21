@@ -3,11 +3,10 @@ import json
 from flask import request, redirect, render_template, flash, jsonify
 
 from weschatbot.models.collection import Collection
-from weschatbot.services import collection_service
 from weschatbot.services.collection_service import CollectionService
 from weschatbot.utils.config import config
 from weschatbot.utils.db import provide_session
-from weschatbot.www.management.model_vm import ViewModel, Pagination
+from weschatbot.www.management.model_vm import ViewModel
 
 
 class ViewModelCollection(ViewModel):
@@ -115,6 +114,21 @@ class ViewModelCollection(ViewModel):
         self.collection_service.flush(collection_id=collection_id, session=session)
         return jsonify({"status": "success"}), 200
 
+    @provide_session
+    def collection_entities(self, session=None):
+        collection_id = int(request.args.get("collection_id"))
+        row_id = request.args.get("search")
+        params = {}
+        if row_id:
+            params["row_id"] = row_id
+        collection = self.collection_service.get_collection(collection_id=collection_id, session=session)
+        params["collection_name"] = collection.collection_name
+        params["output_fields"] = ["row_id", "text"]
+        params["limit"] = 1000
+        entities = self.collection_service.get_entities(**params)
+        data = [{"row_id": str(x["row_id"]), "text": x["text"]} for x in entities]
+        return jsonify({"status": "success", "data": data}), 200
+
     def register(self, flask_app_or_bp):
         super(ViewModelCollection, self).register(flask_app_or_bp)
         self.bp.route("/all_documents", methods=["GET"])(self.auth(self.all_documents))
@@ -126,3 +140,4 @@ class ViewModelCollection(ViewModel):
             self.auth(self.get_documents_by_collection_id))
         self.bp.route("/index_collection", methods=["POST"])(self.auth(self.index_collection))
         self.bp.route("/flush_collection", methods=["GET"])(self.auth(self.flush))
+        self.bp.route("/collection_entities", methods=["GET"])(self.auth(self.collection_entities))

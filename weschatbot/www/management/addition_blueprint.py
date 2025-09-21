@@ -3,7 +3,6 @@ import json
 from flask import Blueprint
 
 from weschatbot.services.rbac_service import RBACService
-from weschatbot.utils.db import create_session
 
 addition_blueprint = Blueprint("addition", __name__)
 

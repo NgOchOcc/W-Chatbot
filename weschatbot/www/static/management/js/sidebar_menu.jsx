@@ -12,7 +12,7 @@ import {
 } from '@coreui/react'
 
 import CIcon from '@coreui/icons-react'
-import {cilUser, cilChatBubble, cilBank, cilBookmark, cilNotes} from '@coreui/icons'
+import {cilUser, cilChatBubble, cilBank, cilBookmark, cilLayers, cilFile, cilAppsSettings, cilBook} from '@coreui/icons'
 
 
 const stringToColor = (str) => {
@@ -57,12 +57,20 @@ function SidebarMenu({userName = 'User', onLogout, currentUser, userPermissions}
                          permissions={permissions} value={"Roles"}></NavItem>
                 <NavItem href={"/management/ViewModelPermission/list"} icon={cilBookmark} role={currentUser.role.name}
                          permissions={permissions} value={"Permissions"}></NavItem>
-                <NavItem href={"/management/ViewModelDocument/list"} icon={cilNotes} role={currentUser.role.name}
-                         permissions={permissions} value={"Documents"}></NavItem>
-                <NavItem href={"/management/ViewModelJob/list"} icon={cilNotes} role={currentUser.role.name}
-                         permissions={permissions} value={"Jobs"}></NavItem>
-                <NavItem href={"/management/ViewModelCollection/list"} icon={cilNotes} role={currentUser.role.name}
+                <NavItem href={"/management/ViewModelDocument/list"} icon={cilFile} role={currentUser.role.name}
+                         permissions={permissions} value={"Documents Uploading"}></NavItem>
+                {/*<NavItem href={"/management/ViewModelJob/list"} icon={cilNotes} role={currentUser.role.name}*/}
+                {/*         permissions={permissions} value={"Jobs"}></NavItem>*/}
+                <NavItem href={"/management/ViewModelCollection/list"} icon={cilLayers}
+                         role={currentUser.role.name}
                          permissions={permissions} value={"Collections"}></NavItem>
+                <NavItem href={"/management/ViewModelChatbotConfiguration/"} icon={cilAppsSettings}
+                         role={currentUser.role.name}
+                         permissions={permissions} value={"Chatbot Configuration"}></NavItem>
+                <CNavTitle>Docs</CNavTitle>
+                <CNavItem href="/management/docs">
+                    <CIcon customClassName="nav-icon" icon={cilBook}/> Administrator Guideline
+                </CNavItem>
             </CSidebarNav>
             <CSidebarHeader className="border-top">
                 <div

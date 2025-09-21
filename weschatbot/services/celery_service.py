@@ -1,13 +1,14 @@
 import logging
+from functools import wraps
 
 from weschatbot.models.collection import CollectionStatus, Collection
 from weschatbot.models.job import Job, JobStatus
-from weschatbot.services.document.index_document_service import IndexDocumentService, DocumentConverter, \
-    PipelineMilvusStore
+from weschatbot.services.document.document_service import DocumentService
+from weschatbot.services.document.index_document_service import PipelineMilvusStore, \
+    IndexDocumentWithoutConverterService
 from weschatbot.utils.config import config
 from weschatbot.utils.db import provide_session
 from weschatbot.worker.celery_worker import celery_app
-from functools import wraps
 
 app = celery_app()
 
@@ -81,20 +82,20 @@ def update_collection_status(func):
     return wrapper
 
 
-@app.task
+@app.task(queue="index")
 @update_collection_status
 def index_collection_to_milvus(collection_id, collection_name):
     import asyncio
 
     async def run_indexing():
-        converter = DocumentConverter()
+        # converter = DocumentConverter()
         pipeline = PipelineMilvusStore(
             collection_name=collection_name,
             milvus_host=config["milvus"]["host"],
             milvus_port=config["milvus"]["port"]
         )
-        indexer = IndexDocumentService(
-            converter=converter,
+        indexer = IndexDocumentWithoutConverterService(
+            converter=None,
             pipeline=pipeline,
             collection_name=collection_name,
             collection_id=collection_id
@@ -104,3 +105,11 @@ def index_collection_to_milvus(collection_id, collection_name):
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     loop.run_until_complete(run_indexing())
+
+
+@app.task(queue="convert")
+def convert_document(document):
+    print("Converting document")
+    document_service = DocumentService()
+    document_service.convert_document(document["id"])
+    print("Done")

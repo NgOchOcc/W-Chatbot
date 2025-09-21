@@ -1,8 +1,9 @@
 import re
-from typing import List, Dict, Tuple
+from typing import List, Dict
 
 from llama_index.core import Document as LlamaDocument
-from llama_index.core.node_parser import SimpleNodeParser, MarkdownNodeParser, SentenceSplitter
+from llama_index.core.node_parser import MarkdownNodeParser, SentenceSplitter
+
 
 class AdvancedChunkingStrategy:
     def __init__(

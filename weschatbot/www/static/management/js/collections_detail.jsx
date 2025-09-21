@@ -14,8 +14,13 @@ import {
     CNavItem,
     CNavLink,
     CTabContent,
-    CTabPane,
+    CTabPane, CFormInput, CButtonGroup, CButton, CModal, CModalHeader, CModalBody, CModalFooter, CInputGroup,
 } from "@coreui/react";
+import CIcon from "@coreui/icons-react";
+import {cilSearch} from "@coreui/icons";
+import remarkGfm from "remark-gfm";
+import rehypeRaw from "rehype-raw";
+import ReactMarkdown from "react-markdown";
 
 const container = document.getElementById("root_container");
 const root = createRoot(container);
@@ -32,6 +37,114 @@ const dataTypeMap = {
     21: "VarChar",
     101: "FloatVector",
 };
+
+
+function ActionColumn({item}) {
+    const [visible, setVisible] = useState(false);
+
+    return (
+        <>
+            <CButtonGroup>
+                <CButton
+                    color="secondary"
+                    size="sm"
+                    variant="outline"
+                    style={{height: "25px", padding: "2px", width: "25px"}}
+                    onClick={() => setVisible(true)}
+                >
+                    <CIcon icon={cilSearch} size="sm"/>
+                </CButton>
+            </CButtonGroup>
+
+            <CModal visible={visible} onClose={() => setVisible(false)} size="lg">
+                <CModalHeader>Entity Detail</CModalHeader>
+                <CModalBody>
+                    <p><strong>Row ID:</strong> {item["row_id"]}</p>
+                    <p><strong>Text:</strong>
+                        <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
+                            {item["text"]}
+                        </ReactMarkdown>
+                    </p>
+                </CModalBody>
+                <CModalFooter>
+                    <CButton color="secondary" onClick={() => setVisible(false)}>Close</CButton>
+                </CModalFooter>
+            </CModal>
+        </>
+    );
+}
+
+function MilvusEntitiesPage({collectionId}) {
+    const [entities, setEntities] = useState([]);
+    const [search, setSearch] = useState("");
+
+    const fetchEntities = () => {
+        fetch(`/management/ViewModelCollection/collection_entities?collection_id=${collectionId}&search=${encodeURIComponent(search)}`)
+            .then((res) => res.json())
+            .then((data) => {
+                console.log(data);
+                setEntities(data["data"])
+            });
+    }
+
+    useEffect(() => {
+        fetchEntities()
+    }, [])
+
+    const handleSearch = () => {
+        console.log(search)
+        fetchEntities()
+    }
+
+    return (
+        <>
+            <CCard>
+                <CCardHeader>Milvus Entities</CCardHeader>
+                <CCardBody>
+                    <CInputGroup className="mb-3" style={{maxWidth: "400px"}}>
+                        <CFormInput
+                            type="text"
+                            placeholder="Search text..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                        />
+                        <CButton
+                            type="button"
+                            color="primary"
+                            onClick={() => {
+                                handleSearch()
+                            }}
+                        >
+                            Search
+                        </CButton>
+                    </CInputGroup>
+                    <div style={{maxHeight: "680px", overflowY: "auto"}}>
+                        <CTable striped hover responsive>
+                            <CTableHead>
+                                <CTableRow>
+                                    <CTableHeaderCell style={{width: "5%"}}>#</CTableHeaderCell>
+                                    <CTableHeaderCell style={{width: "15%"}}>Row ID</CTableHeaderCell>
+                                    <CTableHeaderCell style={{width: "80%"}}>Text</CTableHeaderCell>
+                                </CTableRow>
+                            </CTableHead>
+                            <CTableBody>
+                                {entities.map((item, index) => (
+                                    <CTableRow key={index}>
+                                        <CTableDataCell style={{width: "5%"}}>
+                                            <ActionColumn item={item}></ActionColumn>
+                                        </CTableDataCell>
+                                        <CTableDataCell style={{width: "15%"}}>{item["row_id"]}</CTableDataCell>
+                                        <CTableDataCell style={{width: "80%"}}>{item["text"]}</CTableDataCell>
+                                    </CTableRow>
+                                ))}
+                            </CTableBody>
+                        </CTable>
+                    </div>
+                </CCardBody>
+            </CCard>
+        </>
+    );
+}
 
 function CollectionInfoPage({data}) {
     const [activeTab, setActiveTab] = useState("documents")
@@ -188,6 +301,11 @@ function CollectionInfoPage({data}) {
                 <CNavItem>
                     <CNavLink active={activeTab === "documents"} onClick={() => setActiveTab("documents")}>
                         Documents
+                    </CNavLink>
+                </CNavItem>
+                <CNavItem>
+                    <CNavLink active={activeTab === "entities"} onClick={() => setActiveTab("entities")}>
+                        Entities
                     </CNavLink>
                 </CNavItem>
                 <CNavItem>
@@ -353,6 +471,7 @@ function CollectionInfoPage({data}) {
                             </button>
                         </CCardBody>
                     </CCard>
+                    <br/>
                     <CCard>
                         <CCardHeader>Flushing</CCardHeader>
                         <CCardBody>
@@ -372,6 +491,9 @@ function CollectionInfoPage({data}) {
                             </button>
                         </CCardBody>
                     </CCard>
+                </CTabPane>
+                <CTabPane visible={activeTab === "entities"}>
+                    <MilvusEntitiesPage collectionId={collection_id}></MilvusEntitiesPage>
                 </CTabPane>
             </CTabContent>
         </>

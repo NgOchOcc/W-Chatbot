@@ -1,8 +1,8 @@
 from weschatbot.services.collection_service import CollectionService
 import pytest
 
-from weschatbot.services.document.index_document_service import IndexDocumentService, DocumentConverter, \
-    PipelineMilvusStore
+from weschatbot.services.document.index_document_service import IndexDocumentService, PipelineMilvusStore
+from weschatbot.services.document.converting import DocumentConverter
 from weschatbot.utils.config import config
 
 
@@ -31,7 +31,9 @@ def test_all_collections(milvus_service):
 
 
 def test_get_entities(milvus_service):
-    entities = milvus_service.get_entities("westaco_documents")
+    entities = milvus_service.get_entities(collection_name="doc_v2", output_fields=["text"], row_id=0)
+    for entity in entities:
+        print(entity)
     assert entities is not None
 
 
