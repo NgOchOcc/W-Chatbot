@@ -21,6 +21,9 @@ setup(
     author_email=author_email,
     description=description,
     include_package_data=True,
+    package_data={
+        "weschatbot": ["weschatbot/www/templates/**/*.html"]
+    },
     install_requires=[
         "importlib_metadata==8.5.0",
         "cookiecutter==2.6.0",

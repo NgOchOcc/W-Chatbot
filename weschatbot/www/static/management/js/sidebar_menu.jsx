@@ -12,7 +12,7 @@ import {
 } from '@coreui/react'
 
 import CIcon from '@coreui/icons-react'
-import {cilUser, cilChatBubble, cilBank, cilBookmark, cilLayers, cilFile, cilAppsSettings} from '@coreui/icons'
+import {cilUser, cilChatBubble, cilBank, cilBookmark, cilLayers, cilFile, cilAppsSettings, cilBook} from '@coreui/icons'
 
 
 const stringToColor = (str) => {
@@ -58,7 +58,7 @@ function SidebarMenu({userName = 'User', onLogout, currentUser, userPermissions}
                 <NavItem href={"/management/ViewModelPermission/list"} icon={cilBookmark} role={currentUser.role.name}
                          permissions={permissions} value={"Permissions"}></NavItem>
                 <NavItem href={"/management/ViewModelDocument/list"} icon={cilFile} role={currentUser.role.name}
-                         permissions={permissions} value={"Documents"}></NavItem>
+                         permissions={permissions} value={"Documents Uploading"}></NavItem>
                 {/*<NavItem href={"/management/ViewModelJob/list"} icon={cilNotes} role={currentUser.role.name}*/}
                 {/*         permissions={permissions} value={"Jobs"}></NavItem>*/}
                 <NavItem href={"/management/ViewModelCollection/list"} icon={cilLayers}
@@ -67,6 +67,10 @@ function SidebarMenu({userName = 'User', onLogout, currentUser, userPermissions}
                 <NavItem href={"/management/ViewModelChatbotConfiguration/"} icon={cilAppsSettings}
                          role={currentUser.role.name}
                          permissions={permissions} value={"Chatbot Configuration"}></NavItem>
+                <CNavTitle>Docs</CNavTitle>
+                <CNavItem href="/management/docs">
+                    <CIcon customClassName="nav-icon" icon={cilBook}/> Administrator Guideline
+                </CNavItem>
             </CSidebarNav>
             <CSidebarHeader className="border-top">
                 <div

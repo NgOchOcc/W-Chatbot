@@ -1,4 +1,5 @@
 recursive-include weschatbot *.html
 recursive-include weschatbot/www/static *
+recursive-include weschatbot/docs/build/html *
 
 recursive-exclude weschatbot/www/node_modules *
