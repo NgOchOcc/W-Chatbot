@@ -28,6 +28,7 @@ class PipelineMilvusStore(Pipeline, LoggingMixin):
             embedding_model_name: str = "Qwen/Qwen3-Embedding-0.6B",
             milvus_host: Optional[str] = None,
             milvus_port: Optional[int] = None,
+            metrics: Optional[str] = "COSINE",
             *args, **kwargs
     ):
         super().__init__(*args, **kwargs)
@@ -38,13 +39,16 @@ class PipelineMilvusStore(Pipeline, LoggingMixin):
 
         self.milvus_host = milvus_host if milvus_host is not None else 'localhost'
         self.milvus_port = milvus_port if milvus_port is not None else 19530
+        self.metrics = metrics
 
         try:
+            print(f"Similarity: {self.metrics}")
             self.vector_store = MilvusVectorStore(
                 uri=f"http://{self.milvus_host}:{self.milvus_port}",
                 collection_name=self.collection_name,
                 dim=self.dim,
-                overwrite=False
+                overwrite=False,
+                similarity_metric=self.metrics,
             )
             self.log.info(f"Connected to Milvus collection '{self.collection_name}' with dimension {self.dim}")
         except Exception as e:

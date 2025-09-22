@@ -8,10 +8,10 @@ from llama_index.core.node_parser import MarkdownNodeParser, SentenceSplitter
 class AdvancedChunkingStrategy:
     def __init__(
         self,
-        chunk_size: int = 1000,
-        chunk_overlap: int = 200,
-        min_chunk_size: int = 100,
-        max_chunk_size: int = 2000
+        chunk_size: int = 768,
+        chunk_overlap: int = 128,
+        min_chunk_size: int = 128,
+        max_chunk_size: int = 1024
     ):
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
@@ -165,11 +165,6 @@ class AdvancedChunkingStrategy:
         enhanced_chunks = []
         
         for i, chunk in enumerate(chunks):
-            prev_context = chunks[i-1].text[-100:] if i > 0 else ""
-            next_context = chunks[i+1].text[:100] if i < len(chunks) - 1 else ""
-            
-            chunk.metadata['prev_context'] = prev_context
-            chunk.metadata['next_context'] = next_context
             chunk.metadata['total_chunks'] = len(chunks)
             chunk.metadata['chunk_position'] = i + 1
             

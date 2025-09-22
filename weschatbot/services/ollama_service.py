@@ -163,8 +163,8 @@ class VLLMClient:
             kwargs['temperature'] = 0
 
         if conversation_history and len(conversation_history) > 0:
-            # Take only the last 2 messages (1 conversation turn)
-            limited_history = conversation_history[-2:] if len(conversation_history) >= 2 else conversation_history[-1:]
+            # Take only the last 3 messages (1 conversation turn)
+            limited_history = conversation_history[-3:] if len(conversation_history) >= 3 else conversation_history[-len(conversation_history):]
             messages.extend(limited_history)
 
         system_message = f"{ChatbotConfigurationService().get_prompt()}\n{context}"

@@ -9,7 +9,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.websockets import WebSocketDisconnect
 from fastapi_csrf_protect import CsrfProtect
 from pymilvus import Collection, connections
-from sentence_transformers import SentenceTransformer
+from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 
 from weschatbot.exceptions.user_exceptions import InvalidUserError
 from weschatbot.schemas.chat import Message
@@ -38,11 +38,16 @@ connections.connect("default", host=config["milvus"]["host"], port=int(config["m
 chatbot_configuration_service = ChatbotConfigurationService()
 
 KB_COLLECTION_NAME = chatbot_configuration_service.get_collection_name()
+
 kb_collection = Collection(KB_COLLECTION_NAME)
 kb_collection.load()
 
-# Initial embedding model
-embedding_model = SentenceTransformer('Qwen/Qwen3-Embedding-0.6B')
+# Initial embedding model using LlamaIndex HuggingFace
+EMBEDDING_MODEL = config['embedding_model']['model']
+embedding_model = HuggingFaceEmbedding(
+    model_name=EMBEDDING_MODEL,
+    trust_remote_code=True
+)
 
 # vLLM configuration
 VLLM_MODEL = config['vllm']['model']
@@ -202,9 +207,10 @@ async def websocket_endpoint(websocket: WebSocket,
             question = json.loads(data)["message"]
             chat_id = json.loads(data)["chat_id"]
 
-            query_emb = embedding_model.encode([question])[0].tolist()
+            # Using LlamaIndex HuggingFace embedding
+            query_emb = embedding_model.get_text_embedding(question)
 
-            search_params = {"metric_type": "IP", "params": {"nprobe": 10}}
+            search_params = {"metric_type": "COSINE", "params": {"nprobe": 10}}
             results = kb_collection.search(
                 data=[query_emb],
                 anns_field="embedding",
@@ -254,6 +260,7 @@ async def websocket_endpoint(websocket: WebSocket,
             await websocket.send_text(json.dumps(res))
     except WebSocketDisconnect:
         print("Client disconnected")
+
 #
 #
 # if __name__ == "__main__":
