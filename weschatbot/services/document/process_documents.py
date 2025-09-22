@@ -28,7 +28,7 @@ class DocumentProcessor(LoggingMixin):
         self, 
         collection_name: str = "westaco_documents",
         embedding_model: str = "Qwen/Qwen3-Embedding-0.6B",
-        embedding_dim: int = 1024
+        embedding_dim: int = 1024,
     ):
         self.collection_name = collection_name
         self.embedding_model = embedding_model
@@ -38,7 +38,8 @@ class DocumentProcessor(LoggingMixin):
         self.pipeline = PipelineMilvusStore(
             collection_name=self.collection_name,
             embedding_model_name=self.embedding_model,
-            dim=self.embedding_dim
+            dim=self.embedding_dim,
+            metrics="COSINE",
         )
         
     def process_directory(self, directory_path: str, file_extensions: List[str] = None):
@@ -115,78 +116,3 @@ class DocumentProcessor(LoggingMixin):
             self.log.info(f"Indexing {len(converted_docs)} documents")
             self.pipeline.run(converted_docs, metadata_list)
             self.log.info("Batch processing completed")
-
-
-def main():
-    """Main entry point"""
-    parser = argparse.ArgumentParser(description="Process documents for vector database")
-    parser.add_argument(
-        "--directory", "-d",
-        help="Directory containing documents to process",
-        type=str
-    )
-    parser.add_argument(
-        "--files", "-f",
-        nargs='+',
-        help="Specific files to process",
-        type=str
-    )
-    parser.add_argument(
-        "--collection",
-        default="westaco_documents_v2",
-        help="Milvus collection name"
-    )
-    parser.add_argument(
-        "--embedding-model",  
-        default="sentence-transformers/all-mpnet-base-v2",
-        help="Embedding model name"
-    )
-    parser.add_argument(
-        "--embedding-dim",
-        default=768,
-        type=int,
-        help="Embedding dimension"
-    )
-    parser.add_argument(
-        "--extensions",
-        nargs='+',
-        default=['.md', '.pdf', '.docx', '.txt'],
-        help="File extensions to process"
-    )
-    parser.add_argument(
-        "--log-level",
-        default="INFO",
-        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
-        help="Logging level"
-    )
-    
-    args = parser.parse_args()
-    
-    # Setup logging
-    logging.basicConfig(
-        level=getattr(logging, args.log_level),
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    )
-    
-    # Create processor
-    processor = DocumentProcessor(
-        collection_name=args.collection,
-        embedding_model=args.embedding_model,
-        embedding_dim=args.embedding_dim
-    )
-    
-    # Process based on input
-    if args.directory:
-        processor.process_directory(args.directory, args.extensions)
-    elif args.files:
-        processor.process_files(args.files)
-    else:
-        print("Please specify either --directory or --files")
-        parser.print_help()
-        sys.exit(1)
-        
-    print("Processing completed!")
-
-
-if __name__ == "__main__":
-    main()
