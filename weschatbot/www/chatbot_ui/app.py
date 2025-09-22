@@ -43,7 +43,7 @@ kb_collection = Collection(KB_COLLECTION_NAME)
 kb_collection.load()
 
 # Initial embedding model using LlamaIndex HuggingFace
-EMBEDDING_MODEL = config['embedding-model']['model']
+EMBEDDING_MODEL = config['embedding_model']['model']
 embedding_model = HuggingFaceEmbedding(
     model_name=EMBEDDING_MODEL,
     trust_remote_code=True
