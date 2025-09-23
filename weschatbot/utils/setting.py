@@ -33,8 +33,8 @@ def configure_sqlalchemy_session():
     mysql_engine = create_engine(
         mysql_config["sql_alchemy_conn"],
         poolclass=QueuePool,
-        pool_size=5,
-        pool_recycle=300,
+        pool_size=10,
+        pool_recycle=28000,
         echo=False)
 
     mysql_session = scoped_session(
