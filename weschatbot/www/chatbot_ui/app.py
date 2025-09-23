@@ -237,7 +237,9 @@ async def websocket_endpoint(websocket: WebSocket,
                 answer = await vllm_client.chat_with_context(
                     question=question,
                     context=context,
-                    conversation_history=conversation_history
+                    conversation_history=conversation_history,
+                    temperature=chatbot_configuration.temperature,
+                    max_completion_tokens=chatbot_configuration.max_completion_tokens,
                 )
 
                 answer = answer.split('</think>')[-1]
