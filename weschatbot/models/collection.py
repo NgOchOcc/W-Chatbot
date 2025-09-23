@@ -146,6 +146,8 @@ class ChatbotConfiguration(Base):
     )
 
     similar_threshold = Column(Float, nullable=False)
+    temperature = Column(Float, nullable=False, default=0)
+    max_completion_tokens = Column(Integer, nullable=False, default=0)
 
     def to_dict(self, session=None):
         return {
@@ -153,4 +155,6 @@ class ChatbotConfiguration(Base):
             "prompt": self.prompt,
             "collection": self.collection.name,
             "similar_threshold": self.similar_threshold,
+            "temperature": self.temperature,
+            "max_completion_tokens": self.max_completion_tokens,
         }
