@@ -112,40 +112,52 @@ function DataListView({items, data_types, list_fields}) {
                     </>
                 )
             default:
-                return <span>{data}</span>
+                return (
+                    <span style={{
+                        display: 'inline-block',
+                        maxWidth: '100%',
+                        minWidth: '50px',
+                        wordBreak: 'break-word',
+                        whiteSpace: 'pre-wrap',
+                        fontSize: '0.9rem'
+                    }}>{data}</span>
+                )
         }
     }
 
     return (
         <>
-            <table className={"table table-bordered table-hover table-sm"}>
-                <thead>
-                <tr>
-                    <th scope={"col"}>#</th>
+            <div style={{maxHeight: "680px", overflowY: "auto"}}>
+                <table className={"table table-bordered table-hover table-sm"}>
+                    <thead>
+                    <tr>
+                        <th scope={"col"}>#</th>
+                        {
+                            list_fields.map(x => {
+                                return <th key={`hcol_${x}`} scope={"col"}>{x}</th>
+                            })
+                        }
+                    </tr>
+                    </thead>
+                    <tbody>
                     {
-                        list_fields.map(x => {
-                            return <th key={`hcol_${x}`} scope={"col"}>{x}</th>
+                        items.map((x, index) => {
+                            return <tr key={`tb_row_${index}`}>
+                                <td>
+                                    <ActionColumn item={x}></ActionColumn>
+                                </td>
+                                {
+                                    list_fields.map((field) => {
+                                        return <td
+                                            key={`${x.id}_${field}`}>{fieldHelper(x[field], data_types[field])}</td>
+                                    })
+                                }
+                            </tr>
                         })
                     }
-                </tr>
-                </thead>
-                <tbody>
-                {
-                    items.map((x, index) => {
-                        return <tr key={`tb_row_${index}`}>
-                            <td>
-                                <ActionColumn item={x}></ActionColumn>
-                            </td>
-                            {
-                                list_fields.map((field) => {
-                                    return <td key={`${x.id}_${field}`}>{fieldHelper(x[field], data_types[field])}</td>
-                                })
-                            }
-                        </tr>
-                    })
-                }
-                </tbody>
-            </table>
+                    </tbody>
+                </table>
+            </div>
         </>
     )
 }

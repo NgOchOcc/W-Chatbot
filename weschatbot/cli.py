@@ -95,9 +95,22 @@ def management_start(gunicorn_args):
     StandaloneApplication(app, options).run()
 
 
-@document.command("convert")
+@document.command("convert_all")
 def convert_documents():
     print("Converting documents")
     document_service = DocumentService()
     document_service.convert_all_documents()
     print("Done")
+
+
+@document.command("convert")
+@click.option('--id', 'document_id', required=True, type=int, help='Document ID in database (integer)')
+def convert_document(document_id):
+    print(f"Converting document id: {document_id}")
+    document_service = DocumentService()
+    try:
+        document_service.convert_document(document_id)
+    except Exception as e:
+        print(e)
+        exit(1)
+    exit(0)
