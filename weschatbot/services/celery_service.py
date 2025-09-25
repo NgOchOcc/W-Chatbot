@@ -1,9 +1,9 @@
 import logging
+import subprocess
 from functools import wraps
 
 from weschatbot.models.collection import CollectionStatus, Collection
 from weschatbot.models.job import Job, JobStatus
-from weschatbot.services.document.document_service import DocumentService
 from weschatbot.services.document.index_document_service import PipelineMilvusStore, \
     IndexDocumentWithoutConverterService
 from weschatbot.utils.config import config
@@ -88,7 +88,6 @@ def index_collection_to_milvus(collection_id, collection_name):
     import asyncio
 
     async def run_indexing():
-        # converter = DocumentConverter()
         pipeline = PipelineMilvusStore(
             collection_name=collection_name,
             milvus_host=config["milvus"]["host"],
@@ -109,7 +108,12 @@ def index_collection_to_milvus(collection_id, collection_name):
 
 @app.task(queue="convert")
 def convert_document(document):
-    print("Converting document")
-    document_service = DocumentService()
-    document_service.convert_document(document["id"])
-    print("Done")
+    print(f"Start converting - Document ID {document['id']}, calling sub process")
+    result = subprocess.run(
+        ["weschatbot", "document", "convert", "--id", f"{document['id']}"],
+        capture_output=True
+    )
+    if result.returncode != 0:
+        print(f"Sub process failed with code {result.returncode}")
+        print(f"Document ID {document['id']} is not converted.")
+    print(f"Done - Document ID {document['id']}")

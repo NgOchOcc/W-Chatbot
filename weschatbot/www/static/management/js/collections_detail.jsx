@@ -162,7 +162,7 @@ function CollectionInfoPage({data}) {
 
 
     useEffect(() => {
-        fetch("/management/ViewModelCollection/all_documents", {
+        fetch("/management/ViewModelCollection/available_documents", {
             method: "GET",
             headers: {
                 "Content-Type": "application/json",
@@ -199,6 +199,13 @@ function CollectionInfoPage({data}) {
                 console.error("Error loading collection documents:", err)
             })
     }, [collection_id, refreshFlag])
+
+    useEffect(() => {
+        const indexingFlag = localStorage.getItem("isIndexing_" + collection_id)
+        if (indexingFlag === "true") {
+            pollCollectionStatus()
+        }
+    }, [])
 
 
     function handleAddDocument() {
@@ -284,13 +291,41 @@ function CollectionInfoPage({data}) {
             .then((data) => {
                 if (data.status === "success") {
                     setIsIndexing(true)
+                    localStorage.setItem("isIndexing_" + collection_id, "true")
+                    setTimeout(() => {
+                        pollCollectionStatus()
+                    }, 5000)
                 } else {
-                    alert("Failed: " + data.message);
+                    alert("Failed: " + data.message)
                 }
             })
             .catch((err) => {
-                alert("Error: " + err);
+                alert("Error: " + err)
             })
+    }
+
+    function pollCollectionStatus() {
+
+        const interval = setInterval(() => {
+            fetch("/management/ViewModelCollection/check_collection_indexing?collection_id=" + collection_id, {
+                method: "GET",
+                headers: {
+                    "X-CSRFToken": csrf_token,
+                },
+            })
+                .then((res) => res.json())
+                .then((data) => {
+                    if (data.status === "success" && data.collection_status === "done") {
+                        clearInterval(interval)
+                        setIsIndexing(false)
+                        console.log("Collection indexing completed.")
+                    }
+                })
+                .catch((err) => {
+                    clearInterval(interval)
+                    alert("Error checking status: " + err)
+                })
+        }, 5000)
     }
 
     return (
@@ -425,10 +460,14 @@ function CollectionInfoPage({data}) {
                                     {documentsList.length > 0 ? (
                                         documentsList.map((doc, index) => (
                                             <CTableRow key={index}>
-                                                <CTableDataCell>{doc.id}</CTableDataCell>
-                                                <CTableDataCell>{doc.name}</CTableDataCell>
-                                                <CTableDataCell>{doc.path}</CTableDataCell>
-                                                <CTableDataCell>{doc.status}</CTableDataCell>
+                                                <CTableDataCell style={{minWidth: '50px'}}>{doc.id}</CTableDataCell>
+                                                <CTableDataCell style={{minWidth: '200px'}}>{doc.name}</CTableDataCell>
+                                                <CTableDataCell style={{
+                                                    wordBreak: 'break-word',
+                                                    whiteSpace: 'pre-wrap'
+                                                }}>{doc.path}</CTableDataCell>
+                                                <CTableDataCell
+                                                    style={{minWidth: '100px'}}>{doc.status}</CTableDataCell>
                                                 <CTableDataCell>
                                                     <button
                                                         className="btn btn-sm btn-danger"

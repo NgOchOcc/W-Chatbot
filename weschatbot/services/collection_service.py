@@ -6,7 +6,7 @@ from sqlalchemy.orm import joinedload
 from weschatbot.exceptions.collection_exception import CollectionNotFoundException, ExistingCollectionDocumentException, \
     StatusNotFound
 from weschatbot.models.collection import Collection as WCollection, Document, CollectionDocument, \
-    CollectionDocumentStatus
+    CollectionDocumentStatus, DocumentStatus
 from weschatbot.schemas.collection import CollectionDesc
 from weschatbot.services.celery_service import index_collection_to_milvus
 from weschatbot.utils.db import provide_session
@@ -151,6 +151,11 @@ class CollectionService:
         return [x.to_dict(session) for x in res]
 
     @provide_session
+    def converted_documents(self, session=None):
+        res = session.query(Document).join(DocumentStatus).filter(DocumentStatus.name == "done").all()
+        return [x.to_dict(session) for x in res]
+
+    @provide_session
     def add_document_to_collection(self, collection_id: int, document_id: int, session=None) -> bool:
         collection = session.query(WCollection).filter(WCollection.id == collection_id).one_or_none()
         document = session.query(Document).filter(Document.id == document_id).one_or_none()
@@ -180,6 +185,13 @@ class CollectionService:
         document.is_used = True
 
         return True
+
+    @provide_session
+    def get_collection_status(self, collection_id, session=None):
+        collection = session.query(WCollection).filter(WCollection.id == collection_id).first()
+        if collection and collection.status:
+            return collection.status.name
+        return None
 
     @provide_session
     def get_documents_by_collection_id(self, collection_id: int, session=None):

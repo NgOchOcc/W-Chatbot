@@ -11,9 +11,13 @@ class DocumentService(LoggingMixin):
 
     @provide_session
     def convert_document(self, document_id, session=None):
-        document = session.query(Document).get(document_id)
+        try:
+            std_document_id = int(document_id)
+        except ValueError as e:
+            raise e
+        document = session.query(Document).get(std_document_id)
         if document is None:
-            raise DocumentNotFoundError(f"Document ID {document_id} not found")
+            raise DocumentNotFoundError(f"Document ID {std_document_id} not found")
 
         if document.status.name != "new":
             self.log.info("This document is already converted")
@@ -66,4 +70,3 @@ class DocumentService(LoggingMixin):
             document.status = done_status
 
         session.commit()
-

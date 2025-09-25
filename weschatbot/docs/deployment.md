@@ -30,6 +30,7 @@ docker network create -d bridge westaco_chatbot
 docker volume create weschatbot_uploads_volume
 docker volume create weschatbot_models_volume
 docker volume create weschatbot_converted_volume
+docker volume create weschatbot_datalab_models_volume
 ```
 
 #### Start mysql
@@ -121,6 +122,7 @@ docker run -d --gpus all \
   --network milvus \
   -v weschatbot_uploads_volume:/srv/weschatbot/uploads \
   -v weschatbot_converted_volume:/srv/weschatbot/converted \
+  -v weschatbot_datalab_models_volume:/root/.cache/datalab/models/ \
   westaco-chatbot:0.0.1 \
   weschatbot worker start
 ```
