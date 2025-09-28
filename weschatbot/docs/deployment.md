@@ -80,6 +80,7 @@ docker run -d -p 3000:3000 --gpus all \
   --network milvus \
   -v weschatbot_uploads_volume:/srv/weschatbot/uploads \
   -v weschatbot_converted_volume:/srv/weschatbot/converted \
+  -v weschatbot_models_volume:/root/.cache/huggingface \
   westaco-chatbot:0.0.1 \
   weschatbot chatbot start
 ```
@@ -142,7 +143,6 @@ docker run -d --gpus all \
     -e WESCHATBOT__DB__ASYNC_SQL_ALCHEMY_CONN=mysql+aiomysql://root:Adcef#1234@westaco-mysql:3306/chatbot \
     -e WESCHATBOT__REDIS__HOST=westaco-redis \
     -e WESCHATBOT__REDIS__PORT=6379 \
-    -v weschatbot_uploads_volume:/srv/weschatbot/uploads \
     -v weschatbot_models_volume:/root/.cache/huggingface \
     westaco-chatbot:0.0.1 \
     python -m vllm.entrypoints.openai.api_server \

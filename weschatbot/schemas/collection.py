@@ -52,3 +52,21 @@ class CollectionDesc:
             "indexes": self.indexes,
             "status": self.status,
         }
+
+
+class MilvusNotFoundCollectionDesc:
+
+    def __init__(self, collection_id, collection_name):
+        self.collection_id = collection_id
+        self.collection_name = collection_name
+
+    def to_dict(self):
+        return {
+            "collection_id": self.collection_id,
+            "collection_name": self.collection_name,
+            "description": "",
+            "num_entities": 0,
+            "fields": {},
+            "indexes": {},
+            "status": 404,
+        }
