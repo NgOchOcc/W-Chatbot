@@ -7,7 +7,7 @@ from weschatbot.exceptions.collection_exception import CollectionNotFoundExcepti
     StatusNotFound
 from weschatbot.models.collection import Collection as WCollection, Document, CollectionDocument, \
     CollectionDocumentStatus, DocumentStatus
-from weschatbot.schemas.collection import CollectionDesc
+from weschatbot.schemas.collection import CollectionDesc, MilvusNotFoundCollectionDesc
 from weschatbot.services.celery_service import index_collection_to_milvus
 from weschatbot.utils.db import provide_session
 
@@ -49,7 +49,8 @@ class CollectionService:
             self.connect()
             collection_name = collection.name
             if not utility.has_collection(collection_name):
-                raise CollectionNotFoundException(f"Collection {collection_name} is not found")
+                # raise CollectionNotFoundException(f"Collection {collection_name} is not found")
+                return MilvusNotFoundCollectionDesc(collection_id, collection_name)
             res = Collection(collection_name)
             return CollectionDesc(collection_id=collection_id, collection_name=collection_name,
                                   description=res.description,
@@ -74,17 +75,15 @@ class CollectionService:
             self.connect()
             if utility.has_collection(collection_name):
                 utility.drop_collection(collection_name)
-                try:
-                    session.query(CollectionDocument) \
-                        .filter_by(collection_id=collection_id) \
-                        .delete(synchronize_session=False)
-                    session.delete(collection)
-                    return True
-                except SQLAlchemyError:
-                    session.rollback()
-                    raise
-            else:
-                raise CollectionNotFoundException(f"Collection {collection_name} is not found")
+            try:
+                session.query(CollectionDocument) \
+                    .filter_by(collection_id=collection_id) \
+                    .delete(synchronize_session=False)
+                session.delete(collection)
+                return True
+            except SQLAlchemyError:
+                session.rollback()
+                raise
 
     @staticmethod
     def create_collection(

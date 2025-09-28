@@ -74,6 +74,24 @@ function ActionColumn({item}) {
     );
 }
 
+function NotFoundMilvusTasksPage() {
+    return (
+        <span>Collection is not exist int Milvus</span>
+    )
+}
+
+function NotFoundMilvusEntitiesPage({collectionId}) {
+    return (
+        <span>Collection is not exist int Milvus</span>
+    )
+}
+
+function NotFoundMilvusOverviewPage() {
+    return (
+        <span>Collection is not exist int Milvus</span>
+    )
+}
+
 function MilvusEntitiesPage({collectionId}) {
     const [entities, setEntities] = useState([]);
     const [search, setSearch] = useState("");
@@ -357,62 +375,74 @@ function CollectionInfoPage({data}) {
 
             <CTabContent>
                 <CTabPane visible={activeTab === "overview"}>
-                    <p><strong>Description:</strong> {description}</p>
-                    <p><strong>Number of entities:</strong> {num_entities}</p>
+                    {status === 404 &&
+                        <NotFoundMilvusOverviewPage></NotFoundMilvusOverviewPage>
+                        ||
+                        <>
+                            <p><strong>Description:</strong> {description}</p>
+                            <p><strong>Number of entities:</strong> {num_entities}</p>
 
-                    <CCard className="mb-4">
-                        <CCardHeader>Schema Fields</CCardHeader>
-                        <CCardBody>
-                            <CTable striped hover responsive bordered>
-                                <CTableHead>
-                                    <CTableRow>
-                                        <CTableHeaderCell>Field name</CTableHeaderCell>
-                                        <CTableHeaderCell>Data type</CTableHeaderCell>
-                                        <CTableHeaderCell>Params</CTableHeaderCell>
-                                    </CTableRow>
-                                </CTableHead>
-                                <CTableBody>
-                                    {fields.map((field, index) => (
-                                        <CTableRow key={index}>
-                                            <CTableDataCell>{field.name}</CTableDataCell>
-                                            <CTableDataCell>{dataTypeMap[field.type] || field.type}</CTableDataCell>
-                                            <CTableDataCell>
-                                                {Object.entries(field.params).length > 0
-                                                    ? Object.entries(field.params).map(([key, value]) => `${key}: ${value}`).join(", ")
-                                                    : "—"}
-                                            </CTableDataCell>
-                                        </CTableRow>
-                                    ))}
-                                </CTableBody>
-                            </CTable>
-                        </CCardBody>
-                    </CCard>
+                            <CCard className="mb-4">
+                                <CCardHeader>Schema Fields</CCardHeader>
+                                <CCardBody>
+                                    <CTable striped hover responsive bordered>
+                                        <CTableHead>
+                                            <CTableRow>
+                                                <CTableHeaderCell>Field name</CTableHeaderCell>
+                                                <CTableHeaderCell>Data type</CTableHeaderCell>
+                                                <CTableHeaderCell>Params</CTableHeaderCell>
+                                            </CTableRow>
+                                        </CTableHead>
+                                        {Object.keys(fields).length !== 0 &&
+                                            <CTableBody>
+                                                {fields.map((field, index) => (
+                                                    <CTableRow key={index}>
+                                                        <CTableDataCell>{field.name}</CTableDataCell>
+                                                        <CTableDataCell>{dataTypeMap[field.type] || field.type}</CTableDataCell>
+                                                        <CTableDataCell>
+                                                            {Object.entries(field.params).length > 0
+                                                                ? Object.entries(field.params).map(([key, value]) => `${key}: ${value}`).join(", ")
+                                                                : "—"}
+                                                        </CTableDataCell>
+                                                    </CTableRow>
+                                                ))}
+                                            </CTableBody>
+                                        }
 
-                    <CCard>
-                        <CCardHeader>Indexes</CCardHeader>
-                        <CCardBody>
-                            <CTable striped hover responsive bordered>
-                                <CTableHead>
-                                    <CTableRow>
-                                        <CTableHeaderCell>Field</CTableHeaderCell>
-                                        <CTableHeaderCell>Index name</CTableHeaderCell>
-                                        <CTableHeaderCell>Params</CTableHeaderCell>
-                                    </CTableRow>
-                                </CTableHead>
-                                <CTableBody>
-                                    {indexes.map((index, idx) => (
-                                        <CTableRow key={idx}>
-                                            <CTableDataCell>{index.field_name}</CTableDataCell>
-                                            <CTableDataCell>{index.index_name}</CTableDataCell>
-                                            <CTableDataCell>
-                                                {Object.entries(index.params).map(([key, value]) => `${key}: ${value}`).join(", ")}
-                                            </CTableDataCell>
-                                        </CTableRow>
-                                    ))}
-                                </CTableBody>
-                            </CTable>
-                        </CCardBody>
-                    </CCard>
+                                    </CTable>
+                                </CCardBody>
+                            </CCard>
+
+
+                            <CCard>
+                                <CCardHeader>Indexes</CCardHeader>
+                                <CCardBody>
+                                    <CTable striped hover responsive bordered>
+                                        <CTableHead>
+                                            <CTableRow>
+                                                <CTableHeaderCell>Field</CTableHeaderCell>
+                                                <CTableHeaderCell>Index name</CTableHeaderCell>
+                                                <CTableHeaderCell>Params</CTableHeaderCell>
+                                            </CTableRow>
+                                        </CTableHead>
+                                        {Object.keys(indexes).length !== 0 &&
+                                            <CTableBody>
+                                                {indexes.map((index, idx) => (
+                                                    <CTableRow key={idx}>
+                                                        <CTableDataCell>{index.field_name}</CTableDataCell>
+                                                        <CTableDataCell>{index.index_name}</CTableDataCell>
+                                                        <CTableDataCell>
+                                                            {Object.entries(index.params).map(([key, value]) => `${key}: ${value}`).join(", ")}
+                                                        </CTableDataCell>
+                                                    </CTableRow>
+                                                ))}
+                                            </CTableBody>
+                                        }
+                                    </CTable>
+                                </CCardBody>
+                            </CCard>
+                        </>
+                    }
                 </CTabPane>
 
                 <CTabPane visible={activeTab === "documents"}>
@@ -491,48 +521,60 @@ function CollectionInfoPage({data}) {
                 </CTabPane>
 
                 <CTabPane visible={activeTab === "tasks"}>
-                    <CCard>
-                        <CCardHeader>Indexing</CCardHeader>
-                        <CCardBody>
-                            <p>Perform indexing on this collection.</p>
-                            <button
-                                className="btn btn-success"
-                                onClick={handleIndexCollection}
-                                disabled={isIndexing}
-                            >
-                                {isIndexing ? (
-                                    <>
+                    {status === 404 &&
+                        <NotFoundMilvusTasksPage></NotFoundMilvusTasksPage>
+                        ||
+                        <>
+                            <CCard>
+                                <CCardHeader>Indexing</CCardHeader>
+                                <CCardBody>
+                                    <p>Perform indexing on this collection.</p>
+                                    <button
+                                        className="btn btn-success"
+                                        onClick={handleIndexCollection}
+                                        disabled={isIndexing}
+                                    >
+                                        {isIndexing ? (
+                                            <>
                                         <span className="spinner-border spinner-border-sm me-2" role="status"
                                               aria-hidden="true"></span>
-                                        Indexing...
-                                    </>
-                                ) : ("Index")}
-                            </button>
-                        </CCardBody>
-                    </CCard>
-                    <br/>
-                    <CCard>
-                        <CCardHeader>Flushing</CCardHeader>
-                        <CCardBody>
-                            <p>Flush on this collection.</p>
-                            <button
-                                className="btn btn-success"
-                                onClick={handleFlushCollection}
-                                disabled={isFlushing}
-                            >
-                                {isFlushing ? (
-                                    <>
+                                                Indexing...
+                                            </>
+                                        ) : ("Index")}
+                                    </button>
+                                </CCardBody>
+                            </CCard>
+                            <br/>
+                            <CCard>
+                                <CCardHeader>Flushing</CCardHeader>
+                                <CCardBody>
+                                    <p>Flush on this collection.</p>
+                                    <button
+                                        className="btn btn-success"
+                                        onClick={handleFlushCollection}
+                                        disabled={isFlushing}
+                                    >
+                                        {isFlushing ? (
+                                            <>
                                         <span className="spinner-border spinner-border-sm me-2" role="status"
                                               aria-hidden="true"></span>
-                                        Flushing...
-                                    </>
-                                ) : ("Flush")}
-                            </button>
-                        </CCardBody>
-                    </CCard>
+                                                Flushing...
+                                            </>
+                                        ) : ("Flush")}
+                                    </button>
+                                </CCardBody>
+                            </CCard>
+                        </>
+                    }
+
                 </CTabPane>
                 <CTabPane visible={activeTab === "entities"}>
-                    <MilvusEntitiesPage collectionId={collection_id}></MilvusEntitiesPage>
+                    {status !== 404 &&
+                        <MilvusEntitiesPage collectionId={collection_id}></MilvusEntitiesPage>
+                        ||
+                        <NotFoundMilvusEntitiesPage collectionId={collection_id}></NotFoundMilvusEntitiesPage>
+                    }
+
                 </CTabPane>
             </CTabContent>
         </>

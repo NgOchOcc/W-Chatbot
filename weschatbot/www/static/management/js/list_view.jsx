@@ -127,7 +127,7 @@ function DataListView({items, data_types, list_fields}) {
 
     return (
         <>
-            <div style={{maxHeight: "680px", overflowY: "auto"}}>
+            <div style={{maxHeight: "800px", overflowY: "auto"}}>
                 <table className={"table table-bordered table-hover table-sm"}>
                     <thead>
                     <tr>
