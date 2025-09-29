@@ -31,7 +31,7 @@ def test_all_collections(milvus_service):
 
 
 def test_get_entities(milvus_service):
-    entities = milvus_service.get_entities(collection_name="doc_v2", output_fields=["text"], row_id=0)
+    entities, next_token = milvus_service.get_entities(collection_name="doc_v2", output_fields=["text"])
     for entity in entities:
         print(entity)
     assert entities is not None
