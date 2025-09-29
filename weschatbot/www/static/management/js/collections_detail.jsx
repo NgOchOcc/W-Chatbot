@@ -1,20 +1,30 @@
 import {createRoot} from "react-dom/client";
 import React, {useEffect, useState} from "react";
 import {
+    CButton,
+    CButtonGroup,
     CCard,
     CCardBody,
     CCardHeader,
+    CFormInput,
+    CInputGroup,
+    CModal,
+    CModalBody,
+    CModalFooter,
+    CModalHeader,
+    CNav,
+    CNavItem,
+    CNavLink,
+    CPagination,
+    CPaginationItem,
+    CTabContent,
     CTable,
     CTableBody,
     CTableDataCell,
     CTableHead,
     CTableHeaderCell,
     CTableRow,
-    CNav,
-    CNavItem,
-    CNavLink,
-    CTabContent,
-    CTabPane, CFormInput, CButtonGroup, CButton, CModal, CModalHeader, CModalBody, CModalFooter, CInputGroup,
+    CTabPane,
 } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
 import {cilSearch} from "@coreui/icons";
@@ -93,25 +103,67 @@ function NotFoundMilvusOverviewPage() {
 }
 
 function MilvusEntitiesPage({collectionId}) {
-    const [entities, setEntities] = useState([]);
-    const [search, setSearch] = useState("");
+    const [entities, setEntities] = useState([])
+    const [search, setSearch] = useState("")
+    const [tokens, setTokens] = useState([""])
+    const [currentToken, setCurrentToken] = useState("")
+    const [currentPage, setCurrentPage] = useState(0)
 
-    const fetchEntities = () => {
-        fetch(`/management/ViewModelCollection/collection_entities?collection_id=${collectionId}&search=${encodeURIComponent(search)}`)
+    function decode(token) {
+        const padLength = (4 - (token.length % 4)) % 4;
+        const padded = token + "=".repeat(padLength);
+        const decoded = decodeURIComponent(escape(atob(padded)))
+        return decoded
+    }
+
+    const fetchEntities = (callback, token = "") => {
+        fetch(`/management/ViewModelCollection/collection_entities?collection_id=${collectionId}&search=${encodeURIComponent(search)}&token=${encodeURIComponent(token)}`)
             .then((res) => res.json())
             .then((data) => {
-                console.log(data);
                 setEntities(data["data"])
-            });
+                callback(data["next_token"])
+            })
+    }
+
+    const handlePrevious = () => {
+        console.log("Previous clicked")
+        let res = tokens[currentPage - 1]
+        setCurrentToken(res)
+        fetchEntities((nToken) => {
+            setCurrentToken(tokens[currentPage - 1])
+            setCurrentPage(Math.max(currentPage - 1, 0))
+        }, res)
+    }
+
+    const handleNext = () => {
+        console.log("Next clicked")
+        fetchEntities((nToken) => {
+            if (nToken !== null) {
+                if (!tokens.includes(nToken)) {
+                    setCurrentToken(tokens[currentPage + 1])
+                    tokens.push(nToken)
+                    setTokens(tokens)
+
+                }
+            }
+            setCurrentPage(Math.min(currentPage + 1, tokens.length - 1))
+        }, tokens[currentPage + 1])
     }
 
     useEffect(() => {
-        fetchEntities()
+        fetchEntities((nToken) => {
+            tokens.push(nToken)
+            setTokens(tokens)
+            setCurrentToken(tokens[currentPage])
+        }, "")
     }, [])
 
     const handleSearch = () => {
-        console.log(search)
-        fetchEntities()
+        fetchEntities((nToken) => {
+            tokens.push(nToken)
+            setTokens(tokens)
+            setCurrentToken(tokens[currentPage])
+        }, "")
     }
 
     return (
@@ -129,14 +181,13 @@ function MilvusEntitiesPage({collectionId}) {
                         <CButton
                             type="button"
                             color="primary"
-                            onClick={() => {
-                                handleSearch()
-                            }}
+                            onClick={handleSearch}
                         >
                             Search
                         </CButton>
                     </CInputGroup>
-                    <div style={{maxHeight: "680px", overflowY: "auto"}}>
+
+                    <div style={{maxHeight: "620px", overflowY: "auto"}}>
                         <CTable striped hover responsive>
                             <CTableHead>
                                 <CTableRow>
@@ -149,7 +200,7 @@ function MilvusEntitiesPage({collectionId}) {
                                 {entities.map((item, index) => (
                                     <CTableRow key={index}>
                                         <CTableDataCell style={{width: "5%"}}>
-                                            <ActionColumn item={item}></ActionColumn>
+                                            <ActionColumn item={item}/>
                                         </CTableDataCell>
                                         <CTableDataCell style={{width: "15%"}}>{item["row_id"]}</CTableDataCell>
                                         <CTableDataCell style={{width: "80%"}}>{item["text"]}</CTableDataCell>
@@ -158,11 +209,34 @@ function MilvusEntitiesPage({collectionId}) {
                             </CTableBody>
                         </CTable>
                     </div>
+
+                    <br/>
+                    <CPagination aria-label="Page navigation">
+                        {currentPage > 0 &&
+                            <CPaginationItem
+                                aria-label="Previous"
+                                style={{cursor: "pointer"}}
+                                onClick={handlePrevious}
+                            >
+                                <span aria-hidden="true">&laquo;</span>
+                            </CPaginationItem>
+                        }
+                        {currentPage < tokens.length - 1 &&
+                            <CPaginationItem
+                                aria-label="Next"
+                                style={{cursor: "pointer"}}
+                                onClick={handleNext}
+                            >
+                                <span aria-hidden="true">&raquo;</span>
+                            </CPaginationItem>
+                        }
+                    </CPagination>
                 </CCardBody>
             </CCard>
         </>
     );
 }
+
 
 function CollectionInfoPage({data}) {
     const [activeTab, setActiveTab] = useState("documents")
@@ -475,47 +549,50 @@ function CollectionInfoPage({data}) {
                     <CCard>
                         <CCardHeader>Documents</CCardHeader>
                         <CCardBody>
-                            <CTable striped hover responsive bordered>
-                                <CTableHead>
-                                    <CTableRow>
-                                        <CTableHeaderCell>ID</CTableHeaderCell>
-                                        <CTableHeaderCell>Name</CTableHeaderCell>
-                                        <CTableHeaderCell>Path</CTableHeaderCell>
-                                        <CTableHeaderCell>Status</CTableHeaderCell>
-                                        <CTableHeaderCell>Actions</CTableHeaderCell>
-                                    </CTableRow>
-                                </CTableHead>
-
-                                <CTableBody>
-                                    {documentsList.length > 0 ? (
-                                        documentsList.map((doc, index) => (
-                                            <CTableRow key={index}>
-                                                <CTableDataCell style={{minWidth: '50px'}}>{doc.id}</CTableDataCell>
-                                                <CTableDataCell style={{minWidth: '200px'}}>{doc.name}</CTableDataCell>
-                                                <CTableDataCell style={{
-                                                    wordBreak: 'break-word',
-                                                    whiteSpace: 'pre-wrap'
-                                                }}>{doc.path}</CTableDataCell>
-                                                <CTableDataCell
-                                                    style={{minWidth: '100px'}}>{doc.status}</CTableDataCell>
-                                                <CTableDataCell>
-                                                    <button
-                                                        className="btn btn-sm btn-danger"
-                                                        onClick={() => handleRemoveDocument(doc.id)}
-                                                    >
-                                                        Remove
-                                                    </button>
-                                                </CTableDataCell>
-                                            </CTableRow>
-                                        ))
-                                    ) : (
+                            <div style={{maxHeight: "550px", overflowY: "auto"}}>
+                                <CTable striped hover responsive bordered>
+                                    <CTableHead>
                                         <CTableRow>
-                                            <CTableDataCell colSpan={5}>No any document</CTableDataCell>
+                                            <CTableHeaderCell>ID</CTableHeaderCell>
+                                            <CTableHeaderCell>Name</CTableHeaderCell>
+                                            <CTableHeaderCell>Path</CTableHeaderCell>
+                                            <CTableHeaderCell>Status</CTableHeaderCell>
+                                            <CTableHeaderCell>Actions</CTableHeaderCell>
                                         </CTableRow>
-                                    )}
-                                </CTableBody>
+                                    </CTableHead>
 
-                            </CTable>
+                                    <CTableBody>
+                                        {documentsList.length > 0 ? (
+                                            documentsList.map((doc, index) => (
+                                                <CTableRow key={index}>
+                                                    <CTableDataCell style={{minWidth: '50px'}}>{doc.id}</CTableDataCell>
+                                                    <CTableDataCell
+                                                        style={{minWidth: '200px'}}>{doc.name}</CTableDataCell>
+                                                    <CTableDataCell style={{
+                                                        wordBreak: 'break-word',
+                                                        whiteSpace: 'pre-wrap'
+                                                    }}>{doc.path}</CTableDataCell>
+                                                    <CTableDataCell
+                                                        style={{minWidth: '100px'}}>{doc.status}</CTableDataCell>
+                                                    <CTableDataCell>
+                                                        <button
+                                                            className="btn btn-sm btn-danger"
+                                                            onClick={() => handleRemoveDocument(doc.id)}
+                                                        >
+                                                            Remove
+                                                        </button>
+                                                    </CTableDataCell>
+                                                </CTableRow>
+                                            ))
+                                        ) : (
+                                            <CTableRow>
+                                                <CTableDataCell colSpan={5}>No any document</CTableDataCell>
+                                            </CTableRow>
+                                        )}
+                                    </CTableBody>
+
+                                </CTable>
+                            </div>
                         </CCardBody>
                     </CCard>
                 </CTabPane>

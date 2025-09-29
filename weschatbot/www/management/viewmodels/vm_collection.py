@@ -131,16 +131,25 @@ class ViewModelCollection(ViewModel):
     def collection_entities(self, session=None):
         collection_id = int(request.args.get("collection_id"))
         row_id = request.args.get("search")
+        token = request.args.get("token")
         params = {}
+        func = None
+        if token:
+            params["token"] = token
+            func = self.collection_service.get_entities_by_token
         if row_id:
             params["row_id"] = row_id
+            func = self.collection_service.get_entity_by_row_id
+        if (not row_id) and (not token):
+            func = self.collection_service.get_entities
+
         collection = self.collection_service.get_collection(collection_id=collection_id, session=session)
         params["collection_name"] = collection.collection_name
         params["output_fields"] = ["row_id", "text"]
-        params["limit"] = 1000
-        entities = self.collection_service.get_entities(**params)
+        params["limit"] = 20
+        entities, next_token = func(**params)
         data = [{"row_id": str(x["row_id"]), "text": x["text"]} for x in entities]
-        return jsonify({"status": "success", "data": data}), 200
+        return jsonify({"status": "success", "data": data, "next_token": next_token}), 200
 
     def register(self, flask_app_or_bp):
         super(ViewModelCollection, self).register(flask_app_or_bp)

@@ -1,3 +1,5 @@
+import base64
+
 from pymilvus import connections, FieldSchema, CollectionSchema, DataType, utility, Collection
 from pymilvus import list_collections
 from sqlalchemy.exc import SQLAlchemyError
@@ -10,6 +12,19 @@ from weschatbot.models.collection import Collection as WCollection, Document, Co
 from weschatbot.schemas.collection import CollectionDesc, MilvusNotFoundCollectionDesc
 from weschatbot.services.celery_service import index_collection_to_milvus
 from weschatbot.utils.db import provide_session
+
+
+class Base64URL:
+    @staticmethod
+    def decode(data):
+        missing_padding = len(data) % 4
+        if missing_padding:
+            data += '=' * (4 - missing_padding)
+        return base64.urlsafe_b64decode(data).decode('utf-8')
+
+    @staticmethod
+    def encode(data):
+        return base64.urlsafe_b64encode(data.encode()).decode().rstrip("=")
 
 
 class CollectionService:
@@ -25,7 +40,40 @@ class CollectionService:
         collections = list_collections()
         return collections
 
-    def get_entities(self, collection_name, output_fields=None, row_id=0, limit=20):
+    def get_entities_by_token(self, token, output_fields=None, **kwargs):
+        decoded = Base64URL.decode(token)
+        min_row_id, limit, *collection_names = decoded.split(':')
+        collection_name = ":".join(collection_names)
+
+        self.connect()
+        collection = Collection(collection_name)
+        collection.load()
+
+        if output_fields is None:
+            output_fields = [field.name for field in collection.schema.fields]
+
+        results = collection.query(limit=int(limit), expr=f"row_id > {min_row_id}", output_fields=output_fields)
+        max_row_id = results[-1]["row_id"]
+        if len(results) < int(limit):
+            return results, None
+        next_token = f"{max_row_id}:{limit}:{collection_name}"
+        return results, Base64URL.encode(next_token)
+
+    def get_entity_by_row_id(self, collection_name, row_id, output_fields=None, **kwargs):
+        self.connect()
+        collection = Collection(collection_name)
+        collection.load()
+
+        if output_fields is None:
+            output_fields = [field.name for field in collection.schema.fields]
+
+        result = collection.query(
+            expr=f"row_id == {row_id}",
+            out_fields=output_fields
+        )
+        return result, None
+
+    def get_entities(self, collection_name, output_fields=None, limit=20, **kwargs):
         self.connect()
         collection = Collection(collection_name)
 
@@ -35,12 +83,16 @@ class CollectionService:
             output_fields = [field.name for field in collection.schema.fields]
 
         results = collection.query(
-            expr=f"row_id >= 0" if row_id == 0 else f"row_id == {row_id}",
+            expr=f"row_id >= 0",
             output_fields=output_fields,
             limit=limit
         )
 
-        return results
+        max_row_id = results[-1]["row_id"]
+        if len(results) < limit:
+            return results, None
+        next_token = f"{max_row_id}:{limit}:{collection_name}"
+        return results, Base64URL.encode(next_token)
 
     @provide_session
     def get_collection(self, collection_id, session=None):
