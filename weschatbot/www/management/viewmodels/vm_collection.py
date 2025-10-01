@@ -56,6 +56,10 @@ class ViewModelCollection(ViewModel):
         return self.collection_service.all_documents(session=session)
 
     @provide_session
+    def available_documents(self, session=None):
+        return self.collection_service.converted_documents(session=session)
+
+    @provide_session
     def add_document_to_collection(self, session=None):
         try:
             collection_id = int(request.form.get("collection_id"))
@@ -103,6 +107,15 @@ class ViewModelCollection(ViewModel):
             return jsonify({"status": "error", "message": str(e)}), 500
 
     @provide_session
+    def check_collection_indexing(self, session=None):
+        collection_id = int(request.args.get("collection_id"))
+        result = self.collection_service.get_collection_status(collection_id, session)
+        if result:
+            return jsonify({"status": "success", "collection_status": result}), 200
+        else:
+            return jsonify({"status": "failed", "message": "Collection not indexed"}), 400
+
+    @provide_session
     def get_collection(self, session=None):
         collection_id = int(request.args.get("collection_id"))
         res = self.collection_service.get_collection(collection_id=collection_id, session=session)
@@ -118,16 +131,25 @@ class ViewModelCollection(ViewModel):
     def collection_entities(self, session=None):
         collection_id = int(request.args.get("collection_id"))
         row_id = request.args.get("search")
+        token = request.args.get("token")
         params = {}
+        func = None
+        if token:
+            params["token"] = token
+            func = self.collection_service.get_entities_by_token
         if row_id:
             params["row_id"] = row_id
+            func = self.collection_service.get_entity_by_row_id
+        if (not row_id) and (not token):
+            func = self.collection_service.get_entities
+
         collection = self.collection_service.get_collection(collection_id=collection_id, session=session)
         params["collection_name"] = collection.collection_name
         params["output_fields"] = ["row_id", "text"]
-        params["limit"] = 1000
-        entities = self.collection_service.get_entities(**params)
+        params["limit"] = 20
+        entities, next_token = func(**params)
         data = [{"row_id": str(x["row_id"]), "text": x["text"]} for x in entities]
-        return jsonify({"status": "success", "data": data}), 200
+        return jsonify({"status": "success", "data": data, "next_token": next_token}), 200
 
     def register(self, flask_app_or_bp):
         super(ViewModelCollection, self).register(flask_app_or_bp)
@@ -141,3 +163,5 @@ class ViewModelCollection(ViewModel):
         self.bp.route("/index_collection", methods=["POST"])(self.auth(self.index_collection))
         self.bp.route("/flush_collection", methods=["GET"])(self.auth(self.flush))
         self.bp.route("/collection_entities", methods=["GET"])(self.auth(self.collection_entities))
+        self.bp.route("/check_collection_indexing", methods=["GET"])(self.auth(self.check_collection_indexing))
+        self.bp.route("/available_documents", methods=["GET"])(self.auth(self.available_documents))

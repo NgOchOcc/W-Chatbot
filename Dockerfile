@@ -22,7 +22,8 @@ RUN pip install build
 RUN pip install 'uvicorn[standard]'
 RUN pip install fastapi uvicorn transformers sentence-transformers pymilvus
 RUN pip install vllm
-RUN pip install sphinx sphinx-autobuild sphinx-rtd-theme
+RUN pip install sphinx sphinx-autobuild sphinx-rtd-theme myst_parser
+RUN pip install markitdown[all]
 
 
 COPY . ./

@@ -1,3 +1,5 @@
+import base64
+
 from pymilvus import connections, FieldSchema, CollectionSchema, DataType, utility, Collection
 from pymilvus import list_collections
 from sqlalchemy.exc import SQLAlchemyError
@@ -6,10 +8,23 @@ from sqlalchemy.orm import joinedload
 from weschatbot.exceptions.collection_exception import CollectionNotFoundException, ExistingCollectionDocumentException, \
     StatusNotFound
 from weschatbot.models.collection import Collection as WCollection, Document, CollectionDocument, \
-    CollectionDocumentStatus
-from weschatbot.schemas.collection import CollectionDesc
+    CollectionDocumentStatus, DocumentStatus
+from weschatbot.schemas.collection import CollectionDesc, MilvusNotFoundCollectionDesc
 from weschatbot.services.celery_service import index_collection_to_milvus
 from weschatbot.utils.db import provide_session
+
+
+class Base64URL:
+    @staticmethod
+    def decode(data):
+        missing_padding = len(data) % 4
+        if missing_padding:
+            data += '=' * (4 - missing_padding)
+        return base64.urlsafe_b64decode(data).decode('utf-8')
+
+    @staticmethod
+    def encode(data):
+        return base64.urlsafe_b64encode(data.encode()).decode().rstrip("=")
 
 
 class CollectionService:
@@ -25,7 +40,40 @@ class CollectionService:
         collections = list_collections()
         return collections
 
-    def get_entities(self, collection_name, output_fields=None, row_id=0, limit=20):
+    def get_entities_by_token(self, token, output_fields=None, **kwargs):
+        decoded = Base64URL.decode(token)
+        min_row_id, limit, *collection_names = decoded.split(':')
+        collection_name = ":".join(collection_names)
+
+        self.connect()
+        collection = Collection(collection_name)
+        collection.load()
+
+        if output_fields is None:
+            output_fields = [field.name for field in collection.schema.fields]
+
+        results = collection.query(limit=int(limit), expr=f"row_id > {min_row_id}", output_fields=output_fields)
+        max_row_id = results[-1]["row_id"]
+        if len(results) < int(limit):
+            return results, None
+        next_token = f"{max_row_id}:{limit}:{collection_name}"
+        return results, Base64URL.encode(next_token)
+
+    def get_entity_by_row_id(self, collection_name, row_id, output_fields=None, **kwargs):
+        self.connect()
+        collection = Collection(collection_name)
+        collection.load()
+
+        if output_fields is None:
+            output_fields = [field.name for field in collection.schema.fields]
+
+        result = collection.query(
+            expr=f"row_id == {row_id}",
+            out_fields=output_fields
+        )
+        return result, None
+
+    def get_entities(self, collection_name, output_fields=None, limit=20, **kwargs):
         self.connect()
         collection = Collection(collection_name)
 
@@ -35,12 +83,16 @@ class CollectionService:
             output_fields = [field.name for field in collection.schema.fields]
 
         results = collection.query(
-            expr=f"row_id >= 0" if row_id == 0 else f"row_id == {row_id}",
+            expr=f"row_id >= 0",
             output_fields=output_fields,
             limit=limit
         )
 
-        return results
+        max_row_id = results[-1]["row_id"]
+        if len(results) < limit:
+            return results, None
+        next_token = f"{max_row_id}:{limit}:{collection_name}"
+        return results, Base64URL.encode(next_token)
 
     @provide_session
     def get_collection(self, collection_id, session=None):
@@ -49,7 +101,8 @@ class CollectionService:
             self.connect()
             collection_name = collection.name
             if not utility.has_collection(collection_name):
-                raise CollectionNotFoundException(f"Collection {collection_name} is not found")
+                # raise CollectionNotFoundException(f"Collection {collection_name} is not found")
+                return MilvusNotFoundCollectionDesc(collection_id, collection_name)
             res = Collection(collection_name)
             return CollectionDesc(collection_id=collection_id, collection_name=collection_name,
                                   description=res.description,
@@ -74,17 +127,15 @@ class CollectionService:
             self.connect()
             if utility.has_collection(collection_name):
                 utility.drop_collection(collection_name)
-                try:
-                    session.query(CollectionDocument) \
-                        .filter_by(collection_id=collection_id) \
-                        .delete(synchronize_session=False)
-                    session.delete(collection)
-                    return True
-                except SQLAlchemyError:
-                    session.rollback()
-                    raise
-            else:
-                raise CollectionNotFoundException(f"Collection {collection_name} is not found")
+            try:
+                session.query(CollectionDocument) \
+                    .filter_by(collection_id=collection_id) \
+                    .delete(synchronize_session=False)
+                session.delete(collection)
+                return True
+            except SQLAlchemyError:
+                session.rollback()
+                raise
 
     @staticmethod
     def create_collection(
@@ -151,6 +202,11 @@ class CollectionService:
         return [x.to_dict(session) for x in res]
 
     @provide_session
+    def converted_documents(self, session=None):
+        res = session.query(Document).join(DocumentStatus).filter(DocumentStatus.name == "done").all()
+        return [x.to_dict(session) for x in res]
+
+    @provide_session
     def add_document_to_collection(self, collection_id: int, document_id: int, session=None) -> bool:
         collection = session.query(WCollection).filter(WCollection.id == collection_id).one_or_none()
         document = session.query(Document).filter(Document.id == document_id).one_or_none()
@@ -180,6 +236,13 @@ class CollectionService:
         document.is_used = True
 
         return True
+
+    @provide_session
+    def get_collection_status(self, collection_id, session=None):
+        collection = session.query(WCollection).filter(WCollection.id == collection_id).first()
+        if collection and collection.status:
+            return collection.status.name
+        return None
 
     @provide_session
     def get_documents_by_collection_id(self, collection_id: int, session=None):

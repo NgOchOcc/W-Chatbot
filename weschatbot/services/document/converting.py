@@ -4,11 +4,21 @@ from marker.converters.pdf import PdfConverter
 from marker.models import create_model_dict
 from marker.output import text_from_rendered
 from markitdown import MarkItDown
+import torch
 
 from weschatbot.utils.common import SingletonMeta
 
 
-class MarkerConverter(metaclass=SingletonMeta):
+class Converter:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+
+class MarkerConverter(Converter, metaclass=SingletonMeta):
     def __init__(self):
         self.converter = PdfConverter(
             artifact_dict=create_model_dict(),
@@ -21,7 +31,7 @@ class MarkerConverter(metaclass=SingletonMeta):
         return markdown_text
 
 
-class MarkitdownConverter(metaclass=SingletonMeta):
+class MarkitdownConverter(Converter, metaclass=SingletonMeta):
     def __init__(self):
         self.converter = MarkItDown()
 
@@ -32,6 +42,7 @@ class MarkitdownConverter(metaclass=SingletonMeta):
 
 class DocumentConverter:
     @staticmethod
+    @torch.no_grad()
     def convert(document_path: str) -> str:
         input_path = Path(document_path)
         if not input_path.exists():
@@ -41,8 +52,16 @@ class DocumentConverter:
 
         try:
             if file_ext == '.pdf':
-                return MarkerConverter().convert(document_path)
+                with MarkerConverter() as converter:
+                    res = converter.convert(document_path)
+                return res
             else:
-                return MarkitdownConverter().convert(document_path)
+                with MarkitdownConverter() as converter:
+                    res = converter.convert(document_path)
+                return res
         except Exception as e:
             raise Exception(f"Error converting file {document_path}: {str(e)}")
+        finally:
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+            print("VRAM cache cleared.")

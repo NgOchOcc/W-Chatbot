@@ -1,20 +1,30 @@
 import {createRoot} from "react-dom/client";
 import React, {useEffect, useState} from "react";
 import {
+    CButton,
+    CButtonGroup,
     CCard,
     CCardBody,
     CCardHeader,
+    CFormInput,
+    CInputGroup,
+    CModal,
+    CModalBody,
+    CModalFooter,
+    CModalHeader,
+    CNav,
+    CNavItem,
+    CNavLink,
+    CPagination,
+    CPaginationItem,
+    CTabContent,
     CTable,
     CTableBody,
     CTableDataCell,
     CTableHead,
     CTableHeaderCell,
     CTableRow,
-    CNav,
-    CNavItem,
-    CNavLink,
-    CTabContent,
-    CTabPane, CFormInput, CButtonGroup, CButton, CModal, CModalHeader, CModalBody, CModalFooter, CInputGroup,
+    CTabPane,
 } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
 import {cilSearch} from "@coreui/icons";
@@ -74,26 +84,86 @@ function ActionColumn({item}) {
     );
 }
 
-function MilvusEntitiesPage({collectionId}) {
-    const [entities, setEntities] = useState([]);
-    const [search, setSearch] = useState("");
+function NotFoundMilvusTasksPage() {
+    return (
+        <span>Collection is not exist int Milvus</span>
+    )
+}
 
-    const fetchEntities = () => {
-        fetch(`/management/ViewModelCollection/collection_entities?collection_id=${collectionId}&search=${encodeURIComponent(search)}`)
+function NotFoundMilvusEntitiesPage({collectionId}) {
+    return (
+        <span>Collection is not exist int Milvus</span>
+    )
+}
+
+function NotFoundMilvusOverviewPage() {
+    return (
+        <span>Collection is not exist int Milvus</span>
+    )
+}
+
+function MilvusEntitiesPage({collectionId}) {
+    const [entities, setEntities] = useState([])
+    const [search, setSearch] = useState("")
+    const [tokens, setTokens] = useState([""])
+    const [currentToken, setCurrentToken] = useState("")
+    const [currentPage, setCurrentPage] = useState(0)
+
+    function decode(token) {
+        const padLength = (4 - (token.length % 4)) % 4;
+        const padded = token + "=".repeat(padLength);
+        const decoded = decodeURIComponent(escape(atob(padded)))
+        return decoded
+    }
+
+    const fetchEntities = (callback, token = "") => {
+        fetch(`/management/ViewModelCollection/collection_entities?collection_id=${collectionId}&search=${encodeURIComponent(search)}&token=${encodeURIComponent(token)}`)
             .then((res) => res.json())
             .then((data) => {
-                console.log(data);
                 setEntities(data["data"])
-            });
+                callback(data["next_token"])
+            })
+    }
+
+    const handlePrevious = () => {
+        console.log("Previous clicked")
+        let res = tokens[currentPage - 1]
+        setCurrentToken(res)
+        fetchEntities((nToken) => {
+            setCurrentToken(tokens[currentPage - 1])
+            setCurrentPage(Math.max(currentPage - 1, 0))
+        }, res)
+    }
+
+    const handleNext = () => {
+        console.log("Next clicked")
+        fetchEntities((nToken) => {
+            if (nToken !== null) {
+                if (!tokens.includes(nToken)) {
+                    setCurrentToken(tokens[currentPage + 1])
+                    tokens.push(nToken)
+                    setTokens(tokens)
+
+                }
+            }
+            setCurrentPage(Math.min(currentPage + 1, tokens.length - 1))
+        }, tokens[currentPage + 1])
     }
 
     useEffect(() => {
-        fetchEntities()
+        fetchEntities((nToken) => {
+            tokens.push(nToken)
+            setTokens(tokens)
+            setCurrentToken(tokens[currentPage])
+        }, "")
     }, [])
 
     const handleSearch = () => {
-        console.log(search)
-        fetchEntities()
+        fetchEntities((nToken) => {
+            tokens.push(nToken)
+            setTokens(tokens)
+            setCurrentToken(tokens[currentPage])
+        }, "")
     }
 
     return (
@@ -111,14 +181,13 @@ function MilvusEntitiesPage({collectionId}) {
                         <CButton
                             type="button"
                             color="primary"
-                            onClick={() => {
-                                handleSearch()
-                            }}
+                            onClick={handleSearch}
                         >
                             Search
                         </CButton>
                     </CInputGroup>
-                    <div style={{maxHeight: "680px", overflowY: "auto"}}>
+
+                    <div style={{maxHeight: "620px", overflowY: "auto"}}>
                         <CTable striped hover responsive>
                             <CTableHead>
                                 <CTableRow>
@@ -131,7 +200,7 @@ function MilvusEntitiesPage({collectionId}) {
                                 {entities.map((item, index) => (
                                     <CTableRow key={index}>
                                         <CTableDataCell style={{width: "5%"}}>
-                                            <ActionColumn item={item}></ActionColumn>
+                                            <ActionColumn item={item}/>
                                         </CTableDataCell>
                                         <CTableDataCell style={{width: "15%"}}>{item["row_id"]}</CTableDataCell>
                                         <CTableDataCell style={{width: "80%"}}>{item["text"]}</CTableDataCell>
@@ -140,11 +209,34 @@ function MilvusEntitiesPage({collectionId}) {
                             </CTableBody>
                         </CTable>
                     </div>
+
+                    <br/>
+                    <CPagination aria-label="Page navigation">
+                        {currentPage > 0 &&
+                            <CPaginationItem
+                                aria-label="Previous"
+                                style={{cursor: "pointer"}}
+                                onClick={handlePrevious}
+                            >
+                                <span aria-hidden="true">&laquo;</span>
+                            </CPaginationItem>
+                        }
+                        {currentPage < tokens.length - 1 &&
+                            <CPaginationItem
+                                aria-label="Next"
+                                style={{cursor: "pointer"}}
+                                onClick={handleNext}
+                            >
+                                <span aria-hidden="true">&raquo;</span>
+                            </CPaginationItem>
+                        }
+                    </CPagination>
                 </CCardBody>
             </CCard>
         </>
     );
 }
+
 
 function CollectionInfoPage({data}) {
     const [activeTab, setActiveTab] = useState("documents")
@@ -162,7 +254,7 @@ function CollectionInfoPage({data}) {
 
 
     useEffect(() => {
-        fetch("/management/ViewModelCollection/all_documents", {
+        fetch("/management/ViewModelCollection/available_documents", {
             method: "GET",
             headers: {
                 "Content-Type": "application/json",
@@ -199,6 +291,13 @@ function CollectionInfoPage({data}) {
                 console.error("Error loading collection documents:", err)
             })
     }, [collection_id, refreshFlag])
+
+    useEffect(() => {
+        const indexingFlag = localStorage.getItem("isIndexing_" + collection_id)
+        if (indexingFlag === "true") {
+            pollCollectionStatus()
+        }
+    }, [])
 
 
     function handleAddDocument() {
@@ -284,13 +383,41 @@ function CollectionInfoPage({data}) {
             .then((data) => {
                 if (data.status === "success") {
                     setIsIndexing(true)
+                    localStorage.setItem("isIndexing_" + collection_id, "true")
+                    setTimeout(() => {
+                        pollCollectionStatus()
+                    }, 5000)
                 } else {
-                    alert("Failed: " + data.message);
+                    alert("Failed: " + data.message)
                 }
             })
             .catch((err) => {
-                alert("Error: " + err);
+                alert("Error: " + err)
             })
+    }
+
+    function pollCollectionStatus() {
+
+        const interval = setInterval(() => {
+            fetch("/management/ViewModelCollection/check_collection_indexing?collection_id=" + collection_id, {
+                method: "GET",
+                headers: {
+                    "X-CSRFToken": csrf_token,
+                },
+            })
+                .then((res) => res.json())
+                .then((data) => {
+                    if (data.status === "success" && data.collection_status === "done") {
+                        clearInterval(interval)
+                        setIsIndexing(false)
+                        console.log("Collection indexing completed.")
+                    }
+                })
+                .catch((err) => {
+                    clearInterval(interval)
+                    alert("Error checking status: " + err)
+                })
+        }, 5000)
     }
 
     return (
@@ -322,62 +449,74 @@ function CollectionInfoPage({data}) {
 
             <CTabContent>
                 <CTabPane visible={activeTab === "overview"}>
-                    <p><strong>Description:</strong> {description}</p>
-                    <p><strong>Number of entities:</strong> {num_entities}</p>
+                    {status === 404 &&
+                        <NotFoundMilvusOverviewPage></NotFoundMilvusOverviewPage>
+                        ||
+                        <>
+                            <p><strong>Description:</strong> {description}</p>
+                            <p><strong>Number of entities:</strong> {num_entities}</p>
 
-                    <CCard className="mb-4">
-                        <CCardHeader>Schema Fields</CCardHeader>
-                        <CCardBody>
-                            <CTable striped hover responsive bordered>
-                                <CTableHead>
-                                    <CTableRow>
-                                        <CTableHeaderCell>Field name</CTableHeaderCell>
-                                        <CTableHeaderCell>Data type</CTableHeaderCell>
-                                        <CTableHeaderCell>Params</CTableHeaderCell>
-                                    </CTableRow>
-                                </CTableHead>
-                                <CTableBody>
-                                    {fields.map((field, index) => (
-                                        <CTableRow key={index}>
-                                            <CTableDataCell>{field.name}</CTableDataCell>
-                                            <CTableDataCell>{dataTypeMap[field.type] || field.type}</CTableDataCell>
-                                            <CTableDataCell>
-                                                {Object.entries(field.params).length > 0
-                                                    ? Object.entries(field.params).map(([key, value]) => `${key}: ${value}`).join(", ")
-                                                    : "—"}
-                                            </CTableDataCell>
-                                        </CTableRow>
-                                    ))}
-                                </CTableBody>
-                            </CTable>
-                        </CCardBody>
-                    </CCard>
+                            <CCard className="mb-4">
+                                <CCardHeader>Schema Fields</CCardHeader>
+                                <CCardBody>
+                                    <CTable striped hover responsive bordered>
+                                        <CTableHead>
+                                            <CTableRow>
+                                                <CTableHeaderCell>Field name</CTableHeaderCell>
+                                                <CTableHeaderCell>Data type</CTableHeaderCell>
+                                                <CTableHeaderCell>Params</CTableHeaderCell>
+                                            </CTableRow>
+                                        </CTableHead>
+                                        {Object.keys(fields).length !== 0 &&
+                                            <CTableBody>
+                                                {fields.map((field, index) => (
+                                                    <CTableRow key={index}>
+                                                        <CTableDataCell>{field.name}</CTableDataCell>
+                                                        <CTableDataCell>{dataTypeMap[field.type] || field.type}</CTableDataCell>
+                                                        <CTableDataCell>
+                                                            {Object.entries(field.params).length > 0
+                                                                ? Object.entries(field.params).map(([key, value]) => `${key}: ${value}`).join(", ")
+                                                                : "—"}
+                                                        </CTableDataCell>
+                                                    </CTableRow>
+                                                ))}
+                                            </CTableBody>
+                                        }
 
-                    <CCard>
-                        <CCardHeader>Indexes</CCardHeader>
-                        <CCardBody>
-                            <CTable striped hover responsive bordered>
-                                <CTableHead>
-                                    <CTableRow>
-                                        <CTableHeaderCell>Field</CTableHeaderCell>
-                                        <CTableHeaderCell>Index name</CTableHeaderCell>
-                                        <CTableHeaderCell>Params</CTableHeaderCell>
-                                    </CTableRow>
-                                </CTableHead>
-                                <CTableBody>
-                                    {indexes.map((index, idx) => (
-                                        <CTableRow key={idx}>
-                                            <CTableDataCell>{index.field_name}</CTableDataCell>
-                                            <CTableDataCell>{index.index_name}</CTableDataCell>
-                                            <CTableDataCell>
-                                                {Object.entries(index.params).map(([key, value]) => `${key}: ${value}`).join(", ")}
-                                            </CTableDataCell>
-                                        </CTableRow>
-                                    ))}
-                                </CTableBody>
-                            </CTable>
-                        </CCardBody>
-                    </CCard>
+                                    </CTable>
+                                </CCardBody>
+                            </CCard>
+
+
+                            <CCard>
+                                <CCardHeader>Indexes</CCardHeader>
+                                <CCardBody>
+                                    <CTable striped hover responsive bordered>
+                                        <CTableHead>
+                                            <CTableRow>
+                                                <CTableHeaderCell>Field</CTableHeaderCell>
+                                                <CTableHeaderCell>Index name</CTableHeaderCell>
+                                                <CTableHeaderCell>Params</CTableHeaderCell>
+                                            </CTableRow>
+                                        </CTableHead>
+                                        {Object.keys(indexes).length !== 0 &&
+                                            <CTableBody>
+                                                {indexes.map((index, idx) => (
+                                                    <CTableRow key={idx}>
+                                                        <CTableDataCell>{index.field_name}</CTableDataCell>
+                                                        <CTableDataCell>{index.index_name}</CTableDataCell>
+                                                        <CTableDataCell>
+                                                            {Object.entries(index.params).map(([key, value]) => `${key}: ${value}`).join(", ")}
+                                                        </CTableDataCell>
+                                                    </CTableRow>
+                                                ))}
+                                            </CTableBody>
+                                        }
+                                    </CTable>
+                                </CCardBody>
+                            </CCard>
+                        </>
+                    }
                 </CTabPane>
 
                 <CTabPane visible={activeTab === "documents"}>
@@ -410,90 +549,109 @@ function CollectionInfoPage({data}) {
                     <CCard>
                         <CCardHeader>Documents</CCardHeader>
                         <CCardBody>
-                            <CTable striped hover responsive bordered>
-                                <CTableHead>
-                                    <CTableRow>
-                                        <CTableHeaderCell>ID</CTableHeaderCell>
-                                        <CTableHeaderCell>Name</CTableHeaderCell>
-                                        <CTableHeaderCell>Path</CTableHeaderCell>
-                                        <CTableHeaderCell>Status</CTableHeaderCell>
-                                        <CTableHeaderCell>Actions</CTableHeaderCell>
-                                    </CTableRow>
-                                </CTableHead>
-
-                                <CTableBody>
-                                    {documentsList.length > 0 ? (
-                                        documentsList.map((doc, index) => (
-                                            <CTableRow key={index}>
-                                                <CTableDataCell>{doc.id}</CTableDataCell>
-                                                <CTableDataCell>{doc.name}</CTableDataCell>
-                                                <CTableDataCell>{doc.path}</CTableDataCell>
-                                                <CTableDataCell>{doc.status}</CTableDataCell>
-                                                <CTableDataCell>
-                                                    <button
-                                                        className="btn btn-sm btn-danger"
-                                                        onClick={() => handleRemoveDocument(doc.id)}
-                                                    >
-                                                        Remove
-                                                    </button>
-                                                </CTableDataCell>
-                                            </CTableRow>
-                                        ))
-                                    ) : (
+                            <div style={{maxHeight: "550px", overflowY: "auto"}}>
+                                <CTable striped hover responsive bordered>
+                                    <CTableHead>
                                         <CTableRow>
-                                            <CTableDataCell colSpan={5}>No any document</CTableDataCell>
+                                            <CTableHeaderCell>ID</CTableHeaderCell>
+                                            <CTableHeaderCell>Name</CTableHeaderCell>
+                                            <CTableHeaderCell>Path</CTableHeaderCell>
+                                            <CTableHeaderCell>Status</CTableHeaderCell>
+                                            <CTableHeaderCell>Actions</CTableHeaderCell>
                                         </CTableRow>
-                                    )}
-                                </CTableBody>
+                                    </CTableHead>
 
-                            </CTable>
+                                    <CTableBody>
+                                        {documentsList.length > 0 ? (
+                                            documentsList.map((doc, index) => (
+                                                <CTableRow key={index}>
+                                                    <CTableDataCell style={{minWidth: '50px'}}>{doc.id}</CTableDataCell>
+                                                    <CTableDataCell
+                                                        style={{minWidth: '200px'}}>{doc.name}</CTableDataCell>
+                                                    <CTableDataCell style={{
+                                                        wordBreak: 'break-word',
+                                                        whiteSpace: 'pre-wrap'
+                                                    }}>{doc.path}</CTableDataCell>
+                                                    <CTableDataCell
+                                                        style={{minWidth: '100px'}}>{doc.status}</CTableDataCell>
+                                                    <CTableDataCell>
+                                                        <button
+                                                            className="btn btn-sm btn-danger"
+                                                            onClick={() => handleRemoveDocument(doc.id)}
+                                                        >
+                                                            Remove
+                                                        </button>
+                                                    </CTableDataCell>
+                                                </CTableRow>
+                                            ))
+                                        ) : (
+                                            <CTableRow>
+                                                <CTableDataCell colSpan={5}>No any document</CTableDataCell>
+                                            </CTableRow>
+                                        )}
+                                    </CTableBody>
+
+                                </CTable>
+                            </div>
                         </CCardBody>
                     </CCard>
                 </CTabPane>
 
                 <CTabPane visible={activeTab === "tasks"}>
-                    <CCard>
-                        <CCardHeader>Indexing</CCardHeader>
-                        <CCardBody>
-                            <p>Perform indexing on this collection.</p>
-                            <button
-                                className="btn btn-success"
-                                onClick={handleIndexCollection}
-                                disabled={isIndexing}
-                            >
-                                {isIndexing ? (
-                                    <>
+                    {status === 404 &&
+                        <NotFoundMilvusTasksPage></NotFoundMilvusTasksPage>
+                        ||
+                        <>
+                            <CCard>
+                                <CCardHeader>Indexing</CCardHeader>
+                                <CCardBody>
+                                    <p>Perform indexing on this collection.</p>
+                                    <button
+                                        className="btn btn-success"
+                                        onClick={handleIndexCollection}
+                                        disabled={isIndexing}
+                                    >
+                                        {isIndexing ? (
+                                            <>
                                         <span className="spinner-border spinner-border-sm me-2" role="status"
                                               aria-hidden="true"></span>
-                                        Indexing...
-                                    </>
-                                ) : ("Index")}
-                            </button>
-                        </CCardBody>
-                    </CCard>
-                    <br/>
-                    <CCard>
-                        <CCardHeader>Flushing</CCardHeader>
-                        <CCardBody>
-                            <p>Flush on this collection.</p>
-                            <button
-                                className="btn btn-success"
-                                onClick={handleFlushCollection}
-                                disabled={isFlushing}
-                            >
-                                {isFlushing ? (
-                                    <>
+                                                Indexing...
+                                            </>
+                                        ) : ("Index")}
+                                    </button>
+                                </CCardBody>
+                            </CCard>
+                            <br/>
+                            <CCard>
+                                <CCardHeader>Flushing</CCardHeader>
+                                <CCardBody>
+                                    <p>Flush on this collection.</p>
+                                    <button
+                                        className="btn btn-success"
+                                        onClick={handleFlushCollection}
+                                        disabled={isFlushing}
+                                    >
+                                        {isFlushing ? (
+                                            <>
                                         <span className="spinner-border spinner-border-sm me-2" role="status"
                                               aria-hidden="true"></span>
-                                        Flushing...
-                                    </>
-                                ) : ("Flush")}
-                            </button>
-                        </CCardBody>
-                    </CCard>
+                                                Flushing...
+                                            </>
+                                        ) : ("Flush")}
+                                    </button>
+                                </CCardBody>
+                            </CCard>
+                        </>
+                    }
+
                 </CTabPane>
                 <CTabPane visible={activeTab === "entities"}>
-                    <MilvusEntitiesPage collectionId={collection_id}></MilvusEntitiesPage>
+                    {status !== 404 &&
+                        <MilvusEntitiesPage collectionId={collection_id}></MilvusEntitiesPage>
+                        ||
+                        <NotFoundMilvusEntitiesPage collectionId={collection_id}></NotFoundMilvusEntitiesPage>
+                    }
+
                 </CTabPane>
             </CTabContent>
         </>

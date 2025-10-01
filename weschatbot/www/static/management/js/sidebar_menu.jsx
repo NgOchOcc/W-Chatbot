@@ -43,7 +43,12 @@ function SidebarMenu({userName = 'User', onLogout, currentUser, userPermissions}
         <CSidebar className="border-end" colorScheme="dark" style={{height: '100vh', position: 'relative'}}>
             <CSidebarHeader className="border-bottom">
                 <CSidebarBrand style={{textDecoration: 'none', fontSize: '1.5rem'}}>
-                    Chatbot Management
+                    <img
+                        src="/management/static/westaco.png"
+                        alt="Logo"
+                        style={{height: '30px', marginRight: '10px', textDecoration: 'none'}}
+                    />
+                    Chatbot MGT
                 </CSidebarBrand>
             </CSidebarHeader>
 
