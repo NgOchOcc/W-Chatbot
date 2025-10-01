@@ -21,6 +21,7 @@ from weschatbot.services.chatbot_configuration_service import ChatbotConfigurati
 from weschatbot.schemas.embedding import  RetrievalConfig
 from weschatbot.services.vllm_llm_service import VLLMService
 from weschatbot.services.session_service import SessionService, NotPermissionError
+from weschatbot.services.chatbot_service import ChatbotPipeline
 from weschatbot.services.user_service import UserService
 from weschatbot.utils.config import config
 from weschatbot.www.chatbot_ui.csrfsettings import CsrfSettings
