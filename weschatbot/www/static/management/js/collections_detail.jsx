@@ -16,7 +16,7 @@ import {
     CNavItem,
     CNavLink,
     CPagination,
-    CPaginationItem,
+    CPaginationItem, CSpinner,
     CTabContent,
     CTable,
     CTableBody,
@@ -27,7 +27,7 @@ import {
     CTabPane,
 } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
-import {cilSearch} from "@coreui/icons";
+import {cilSearch, cilTrash} from "@coreui/icons";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import ReactMarkdown from "react-markdown";
@@ -49,8 +49,9 @@ const dataTypeMap = {
 };
 
 
-function ActionColumn({item}) {
-    const [visible, setVisible] = useState(false);
+function ActionColumn({item, onDelete}) {
+    const [visibleDetail, setVisibleDetail] = useState(false);
+    const [visibleConfirm, setVisibleConfirm] = useState(false);
 
     return (
         <>
@@ -60,13 +61,22 @@ function ActionColumn({item}) {
                     size="sm"
                     variant="outline"
                     style={{height: "25px", padding: "2px", width: "25px"}}
-                    onClick={() => setVisible(true)}
+                    onClick={() => setVisibleDetail(true)}
                 >
                     <CIcon icon={cilSearch} size="sm"/>
                 </CButton>
+                <CButton
+                    color="secondary"
+                    size="sm"
+                    variant="outline"
+                    style={{height: "25px", padding: "2px", width: "25px"}}
+                    onClick={() => setVisibleConfirm(true)}
+                >
+                    <CIcon icon={cilTrash} size="sm"/>
+                </CButton>
             </CButtonGroup>
 
-            <CModal visible={visible} onClose={() => setVisible(false)} size="lg">
+            <CModal visible={visibleDetail} onClose={() => setVisibleDetail(false)} size="lg">
                 <CModalHeader>Entity Detail</CModalHeader>
                 <CModalBody>
                     <p><strong>Row ID:</strong> {item["row_id"]}</p>
@@ -77,7 +87,21 @@ function ActionColumn({item}) {
                     </p>
                 </CModalBody>
                 <CModalFooter>
-                    <CButton color="secondary" onClick={() => setVisible(false)}>Close</CButton>
+                    <CButton color="secondary" onClick={() => setVisibleDetail(false)}>Close</CButton>
+                </CModalFooter>
+            </CModal>
+
+            <CModal visible={visibleConfirm} onClose={() => setVisibleConfirm(false)}>
+                <CModalHeader>Delete Confirm</CModalHeader>
+                <CModalBody>
+                    Are you sure to delete entity ID: <strong>{item["row_id"]}</strong>?
+                </CModalBody>
+                <CModalFooter>
+                    <CButton color="danger" onClick={() => {
+                        onDelete(item);
+                        setVisibleConfirm(false);
+                    }}>Delete</CButton>
+                    <CButton color="secondary" onClick={() => setVisibleConfirm(false)}>Cancel</CButton>
                 </CModalFooter>
             </CModal>
         </>
@@ -108,6 +132,7 @@ function MilvusEntitiesPage({collectionId}) {
     const [tokens, setTokens] = useState([""])
     const [currentToken, setCurrentToken] = useState("")
     const [currentPage, setCurrentPage] = useState(0)
+    const [loading, setLoading] = useState(false)
 
     function decode(token) {
         const padLength = (4 - (token.length % 4)) % 4;
@@ -166,73 +191,112 @@ function MilvusEntitiesPage({collectionId}) {
         }, "")
     }
 
+    const deleteItem = (collection_id) => async (item) => {
+        const formData = new FormData();
+        formData.append("collection_id", collection_id)
+        formData.append("row_id", item["row_id"])
+
+        setLoading(true)
+        try {
+            const response = await fetch("/management/ViewModelCollection/delete_entities", {
+                headers: {
+                    "X-CSRFToken": csrf_token,
+                },
+                method: "POST",
+                body: formData,
+            });
+
+            const result = await response.json();
+
+            if (response.ok && result.status === "success") {
+                fetchEntities(() => {
+                }, tokens[currentPage])
+
+            } else {
+                alert("Failed deleted entities! : " + result.message);
+            }
+        } catch (error) {
+            alert("Error in API calling: " + error.message);
+        } finally {
+            setLoading(false)
+        }
+    };
+
+
     return (
         <>
-            <CCard>
-                <CCardHeader>Milvus Entities</CCardHeader>
-                <CCardBody>
-                    <CInputGroup className="mb-3" style={{maxWidth: "400px"}}>
-                        <CFormInput
-                            type="text"
-                            placeholder="Search text..."
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                        />
-                        <CButton
-                            type="button"
-                            color="primary"
-                            onClick={handleSearch}
-                        >
-                            Search
-                        </CButton>
-                    </CInputGroup>
-
-                    <div style={{maxHeight: "620px", overflowY: "auto"}}>
-                        <CTable striped hover responsive>
-                            <CTableHead>
-                                <CTableRow>
-                                    <CTableHeaderCell style={{width: "5%"}}>#</CTableHeaderCell>
-                                    <CTableHeaderCell style={{width: "15%"}}>Row ID</CTableHeaderCell>
-                                    <CTableHeaderCell style={{width: "80%"}}>Text</CTableHeaderCell>
-                                </CTableRow>
-                            </CTableHead>
-                            <CTableBody>
-                                {entities.map((item, index) => (
-                                    <CTableRow key={index}>
-                                        <CTableDataCell style={{width: "5%"}}>
-                                            <ActionColumn item={item}/>
-                                        </CTableDataCell>
-                                        <CTableDataCell style={{width: "15%"}}>{item["row_id"]}</CTableDataCell>
-                                        <CTableDataCell style={{width: "80%"}}>{item["text"]}</CTableDataCell>
-                                    </CTableRow>
-                                ))}
-                            </CTableBody>
-                        </CTable>
+            <div className="position-relative">
+                {loading && (
+                    <div className="overlay">
+                        <CSpinner color="primary"/>
                     </div>
+                )}
+                <CCard>
+                    <CCardHeader>Milvus Entities</CCardHeader>
+                    <CCardBody>
+                        <CInputGroup className="mb-3" style={{maxWidth: "400px"}}>
+                            <CFormInput
+                                type="text"
+                                placeholder="Search text..."
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                            />
+                            <CButton
+                                type="button"
+                                color="primary"
+                                onClick={handleSearch}
+                            >
+                                Search
+                            </CButton>
+                        </CInputGroup>
 
-                    <br/>
-                    <CPagination aria-label="Page navigation">
-                        {currentPage > 0 &&
-                            <CPaginationItem
-                                aria-label="Previous"
-                                style={{cursor: "pointer"}}
-                                onClick={handlePrevious}
-                            >
-                                <span aria-hidden="true">&laquo;</span>
-                            </CPaginationItem>
-                        }
-                        {currentPage < tokens.length - 1 &&
-                            <CPaginationItem
-                                aria-label="Next"
-                                style={{cursor: "pointer"}}
-                                onClick={handleNext}
-                            >
-                                <span aria-hidden="true">&raquo;</span>
-                            </CPaginationItem>
-                        }
-                    </CPagination>
-                </CCardBody>
-            </CCard>
+                        <div style={{maxHeight: "620px", overflowY: "auto"}}>
+                            <CTable striped hover responsive>
+                                <CTableHead>
+                                    <CTableRow>
+                                        <CTableHeaderCell style={{width: "5%"}}>#</CTableHeaderCell>
+                                        <CTableHeaderCell style={{width: "15%"}}>Row ID</CTableHeaderCell>
+                                        <CTableHeaderCell style={{width: "80%"}}>Text</CTableHeaderCell>
+                                    </CTableRow>
+                                </CTableHead>
+                                <CTableBody>
+                                    {entities.map((item, index) => (
+                                        <CTableRow key={index}>
+                                            <CTableDataCell style={{width: "5%"}}>
+                                                <ActionColumn item={item} onDelete={deleteItem(collectionId)}/>
+                                            </CTableDataCell>
+                                            <CTableDataCell style={{width: "15%"}}>{item["row_id"]}</CTableDataCell>
+                                            <CTableDataCell style={{width: "80%"}}>{item["text"]}</CTableDataCell>
+                                        </CTableRow>
+                                    ))}
+                                </CTableBody>
+                            </CTable>
+                        </div>
+
+                        <br/>
+                        <CPagination aria-label="Page navigation">
+                            {currentPage > 0 &&
+                                <CPaginationItem
+                                    aria-label="Previous"
+                                    style={{cursor: "pointer"}}
+                                    onClick={handlePrevious}
+                                >
+                                    <span aria-hidden="true">&laquo;</span>
+                                </CPaginationItem>
+                            }
+                            {currentPage < tokens.length - 1 &&
+                                <CPaginationItem
+                                    aria-label="Next"
+                                    style={{cursor: "pointer"}}
+                                    onClick={handleNext}
+                                >
+                                    <span aria-hidden="true">&raquo;</span>
+                                </CPaginationItem>
+                            }
+                        </CPagination>
+                    </CCardBody>
+                </CCard>
+            </div>
         </>
     );
 }

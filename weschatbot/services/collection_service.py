@@ -303,3 +303,15 @@ class CollectionService:
                 raise CollectionNotFoundException(f"Collection {collection_name} is not found")
         else:
             raise CollectionNotFoundException(f"Collection {collection_id} is not found")
+
+    @provide_session
+    def delete_entities(self, collection_id, row_id, session=None):
+        collection = session.get(WCollection, collection_id)
+        if collection:
+            self.connect()
+            collection_name = collection.name
+            milvus_collection = Collection(collection_name)
+            milvus_collection.delete(expr=f"row_id == {row_id}")
+            milvus_collection.flush()
+        else:
+            raise CollectionNotFoundException(f"Collection {collection_id} is not found")
