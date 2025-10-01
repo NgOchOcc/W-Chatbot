@@ -43,11 +43,9 @@ chatbot_configuration_service = ChatbotConfigurationService()
 KB_COLLECTION_NAME = chatbot_configuration_service.get_collection_name()
 EMBEDDING_MODE = config['embedding_model']['mode']
 EMBEDDING_MODEL = config['embedding_model']['model']
-OLLAMA_BASE_URL = config['embedding_model']['base_url']
-OLLAMA_EMBEDDING_MODEL = config['embedding_model']['ollama_model']
 VLLM_MODEL = config['vllm']['model']
 VLLM_BASE_URL = config['vllm']['base_url']
-
+VLLM_EMBEDDING_URL = config['embedding_model']['vllm_embedding_url']
 
 retrieval_config = RetrievalConfig(
     collection_name=KB_COLLECTION_NAME,
@@ -55,7 +53,7 @@ retrieval_config = RetrievalConfig(
     milvus_port=int(config["milvus"]["port"]),
     embedding_mode=EMBEDDING_MODE,
     embedding_model=EMBEDDING_MODEL,
-    ollama_base_url=OLLAMA_BASE_URL,
+    vllm_base_url=VLLM_EMBEDDING_URL,
     search_limit=config['retrieval']['search_limit'],
     metric_type=config['retrieval']['metric_type']
 )
