@@ -5,7 +5,7 @@ import json
 from weschatbot.services.chatbot_configuration_service import ChatbotConfigurationService
 
 
-class VLLMClient:
+class VLLMService:
     def __init__(self, base_url: str = "http://localhost:9292", model: str = "AlphaGaO/Qwen3-14B-GPTQ"):
         self.base_url = base_url
         self.model = model

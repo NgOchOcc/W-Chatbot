@@ -1,5 +1,8 @@
 import json
-from typing import List, Dict
+from typing import List, Dict, Optional, Union
+from enum import Enum
+from dataclasses import dataclass
+import asyncio
 
 from fastapi import Depends, Form, FastAPI, WebSocket, Request, Cookie, status, HTTPException
 from fastapi.responses import JSONResponse
@@ -9,18 +12,19 @@ from fastapi.templating import Jinja2Templates
 from fastapi.websockets import WebSocketDisconnect
 from fastapi_csrf_protect import CsrfProtect
 from pymilvus import Collection, connections
-from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 
 from weschatbot.exceptions.user_exceptions import InvalidUserError
 from weschatbot.schemas.chat import Message
 from weschatbot.security.cookie_jwt_manager import FastAPICookieJwtManager
 from weschatbot.security.exceptions import TokenInvalidError, TokenExpiredError
 from weschatbot.services.chatbot_configuration_service import ChatbotConfigurationService
-from weschatbot.services.ollama_service import VLLMClient
+from weschatbot.schemas.embedding import  RetrievalConfig
+from weschatbot.services.vllm_llm_service import VLLMService
 from weschatbot.services.session_service import SessionService, NotPermissionError
 from weschatbot.services.user_service import UserService
 from weschatbot.utils.config import config
 from weschatbot.www.chatbot_ui.csrfsettings import CsrfSettings
+
 
 
 @CsrfProtect.load_config
@@ -34,33 +38,41 @@ templates = Jinja2Templates(directory="weschatbot/www/templates")
 
 # Connect Milvus
 connections.connect("default", host=config["milvus"]["host"], port=int(config["milvus"]["port"]))
-
 chatbot_configuration_service = ChatbotConfigurationService()
 
 KB_COLLECTION_NAME = chatbot_configuration_service.get_collection_name()
-
-kb_collection = Collection(KB_COLLECTION_NAME)
-kb_collection.load()
-
-# Initial embedding model using LlamaIndex HuggingFace
+EMBEDDING_MODE = config['embedding_model']['mode']
 EMBEDDING_MODEL = config['embedding_model']['model']
-embedding_model = HuggingFaceEmbedding(
-    model_name=EMBEDDING_MODEL,
-    trust_remote_code=True
-)
-
-# vLLM configuration
+OLLAMA_BASE_URL = config['embedding_model']['base_url']
+OLLAMA_EMBEDDING_MODEL = config['embedding_model']['ollama_model']
 VLLM_MODEL = config['vllm']['model']
 VLLM_BASE_URL = config['vllm']['base_url']
 
-vllm_client = VLLMClient(
+
+retrieval_config = RetrievalConfig(
+    collection_name=KB_COLLECTION_NAME,
+    milvus_host=config["milvus"]["host"],
+    milvus_port=int(config["milvus"]["port"]),
+    embedding_mode=EMBEDDING_MODE,
+    embedding_model=EMBEDDING_MODEL,
+    ollama_base_url=OLLAMA_BASE_URL,
+    search_limit=config['retrieval']['search_limit'],
+    metric_type=config['retrieval']['metric_type']
+)
+
+vllm_client = VLLMService(
     base_url=VLLM_BASE_URL,
     model=VLLM_MODEL
 )
+
 session_service = SessionService()
 user_service = UserService()
-
 chatbot_configuration = chatbot_configuration_service.get_configuration()
+chatbot_pipeline = ChatbotPipeline(
+    retrieval_config=retrieval_config,
+    vllm_client=vllm_client,
+    chatbot_config=chatbot_configuration
+)
 
 
 @app.middleware("http")
@@ -171,7 +183,6 @@ async def delete_chat(chat_id: str, payload: dict = Depends(jwt_manager.required
 
 
 def get_conversation_history_from_chat(chat) -> List[Dict[str, str]]:
-    """Convert chat messages to conversation history format for vLLM"""
     history = []
     for msg in chat.messages:
         if msg.sender == "user":
@@ -207,52 +218,29 @@ async def websocket_endpoint(websocket: WebSocket,
             question = json.loads(data)["message"]
             chat_id = json.loads(data)["chat_id"]
 
-            # Using LlamaIndex HuggingFace embedding
-            query_emb = embedding_model.get_text_embedding(question)
-
-            search_params = {"metric_type": "COSINE", "params": {"nprobe": 10}}
-            results = kb_collection.search(
-                data=[query_emb],
-                anns_field="embedding",
-                param=search_params,
-                limit=5,
-                expr=None,
-                output_fields=["text"]
-            )
-
-            relevant_texts = [
-                hit.entity.get('text') or ""
-                for hits in results
-                for hit in hits
-            ]
-
-            context = "\n".join(text for text in relevant_texts if text.strip() != "")
-
             # Get current chat and conversation history
             chat = session_service.get_session(chat_id)
             conversation_history = get_conversation_history_from_chat(chat)
-            answer = "Error: Could not get answer from Ollama."
+
+            answer = "Error: Could not get answer from chatbot."
 
             try:
-                answer = await vllm_client.chat_with_context(
-                    question=question,
-                    context=context,
+                result = await chatbot_pipeline.run(
+                    query=question,
                     conversation_history=conversation_history,
-                    temperature=chatbot_configuration.temperature,
-                    max_completion_tokens=chatbot_configuration.max_completion_tokens,
+                    filter_expr=None
                 )
 
-                answer = answer.split('</think>')[-1]
+                answer = result["response"]
 
             except Exception as e:
                 answer = f"An error occurred: {str(e)}"
-                print(f"Error calling Ollama: {e}")
+                print(f"Error calling chatbot pipeline: {e}")
 
             res = {
                 "text": f"{answer}"
             }
 
-            # Create message objects and update session
             messages = [
                 Message(sender="user", receiver="bot", message=question),
                 Message(sender="bot", receiver="user", message=answer),
@@ -262,10 +250,3 @@ async def websocket_endpoint(websocket: WebSocket,
             await websocket.send_text(json.dumps(res))
     except WebSocketDisconnect:
         print("Client disconnected")
-
-#
-#
-# if __name__ == "__main__":
-#     import uvicorn
-#
-#     uvicorn.run(app, host="0.0.0.0", port=8000)
