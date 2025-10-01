@@ -3,7 +3,7 @@ from pymilvus import Collection
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 
 from weschatbot.schemas.embedding import EmbeddingMode, RetrievalConfig
-from weschatbot.services.ollama_embedding_service import OllamaEmbeddingService
+from weschatbot.services.vllm_embedding_service import VLLMEmbeddingService
 
 
 class Retriever:
@@ -17,12 +17,12 @@ class Retriever:
                 model_name=config.embedding_model,
                 trust_remote_code=True
             )
-            self.ollama_client = None
+            self.vllm_client = None
         elif config.embedding_mode == EmbeddingMode.OLLAMA:
-            if not config.ollama_base_url:
+            if not config.vllm_base_url:
                 raise ValueError("Ollama base URL required for Ollama mode")
-            self.ollama_client = OllamaEmbeddingService(
-                base_url=config.ollama_base_url,
+            self.vllm_client = VLLMEmbeddingService(
+                base_url=config.vllm_base_url,
                 model=config.embedding_model
             )
             self.embedding_model = None
@@ -31,7 +31,7 @@ class Retriever:
         if self.config.embedding_mode == EmbeddingMode.HUGGINGFACE:
             query_embedding = self.embedding_model.get_text_embedding(query)
         else:  
-            query_embedding = await self.ollama_client.get_embedding(query)
+            query_embedding = await self.vllm_client.get_embedding(query)
 
         search_params = {
             "metric_type": self.config.metric_type,
@@ -60,5 +60,5 @@ class Retriever:
         return retrieved_docs
 
     async def close(self):
-        if self.ollama_client:
-            await self.ollama_client.close()
+        if self.vllm_client:
+            await self.vllm_client.close()
