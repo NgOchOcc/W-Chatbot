@@ -155,7 +155,7 @@ docker run -d --gpus all \
 ###### embed
 ```shell
 docker run -d --gpus all \
-    -p 9290:9290 \
+    -p 9393:9393 \
     --restart=always \
     --name westaco-chatbot-vllm-embed \
     --network westaco_chatbot \
@@ -169,7 +169,11 @@ docker run -d --gpus all \
     westaco-chatbot:0.0.1 \
     python -m vllm.entrypoints.openai.api_server \
     --model Qwen/Qwen3-Embedding-0.6B \
+    --max-model-len 2048 \
+    --gpu-memory-utilization 0.2 \ 
     --task embed \
-    --port 9290 \
+    --port 9393 \
+    --tensor-parallel-size 1
+
     --enforce-eager
 ```
