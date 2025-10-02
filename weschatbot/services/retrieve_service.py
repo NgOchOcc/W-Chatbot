@@ -12,13 +12,13 @@ class Retriever:
         self.collection = Collection(config.collection_name)
         self.collection.load()
 
-        if str(config.embedding_mode) == str(EmbeddingMode.HUGGINGFACE):
+        if str(config.embedding_mode) == 'huggingface':
             self.embedding_model = HuggingFaceEmbedding(
                 model_name=config.embedding_model,
                 trust_remote_code=True
             )
             self.vllm_client = None
-        elif str(config.embedding_mode) == str(EmbeddingMode.VLLM):
+        elif str(config.embedding_mode) == 'vllm':
             if not config.vllm_base_url:
                 raise ValueError("Ollama base URL required for Ollama mode")
             self.vllm_client = VLLMEmbeddingService(
@@ -28,9 +28,9 @@ class Retriever:
             self.embedding_model = None
 
     async def retrieve(self, query: str, filter_expr: Optional[str] = None) -> List[Dict]:
-        if str(self.config.embedding_mode) == str(EmbeddingMode.HUGGINGFACE):
+        if str(self.config.embedding_mode) == 'huggingface':
             query_embedding = self.embedding_model.get_text_embedding(query)
-        elif str(self.config.embedding_mode) == str(EmbeddingMode.VLLM):
+        elif str(self.config.embedding_mode) == 'vllm':
             if self.vllm_client is None:
                 raise ValueError("VLLM client is not initialized")
             query_embedding = await self.vllm_client.get_embedding(query)
