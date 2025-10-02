@@ -1,5 +1,6 @@
-from typing import List, Optional, Dict
+from typing import Optional
 from enum import Enum
+from dataclasses import dataclass
 
 class EmbeddingMode(Enum):
     VLLM = "vllm"

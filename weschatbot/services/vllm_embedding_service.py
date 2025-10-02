@@ -1,3 +1,6 @@
+import httpx
+from typing import List
+
 class VLLMEmbeddingService:
     def __init__(self, base_url: str, model: str):
         self.base_url = base_url
