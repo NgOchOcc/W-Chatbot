@@ -1,11 +1,12 @@
 import {createRoot} from "react-dom/client";
 import React, {useEffect, useState} from "react";
 import {
+    CBadge,
     CButton,
     CButtonGroup,
     CCard,
     CCardBody,
-    CCardHeader,
+    CCardHeader, CCollapse,
     CFormInput,
     CInputGroup,
     CModal,
@@ -27,7 +28,7 @@ import {
     CTabPane,
 } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
-import {cilSearch, cilTrash} from "@coreui/icons";
+import {cilCloudDownload, cilSearch, cilTrash} from "@coreui/icons";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import ReactMarkdown from "react-markdown";
@@ -58,21 +59,19 @@ function ActionColumn({item, onDelete}) {
             <CButtonGroup>
                 <CButton
                     color="secondary"
-                    size="sm"
                     variant="outline"
-                    style={{height: "25px", padding: "2px", width: "25px"}}
+                    style={{height: "25px", padding: "0px", width: "25px"}}
                     onClick={() => setVisibleDetail(true)}
                 >
-                    <CIcon icon={cilSearch} size="sm"/>
+                    <CIcon icon={cilSearch} size="md"/>
                 </CButton>
                 <CButton
                     color="secondary"
-                    size="sm"
                     variant="outline"
-                    style={{height: "25px", padding: "2px", width: "25px"}}
+                    style={{height: "25px", padding: "0px", width: "25px"}}
                     onClick={() => setVisibleConfirm(true)}
                 >
-                    <CIcon icon={cilTrash} size="sm"/>
+                    <CIcon icon={cilTrash} size="md"/>
                 </CButton>
             </CButtonGroup>
 
@@ -126,20 +125,82 @@ function NotFoundMilvusOverviewPage() {
     )
 }
 
+function MilvusOverviewPage({fields, indexes, description, num_entities}) {
+    return (
+        <>
+            <p><strong>Description:</strong> {description}</p>
+            <p><strong>Number of entities:</strong> {num_entities}</p>
+
+            <CCard className="mb-4">
+                <CCardHeader>Schema Fields</CCardHeader>
+                <CCardBody>
+                    <CTable striped hover responsive bordered>
+                        <CTableHead>
+                            <CTableRow>
+                                <CTableHeaderCell>Field name</CTableHeaderCell>
+                                <CTableHeaderCell>Data type</CTableHeaderCell>
+                                <CTableHeaderCell>Params</CTableHeaderCell>
+                            </CTableRow>
+                        </CTableHead>
+                        {Object.keys(fields).length !== 0 &&
+                            <CTableBody>
+                                {fields.map((field, index) => (
+                                    <CTableRow key={index}>
+                                        <CTableDataCell>{field.name}</CTableDataCell>
+                                        <CTableDataCell>{dataTypeMap[field.type] || field.type}</CTableDataCell>
+                                        <CTableDataCell>
+                                            {Object.entries(field.params).length > 0
+                                                ? Object.entries(field.params).map(([key, value]) => `${key}: ${value}`).join(", ")
+                                                : "—"}
+                                        </CTableDataCell>
+                                    </CTableRow>
+                                ))}
+                            </CTableBody>
+                        }
+
+                    </CTable>
+                </CCardBody>
+            </CCard>
+
+
+            <CCard>
+                <CCardHeader>Indexes</CCardHeader>
+                <CCardBody>
+                    <CTable striped hover responsive bordered>
+                        <CTableHead>
+                            <CTableRow>
+                                <CTableHeaderCell>Field</CTableHeaderCell>
+                                <CTableHeaderCell>Index name</CTableHeaderCell>
+                                <CTableHeaderCell>Params</CTableHeaderCell>
+                            </CTableRow>
+                        </CTableHead>
+                        {Object.keys(indexes).length !== 0 &&
+                            <CTableBody>
+                                {indexes.map((index, idx) => (
+                                    <CTableRow key={idx}>
+                                        <CTableDataCell>{index["field_name"]}</CTableDataCell>
+                                        <CTableDataCell>{index["index_name"]}</CTableDataCell>
+                                        <CTableDataCell>
+                                            {Object.entries(index.params).map(([key, value]) => `${key}: ${value}`).join(", ")}
+                                        </CTableDataCell>
+                                    </CTableRow>
+                                ))}
+                            </CTableBody>
+                        }
+                    </CTable>
+                </CCardBody>
+            </CCard>
+        </>
+    )
+}
+
 function MilvusEntitiesPage({collectionId}) {
     const [entities, setEntities] = useState([])
     const [search, setSearch] = useState("")
     const [tokens, setTokens] = useState([""])
-    const [currentToken, setCurrentToken] = useState("")
     const [currentPage, setCurrentPage] = useState(0)
     const [loading, setLoading] = useState(false)
 
-    function decode(token) {
-        const padLength = (4 - (token.length % 4)) % 4;
-        const padded = token + "=".repeat(padLength);
-        const decoded = decodeURIComponent(escape(atob(padded)))
-        return decoded
-    }
 
     const fetchEntities = (callback, token = "") => {
         fetch(`/management/ViewModelCollection/collection_entities?collection_id=${collectionId}&search=${encodeURIComponent(search)}&token=${encodeURIComponent(token)}`)
@@ -153,9 +214,7 @@ function MilvusEntitiesPage({collectionId}) {
     const handlePrevious = () => {
         console.log("Previous clicked")
         let res = tokens[currentPage - 1]
-        setCurrentToken(res)
         fetchEntities((nToken) => {
-            setCurrentToken(tokens[currentPage - 1])
             setCurrentPage(Math.max(currentPage - 1, 0))
         }, res)
     }
@@ -165,7 +224,6 @@ function MilvusEntitiesPage({collectionId}) {
         fetchEntities((nToken) => {
             if (nToken !== null) {
                 if (!tokens.includes(nToken)) {
-                    setCurrentToken(tokens[currentPage + 1])
                     tokens.push(nToken)
                     setTokens(tokens)
 
@@ -179,7 +237,6 @@ function MilvusEntitiesPage({collectionId}) {
         fetchEntities((nToken) => {
             tokens.push(nToken)
             setTokens(tokens)
-            setCurrentToken(tokens[currentPage])
         }, "")
     }, [])
 
@@ -187,7 +244,6 @@ function MilvusEntitiesPage({collectionId}) {
         fetchEntities((nToken) => {
             tokens.push(nToken)
             setTokens(tokens)
-            setCurrentToken(tokens[currentPage])
         }, "")
     }
 
@@ -251,7 +307,7 @@ function MilvusEntitiesPage({collectionId}) {
                         </CInputGroup>
 
                         <div style={{maxHeight: "620px", overflowY: "auto"}}>
-                            <CTable striped hover responsive>
+                            <CTable striped hover responsive small>
                                 <CTableHead>
                                     <CTableRow>
                                         <CTableHeaderCell style={{width: "5%"}}>#</CTableHeaderCell>
@@ -265,8 +321,10 @@ function MilvusEntitiesPage({collectionId}) {
                                             <CTableDataCell style={{width: "5%"}}>
                                                 <ActionColumn item={item} onDelete={deleteItem(collectionId)}/>
                                             </CTableDataCell>
-                                            <CTableDataCell style={{width: "15%"}}>{item["row_id"]}</CTableDataCell>
-                                            <CTableDataCell style={{width: "80%"}}>{item["text"]}</CTableDataCell>
+                                            <CTableDataCell style={{width: "15%"}}><span
+                                                style={{fontSize: "0.9rem"}}>{item["row_id"]}</span></CTableDataCell>
+                                            <CTableDataCell style={{width: "80%"}}><span
+                                                style={{fontSize: "0.9rem"}}>{item["text"]}</span></CTableDataCell>
                                         </CTableRow>
                                     ))}
                                 </CTableBody>
@@ -302,20 +360,10 @@ function MilvusEntitiesPage({collectionId}) {
 }
 
 
-function CollectionInfoPage({data}) {
-    const [activeTab, setActiveTab] = useState("documents")
-
-    const {collection_id, collection_name, description, num_entities, fields, indexes, status, documents = []} = data
-
-    const [documentsList, setDocumentsList] = useState(documents)
+function AddDocumentBox({handleAddDocument}) {
     const [selectedDocId, setSelectedDocId] = useState("")
-
     const [availableDocuments, setAvailableDocuments] = useState([])
-    const [refreshFlag, setRefreshFlag] = useState(0)
-
-    const [isIndexing, setIsIndexing] = useState(status === "running")
-    const [isFlushing, setIsFlushing] = useState(false)
-
+    const [visible, setVisible] = useState(false)
 
     useEffect(() => {
         fetch("/management/ViewModelCollection/available_documents", {
@@ -326,16 +374,236 @@ function CollectionInfoPage({data}) {
             },
         })
             .then((res) => {
-                if (!res.ok) throw new Error("Failed to load documents");
-                return res.json();
+                if (!res.ok) throw new Error("Failed to load documents")
+                return res.json()
             })
             .then((data) => {
-                setAvailableDocuments(data);
+                setAvailableDocuments(data)
             })
             .catch((err) => {
-                console.error("Error loading documents:", err);
+                console.error("Error loading documents:", err)
             })
     }, [])
+
+    return (
+        <CCard className="mb-3">
+            <CCardHeader>
+                Add Document
+                <CButton
+                    color="link"
+                    size="sm"
+                    className="float-end"
+                    style={{textDecoration: 'none'}}
+                    onClick={() => setVisible(!visible)}
+                >
+                    {visible ? 'Hide' : 'Show'}
+                </CButton>
+            </CCardHeader>
+
+            <CCollapse visible={visible}>
+                <CCardBody className="d-flex gap-2 align-items-center">
+                    <select
+                        className="form-select"
+                        value={selectedDocId}
+                        onChange={(e) => setSelectedDocId(e.target.value)}
+                    >
+                        <option value="">-- Select a document --</option>
+                        {availableDocuments.map((doc) => (
+                            <option key={doc.id} value={doc.id}>
+                                {doc.name}
+                            </option>
+                        ))}
+                    </select>
+
+                    <button
+                        className="btn btn-primary"
+                        onClick={() => handleAddDocument(selectedDocId)}
+                        disabled={!selectedDocId}
+                    >
+                        Add
+                    </button>
+                </CCardBody>
+            </CCollapse>
+        </CCard>
+    )
+}
+
+
+function ListDocumentsActions(
+    {
+        item,
+        hasDelete = false, onDelete = null, confirmDelete = false, confirmMessage = "Are you sure?",
+        hasDownload = false, onDownload = null
+    }) {
+
+    const [visibleConfirm, setVisibleConfirm] = useState(false)
+
+    function retOnClickDelete() {
+        if (confirmDelete) {
+            return () => setVisibleConfirm(true)
+        }
+        return () => onDelete(item)
+    }
+
+    return (
+        <>
+            <CButtonGroup>
+                {hasDelete &&
+                    <CButton
+                        color="secondary"
+                        variant="outline"
+                        style={{height: "25px", padding: "0px", width: "25px"}}
+                        onClick={retOnClickDelete()}
+                    >
+                        <CIcon icon={cilTrash} size="md"/>
+                    </CButton>
+                }
+                {hasDownload &&
+                    <CButton
+                        color="secondary"
+                        variant="outline"
+                        style={{height: "25px", padding: "0px", width: "25px"}}
+                        onClick={onDownload}
+                    >
+                        <CIcon icon={cilCloudDownload}/>
+                    </CButton>
+                }
+            </CButtonGroup>
+
+            <CModal visible={visibleConfirm} onClose={() => setVisibleConfirm(false)}>
+                <CModalHeader>Delete Confirm</CModalHeader>
+                <CModalBody>
+                    {confirmMessage}
+                </CModalBody>
+                <CModalFooter>
+                    <CButton color="danger" onClick={() => {
+                        onDelete(item);
+                        setVisibleConfirm(false);
+                    }}>Delete</CButton>
+                    <CButton color="secondary" onClick={() => setVisibleConfirm(false)}>Cancel</CButton>
+                </CModalFooter>
+            </CModal>
+        </>
+    )
+}
+
+
+function StatusBadge({status}) {
+    let color = 'secondary'
+    let label = status
+
+    switch (status) {
+        case 'active':
+            color = 'success'
+            label = 'Active'
+            break
+        case 'done':
+            color = 'success'
+            label = 'Done'
+            break
+        case 'inactive':
+            color = 'secondary'
+            label = 'Inactive'
+            break
+        case 'new':
+            color = 'secondary'
+            label = 'new'
+            break
+        case 'pending':
+            color = 'warning'
+            label = 'Pending'
+            break
+        case 'error':
+            color = 'danger'
+            label = 'Error'
+            break
+        case 'processing':
+            color = 'info'
+            label = 'Processing'
+            break
+        case 'in progress':
+            color = 'info'
+            label = 'Processing'
+            break
+        default:
+            color = 'dark'
+            label = status || 'Unknown'
+    }
+
+    return <CBadge color={color} style={{fontSize: "0.9rem"}}>{label}</CBadge>
+}
+
+function ListDocuments({documentsList, handleRemoveDocument}) {
+    return (
+        <>
+            <CCard>
+                <CCardHeader>Documents</CCardHeader>
+                <CCardBody>
+                    <div style={{maxHeight: "550px", overflowY: "auto"}}>
+                        <CTable striped hover responsive bordered>
+                            <CTableHead>
+                                <CTableRow>
+                                    <CTableHeaderCell>#</CTableHeaderCell>
+                                    <CTableHeaderCell>ID</CTableHeaderCell>
+                                    <CTableHeaderCell>Name</CTableHeaderCell>
+                                    <CTableHeaderCell>Path</CTableHeaderCell>
+                                    <CTableHeaderCell>Status</CTableHeaderCell>
+
+                                </CTableRow>
+                            </CTableHead>
+
+                            <CTableBody>
+                                {documentsList.length > 0 ? (
+                                    documentsList.map((doc, index) => (
+                                        <CTableRow key={index}>
+                                            <CTableDataCell>
+                                                <ListDocumentsActions
+                                                    item={doc.id} hasDelete={true}
+                                                    confirmDelete={true}
+                                                    onDelete={handleRemoveDocument}
+                                                >
+                                                </ListDocumentsActions>
+                                            </CTableDataCell>
+                                            <CTableDataCell
+                                                style={{minWidth: '50px', fontSize: "0.9rem"}}>{doc.id}</CTableDataCell>
+                                            <CTableDataCell
+                                                style={{
+                                                    minWidth: '200px',
+                                                    fontSize: "0.9rem"
+                                                }}>{doc.name}</CTableDataCell>
+                                            <CTableDataCell style={{
+                                                wordBreak: 'break-word',
+                                                whiteSpace: 'pre-wrap',
+                                                fontSize: "0.9rem"
+                                            }}>{doc.path}</CTableDataCell>
+                                            <CTableDataCell><StatusBadge
+                                                status={doc.status}></StatusBadge></CTableDataCell>
+
+                                        </CTableRow>
+                                    ))
+                                ) : (
+                                    <CTableRow>
+                                        <CTableDataCell colSpan={5}>No any document</CTableDataCell>
+                                    </CTableRow>
+                                )}
+                            </CTableBody>
+
+                        </CTable>
+                    </div>
+                </CCardBody>
+            </CCard>
+        </>
+    )
+}
+
+function CollectionInfoPage({data}) {
+    const [activeTab, setActiveTab] = useState("documents")
+    const {collection_id, collection_name, description, num_entities, fields, indexes, status, documents = []} = data
+    const [documentsList, setDocumentsList] = useState(documents)
+    const [refreshFlag, setRefreshFlag] = useState(0)
+    const [isIndexing, setIsIndexing] = useState(status === "running")
+    const [isFlushing, setIsFlushing] = useState(false)
+
 
     useEffect(() => {
         fetch("/management/ViewModelCollection/get_documents_by_collection_id?collection_id=" + collection_id, {
@@ -364,7 +632,7 @@ function CollectionInfoPage({data}) {
     }, [])
 
 
-    function handleAddDocument() {
+    const handleAddDocument = (collection_id) => (selectedDocId) => {
         const formData = new FormData()
         formData.append("collection_id", collection_id)
         formData.append("document_id", selectedDocId)
@@ -390,7 +658,7 @@ function CollectionInfoPage({data}) {
     }
 
 
-    function handleRemoveDocument(docId) {
+    const handleRemoveDocument = (docId) => {
         const formData = new FormData()
         formData.append("collection_id", collection_id)
         formData.append("document_id", docId)
@@ -516,149 +784,15 @@ function CollectionInfoPage({data}) {
                     {status === 404 &&
                         <NotFoundMilvusOverviewPage></NotFoundMilvusOverviewPage>
                         ||
-                        <>
-                            <p><strong>Description:</strong> {description}</p>
-                            <p><strong>Number of entities:</strong> {num_entities}</p>
-
-                            <CCard className="mb-4">
-                                <CCardHeader>Schema Fields</CCardHeader>
-                                <CCardBody>
-                                    <CTable striped hover responsive bordered>
-                                        <CTableHead>
-                                            <CTableRow>
-                                                <CTableHeaderCell>Field name</CTableHeaderCell>
-                                                <CTableHeaderCell>Data type</CTableHeaderCell>
-                                                <CTableHeaderCell>Params</CTableHeaderCell>
-                                            </CTableRow>
-                                        </CTableHead>
-                                        {Object.keys(fields).length !== 0 &&
-                                            <CTableBody>
-                                                {fields.map((field, index) => (
-                                                    <CTableRow key={index}>
-                                                        <CTableDataCell>{field.name}</CTableDataCell>
-                                                        <CTableDataCell>{dataTypeMap[field.type] || field.type}</CTableDataCell>
-                                                        <CTableDataCell>
-                                                            {Object.entries(field.params).length > 0
-                                                                ? Object.entries(field.params).map(([key, value]) => `${key}: ${value}`).join(", ")
-                                                                : "—"}
-                                                        </CTableDataCell>
-                                                    </CTableRow>
-                                                ))}
-                                            </CTableBody>
-                                        }
-
-                                    </CTable>
-                                </CCardBody>
-                            </CCard>
-
-
-                            <CCard>
-                                <CCardHeader>Indexes</CCardHeader>
-                                <CCardBody>
-                                    <CTable striped hover responsive bordered>
-                                        <CTableHead>
-                                            <CTableRow>
-                                                <CTableHeaderCell>Field</CTableHeaderCell>
-                                                <CTableHeaderCell>Index name</CTableHeaderCell>
-                                                <CTableHeaderCell>Params</CTableHeaderCell>
-                                            </CTableRow>
-                                        </CTableHead>
-                                        {Object.keys(indexes).length !== 0 &&
-                                            <CTableBody>
-                                                {indexes.map((index, idx) => (
-                                                    <CTableRow key={idx}>
-                                                        <CTableDataCell>{index.field_name}</CTableDataCell>
-                                                        <CTableDataCell>{index.index_name}</CTableDataCell>
-                                                        <CTableDataCell>
-                                                            {Object.entries(index.params).map(([key, value]) => `${key}: ${value}`).join(", ")}
-                                                        </CTableDataCell>
-                                                    </CTableRow>
-                                                ))}
-                                            </CTableBody>
-                                        }
-                                    </CTable>
-                                </CCardBody>
-                            </CCard>
-                        </>
+                        <MilvusOverviewPage description={description} indexes={indexes} fields={fields}
+                                            num_entities={num_entities}></MilvusOverviewPage>
                     }
                 </CTabPane>
 
                 <CTabPane visible={activeTab === "documents"}>
-                    <CCard className="mb-3">
-                        <CCardHeader>Add Document</CCardHeader>
-                        <CCardBody className="d-flex gap-2 align-items-center">
-                            <select
-                                className="form-select"
-                                value={selectedDocId}
-                                onChange={(e) => setSelectedDocId(e.target.value)}
-                            >
-                                <option value="">-- Select a document --</option>
-                                {availableDocuments.map((doc) => (
-                                    <option key={doc.id} value={doc.id}>
-                                        {doc.name}
-                                    </option>
-                                ))}
-                            </select>
-
-                            <button
-                                className="btn btn-primary"
-                                onClick={handleAddDocument}
-                                disabled={!selectedDocId}
-                            >
-                                Add
-                            </button>
-                        </CCardBody>
-                    </CCard>
-
-                    <CCard>
-                        <CCardHeader>Documents</CCardHeader>
-                        <CCardBody>
-                            <div style={{maxHeight: "550px", overflowY: "auto"}}>
-                                <CTable striped hover responsive bordered>
-                                    <CTableHead>
-                                        <CTableRow>
-                                            <CTableHeaderCell>ID</CTableHeaderCell>
-                                            <CTableHeaderCell>Name</CTableHeaderCell>
-                                            <CTableHeaderCell>Path</CTableHeaderCell>
-                                            <CTableHeaderCell>Status</CTableHeaderCell>
-                                            <CTableHeaderCell>Actions</CTableHeaderCell>
-                                        </CTableRow>
-                                    </CTableHead>
-
-                                    <CTableBody>
-                                        {documentsList.length > 0 ? (
-                                            documentsList.map((doc, index) => (
-                                                <CTableRow key={index}>
-                                                    <CTableDataCell style={{minWidth: '50px'}}>{doc.id}</CTableDataCell>
-                                                    <CTableDataCell
-                                                        style={{minWidth: '200px'}}>{doc.name}</CTableDataCell>
-                                                    <CTableDataCell style={{
-                                                        wordBreak: 'break-word',
-                                                        whiteSpace: 'pre-wrap'
-                                                    }}>{doc.path}</CTableDataCell>
-                                                    <CTableDataCell
-                                                        style={{minWidth: '100px'}}>{doc.status}</CTableDataCell>
-                                                    <CTableDataCell>
-                                                        <button
-                                                            className="btn btn-sm btn-danger"
-                                                            onClick={() => handleRemoveDocument(doc.id)}
-                                                        >
-                                                            Remove
-                                                        </button>
-                                                    </CTableDataCell>
-                                                </CTableRow>
-                                            ))
-                                        ) : (
-                                            <CTableRow>
-                                                <CTableDataCell colSpan={5}>No any document</CTableDataCell>
-                                            </CTableRow>
-                                        )}
-                                    </CTableBody>
-
-                                </CTable>
-                            </div>
-                        </CCardBody>
-                    </CCard>
+                    <AddDocumentBox handleAddDocument={handleAddDocument(collection_id)}></AddDocumentBox>
+                    <ListDocuments documentsList={documentsList}
+                                   handleRemoveDocument={handleRemoveDocument}></ListDocuments>
                 </CTabPane>
 
                 <CTabPane visible={activeTab === "tasks"}>
