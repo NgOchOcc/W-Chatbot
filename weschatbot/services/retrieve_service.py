@@ -57,6 +57,7 @@ class Retriever:
                 }
                 retrieved_docs.append(doc)
 
+        print("Retrieved Documents:", retrieved_docs)
         return retrieved_docs
 
     async def close(self):
