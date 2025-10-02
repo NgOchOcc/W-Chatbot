@@ -55,8 +55,8 @@ retrieval_config = RetrievalConfig(
     embedding_mode=EMBEDDING_MODE,
     embedding_model=EMBEDDING_MODEL,
     vllm_base_url=VLLM_EMBEDDING_URL,
-    search_limit=config['retrieval']['search_limit'],
-    metric_type=config['retrieval']['metric_type']
+    search_limit=int(config['retrieval']['search_limit']),
+    metric_type=config['retrieval']['metrics']
 )
 
 vllm_client = VLLMService(
