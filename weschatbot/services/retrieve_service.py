@@ -18,7 +18,7 @@ class Retriever:
                 trust_remote_code=True
             )
             self.vllm_client = None
-        elif config.embedding_mode == EmbeddingMode.OLLAMA:
+        elif config.embedding_mode == EmbeddingMode.VLLM:
             if not config.vllm_base_url:
                 raise ValueError("Ollama base URL required for Ollama mode")
             self.vllm_client = VLLMEmbeddingService(
