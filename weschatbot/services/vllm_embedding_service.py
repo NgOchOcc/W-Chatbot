@@ -8,7 +8,7 @@ class VLLMEmbeddingService:
         self.client = httpx.AsyncClient(timeout=60.0)
 
     async def get_embedding(self, text: str) -> List[float]:
-        endpoint = f"{self.base_url}/embeddings"
+        endpoint = f"{self.base_url}/v1/embeddings"
         payload = {
             "input": text,
             "model": self.model
