@@ -1,5 +1,7 @@
 from weschatbot.schemas.embedding import RetrievalConfig
 from weschatbot.services.vllm_llm_service import VLLMService
+from weschatbot.services.retrieve_service import Retriever
+from typing import List, Optional, Dict
 
 class ChatbotPipeline:
     def __init__(
