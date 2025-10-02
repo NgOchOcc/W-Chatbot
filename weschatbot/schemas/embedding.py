@@ -1,9 +1,9 @@
 from typing import List, Optional, Dict
+from enum import Enum
 
 class EmbeddingMode(Enum):
     VLLM = "vllm"
     HUGGINGFACE = "huggingface"
-
 
 @dataclass
 class RetrievalConfig:
