@@ -21,7 +21,7 @@
 <main class="d-flex flex-nowrap">
     <div id="sidebar_menu"></div>
     <div class="container-fluid"
-         style="background: var(--cui-tertiary-bg-rgb); height: 100vh; padding: 20px;padding-left: 0 !important; margin-left: 20px">
+         style="background: var(--cui-tertiary-bg-rgb); height: auto; max-height: 100vh; padding: 20px;padding-left: 0 !important; margin-left: 20px; overflow-y: auto">
 
         {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
