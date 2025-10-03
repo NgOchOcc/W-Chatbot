@@ -232,6 +232,7 @@ async def websocket_endpoint(websocket: WebSocket,
                 answer = result["response"]
 
             except Exception as e:
+                raise e
                 answer = f"An error occurred: {str(e)}"
                 print(f"Error calling chatbot pipeline: {e}")
 
