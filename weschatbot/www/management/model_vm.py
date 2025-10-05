@@ -5,6 +5,7 @@ import uuid
 from datetime import datetime
 from functools import reduce, wraps
 
+from docutils.nodes import title
 from flask import Blueprint, request, abort, render_template, redirect, flash
 from flask_login import current_user
 
@@ -220,6 +221,9 @@ class UpdateViewModel(SubViewModel):
     field_types = {}
     select_funcs = {}
 
+    def item_name(self):
+        return self.item.name
+
     def __init__(self, view_model_class):
         super().__init__(view_model_class)
 
@@ -276,6 +280,9 @@ class DeleteViewModel(SubViewModel):
     item = None
     model_class = None
 
+    def item_name(self):
+        return self.item.name
+
     def register(self):
         self.model_class = self.view_model_class.model_class
 
@@ -292,6 +299,9 @@ class DetailViewModel(SubViewModel):
     item = None
     model_class = None
     field_types = {}
+
+    def item_name(self):
+        return self.item.name
 
     def register(self):
         self.model_class = self.view_model_class.model_class
@@ -457,7 +467,8 @@ class ViewModel(LoggingMixin):
         res.keyword = keyword
         res.pagination = Pagination(page, page_size, total)
 
-        return render_template(self.list_template, model=json.dumps(res.to_dict(), default=str)), 200
+        return render_template(self.list_template, model=json.dumps(res.to_dict(), default=str),
+                               title=f"List of {self.model_class.__name__}"), 200
 
     @provide_session
     def add_item_post(self, callback=lambda item: None, session=None):
@@ -503,14 +514,15 @@ class ViewModel(LoggingMixin):
 
     def add_item_get(self):
         model = self.add_view_model
-        return render_template(self.add_template, model=json.dumps(model.to_dict(), default=str)), 200
+        return render_template(self.add_template, model=json.dumps(model.to_dict(), default=str),
+                               title=f"Add {self.model_class.__name__}"), 200
 
     @provide_session
     def add_item(self, session=None):
         return request.method == "POST" and self.add_item_post(session=session) or self.add_item_get()
 
     @provide_session
-    def update_item_get(self, item_id, session=None):
+    def update_item_get(self, item_id, item_name_func=None, session=None):
         item = session.query(self.model_class).filter_by(id=item_id).one_or_none()
         model = self.update_view_model
         model.update_fields = self.update_fields
@@ -518,7 +530,8 @@ class ViewModel(LoggingMixin):
         model.item = item
         model_json = json.dumps(model.to_dict(session), default=str)
 
-        return render_template(self.update_template, model=model_json), 200
+        return render_template(self.update_template, model=model_json,
+                               title=f"Update {self.model_class.__name__}: {item_name_func() if item_name_func else self.update_view_model.item_name()}"), 200
 
     @provide_session
     def update_item_post(self, item_id, session=None):
@@ -591,7 +604,8 @@ class ViewModel(LoggingMixin):
             return abort(404)
         res = self.delete_view_model
         res.item = item
-        return render_template(self.delete_template, model=json.dumps(res.to_dict(), default=str)), 200
+        return render_template(self.delete_template, model=json.dumps(res.to_dict(), default=str),
+                               title=f"Delete {self.model_class.__name__}: {self.delete_view_model.item_name()}"), 200
 
     @provide_session
     @check_permission("delete")
@@ -618,7 +632,8 @@ class ViewModel(LoggingMixin):
             return abort(404)
         res = self.detail_view_model
         res.item = item
-        return render_template(self.detail_template, model=json.dumps(res.to_dict(), default=str)), 200
+        return render_template(self.detail_template, model=json.dumps(res.to_dict(), default=str),
+                               title=f"Details of {self.model_class.__name__}: {self.detail_view_model.item_name()}"), 200
 
 
 class SingleViewModel(ViewModel):
@@ -641,7 +656,8 @@ class SingleViewModel(ViewModel):
             return abort(404)
         res = self.detail_view_model
         res.item = item
-        return render_template(self.detail_template, model=json.dumps(res.to_dict(), default=str)), 200
+        return render_template(self.detail_template, model=json.dumps(res.to_dict(), default=str),
+                               title=f"Details of {self.model_class.__name__}"), 200
 
     def register(self, flask_app_or_bp):
         if self.update_enabled():
@@ -659,7 +675,7 @@ class SingleViewModel(ViewModel):
         if status == 302:
             return redirect(self.list_view_model.detail_url_func()), 302
 
-    def update_item_get(self, item_id=None, session=None):
+    def update_item_get(self, item_id=None, item_name_func=None, session=None):
         item = session.query(self.model_class).first()
         item_id = item_id or item.id
-        return super().update_item_get(item_id, session=session)
+        return super().update_item_get(item_id, item_name_func=lambda: "", session=session)

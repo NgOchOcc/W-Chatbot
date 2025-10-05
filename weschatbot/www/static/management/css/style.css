@@ -10,3 +10,10 @@
     align-items: center;
     z-index: 9999;
 }
+
+.container-main {
+    padding-left: 0;
+    padding-right: 0;
+    margin-left: 0;
+    margin-right: 0;
+}

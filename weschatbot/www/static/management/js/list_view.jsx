@@ -173,8 +173,6 @@ function App({model}) {
     const keyword = model["keyword"]
     return (
         <>
-            <h4>{title}</h4>
-            <br/>
             <div className={"row"}>
                 <div className={"col-md-6"}>
                     <SearchBox search_url={search_url} keyword={keyword}

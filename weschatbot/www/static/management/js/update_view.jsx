@@ -159,8 +159,6 @@ function UpdateView({model, csrf_token}) {
 function App({model, csrf_token}) {
     return (
         <>
-            <h4>{model.title} :: {model.item.name}</h4>
-            <br/>
             <UpdateView model={model} csrf_token={csrf_token}></UpdateView>
         </>
     )

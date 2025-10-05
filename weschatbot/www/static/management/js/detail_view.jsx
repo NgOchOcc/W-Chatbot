@@ -36,7 +36,8 @@ function ShowView({detail_fields, item}) {
                             {
                                 item[field] && item[field].length > 200 && <>
                                     <div className="mb-3">
-                                        <textarea className="form-control" id="exampleFormControlTextarea1" disabled={true}
+                                        <textarea className="form-control" id="exampleFormControlTextarea1"
+                                                  disabled={true}
                                                   rows="5">{item[field]}</textarea>
                                     </div>
                                 </> || item[field]
@@ -54,14 +55,10 @@ function ShowView({detail_fields, item}) {
 }
 
 function App({model}) {
-    const title = model["title"]
     const detail_fields = model["detail_fields"]
     const item = model["item"]
     return (
         <>
-            <h4>{title} :: {item.name}</h4>
-            <br/>
-
             {
                 Object.keys(model["actions"]).length !== 0 && <>
                     <Actions actions={model["actions"]}></Actions>
