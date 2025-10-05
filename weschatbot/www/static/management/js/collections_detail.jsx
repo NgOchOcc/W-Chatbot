@@ -306,7 +306,7 @@ function MilvusEntitiesPage({collectionId}) {
                             </CButton>
                         </CInputGroup>
 
-                        <div style={{maxHeight: "620px", overflowY: "auto"}}>
+                        <div style={{maxHeight: "580px", overflowY: "auto"}}>
                             <CTable striped hover responsive small>
                                 <CTableHead>
                                     <CTableRow>
@@ -539,7 +539,7 @@ function ListDocuments({documentsList, handleRemoveDocument}) {
             <CCard>
                 <CCardHeader>Documents</CCardHeader>
                 <CCardBody>
-                    <div style={{maxHeight: "550px", overflowY: "auto"}}>
+                    <div style={{maxHeight: "500px", overflowY: "auto"}}>
                         <CTable striped hover responsive bordered>
                             <CTableHead>
                                 <CTableRow>
@@ -754,8 +754,6 @@ function CollectionInfoPage({data}) {
 
     return (
         <>
-            <h5>Collection: {collection_name}</h5>
-
             <CNav variant="tabs" role="tablist" className="mb-3">
                 <CNavItem>
                     <CNavLink active={activeTab === "documents"} onClick={() => setActiveTab("documents")}>

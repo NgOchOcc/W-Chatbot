@@ -9,7 +9,7 @@ function DeleteView({csrf_token, item}) {
             <form name={"deleteForm"} method={"POST"}>
                 <CSRFToken csrf_token={csrf_token}></CSRFToken>
                 <div>
-                    <label className={"mb-3"}>Are you sure?</label>
+                    <label className={"mb-3"}>Are you sure to delete item <strong>{item.name}</strong>?</label>
                 </div>
                 <button className={"btn btn-danger me-2"} type={"submit"}><i className={"bi bi-trash"}> Delete</i>
                 </button>
@@ -26,8 +26,6 @@ function App({csrf_token, model}) {
     const title = model["title"]
     return (
         <>
-            <h4>{title} :: {item.name}</h4>
-            <br/>
             <DeleteView csrf_token={csrf_token} item={item}></DeleteView>
         </>
     )

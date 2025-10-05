@@ -98,7 +98,6 @@ function AddFormHelper({name, data_type, relationships = {}, select_items = {}})
 
 
 function App({model, csrf_token}) {
-    const title = model["title"]
     const add_fields = model["add_fields"]
     const data_types = model["data_types"]
     const relationships = model["relationships"] || {}
@@ -106,8 +105,6 @@ function App({model, csrf_token}) {
 
     return (
         <>
-            <h4>{title}</h4>
-            <br/>
             <div className={"row"}>
                 <div className={"col-md-6"}>
                     <form name={"addForm"} method={"post"} encType={"multipart/form-data"}>

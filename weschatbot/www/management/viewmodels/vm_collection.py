@@ -1,5 +1,6 @@
 import json
 
+from docutils.nodes import title
 from flask import request, redirect, render_template, flash, jsonify
 
 from weschatbot.models.collection import Collection
@@ -37,7 +38,8 @@ class ViewModelCollection(ViewModel):
         try:
             collection_detail = self.collection_service.get_collection(collection_id=item_id)
             return render_template("management/collection_detail.html",
-                                   model=json.dumps(collection_detail.to_dict(), default=str))
+                                   model=json.dumps(collection_detail.to_dict(), default=str),
+                                   title=f"Details of Collection: {collection_detail.collection_name}", )
 
         except Exception as e:
             return f"{e}", 500
