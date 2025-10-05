@@ -151,6 +151,16 @@ class ViewModelCollection(ViewModel):
         data = [{"row_id": str(x["row_id"]), "text": x["text"]} for x in entities]
         return jsonify({"status": "success", "data": data, "next_token": next_token}), 200
 
+    @provide_session
+    def delete_entities(self, session=None):
+        collection_id = int(request.form.get("collection_id"))
+        row_id = request.form.get("row_id")
+        try:
+            self.collection_service.delete_entities(collection_id=collection_id, row_id=row_id, session=session)
+        except Exception as e:
+            return jsonify({"status": "error", "message": str(e)}), 500
+        return jsonify({"status": "success"}), 200
+
     def register(self, flask_app_or_bp):
         super(ViewModelCollection, self).register(flask_app_or_bp)
         self.bp.route("/all_documents", methods=["GET"])(self.auth(self.all_documents))
@@ -165,3 +175,4 @@ class ViewModelCollection(ViewModel):
         self.bp.route("/collection_entities", methods=["GET"])(self.auth(self.collection_entities))
         self.bp.route("/check_collection_indexing", methods=["GET"])(self.auth(self.check_collection_indexing))
         self.bp.route("/available_documents", methods=["GET"])(self.auth(self.available_documents))
+        self.bp.route("/delete_entities", methods=["POST"])(self.auth(self.delete_entities))
