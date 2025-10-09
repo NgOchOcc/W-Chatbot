@@ -63,7 +63,10 @@ class AdvancedChunkingStrategy:
                         if len(chunk_text.strip()) >= self.min_chunk_size:
                             chunks.append(LlamaDocument(
                                 text=chunk_text,
-                                metadata={**metadata, 'chunk_type': 'text'}
+                                metadata={
+                                    **metadata, 
+                                    # 'chunk_type': 'text'
+                                }
                             ))
                         current_chunk = []
                         current_size = 0
@@ -80,7 +83,10 @@ class AdvancedChunkingStrategy:
                     chunk_text = '\n'.join(current_chunk)
                     chunks.append(LlamaDocument(
                         text=chunk_text,
-                        metadata={**metadata, 'chunk_type': 'table'}
+                        metadata={
+                            **metadata, 
+                            # 'chunk_type': 'table'
+                        }
                     ))
                     current_chunk = []
                     current_size = 0
@@ -92,7 +98,10 @@ class AdvancedChunkingStrategy:
                 chunk_text = '\n'.join(current_chunk)
                 chunks.append(LlamaDocument(
                     text=chunk_text,
-                    metadata={**metadata, 'chunk_type': 'mixed'}
+                    metadata={
+                        **metadata, 
+                        # 'chunk_type': 'mixed'
+                    }
                 ))
                 current_chunk = []
                 current_size = 0
@@ -106,7 +115,10 @@ class AdvancedChunkingStrategy:
             if len(chunk_text.strip()) >= self.min_chunk_size:
                 chunks.append(LlamaDocument(
                     text=chunk_text,
-                    metadata={**metadata, 'chunk_type': 'text' if not in_table else 'table'}
+                    metadata={
+                        **metadata, 
+                        # 'chunk_type': 'text' if not in_table else 'table'
+                    }
                 ))
         
         return chunks
@@ -120,13 +132,13 @@ class AdvancedChunkingStrategy:
         chunks = []
         for i, node in enumerate(nodes):
             section_match = re.search(r'^#+\s+(.+)$', node.text.split('\n')[0], re.MULTILINE)
-            section_title = section_match.group(1) if section_match else f"Section {i+1}"
+            # section_title = section_match.group(1) if section_match else f"Section {i+1}"
             
             chunk_metadata = {
                 **metadata,
-                'chunk_type': 'report_section',
-                'section_title': section_title,
-                'chunk_index': i
+                # 'chunk_type': 'report_section',
+                # 'section_title': section_title,
+                # 'chunk_index': i
             }
             
             chunks.append(LlamaDocument(
@@ -150,8 +162,8 @@ class AdvancedChunkingStrategy:
         for i, node in enumerate(nodes):
             chunk_metadata = {
                 **metadata,
-                'chunk_type': 'general',
-                'chunk_index': i
+                # 'chunk_type': 'general',
+                # 'chunk_index': i
             }
             
             chunks.append(LlamaDocument(
@@ -165,8 +177,8 @@ class AdvancedChunkingStrategy:
         enhanced_chunks = []
         
         for i, chunk in enumerate(chunks):
-            chunk.metadata['total_chunks'] = len(chunks)
-            chunk.metadata['chunk_position'] = i + 1
+            # chunk.metadata['total_chunks'] = len(chunks)
+            # chunk.metadata['chunk_position'] = i + 1
             
             enhanced_chunks.append(chunk)
         
