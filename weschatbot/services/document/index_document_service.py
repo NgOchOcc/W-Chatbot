@@ -3,13 +3,13 @@ from pathlib import Path
 from typing import List, Optional
 
 from llama_index.core import VectorStoreIndex, StorageContext
-from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.vector_stores.milvus import MilvusVectorStore
 from sqlalchemy.orm import joinedload
 
 from weschatbot.log.logging_mixin import LoggingMixin
 from weschatbot.models.collection import Document, CollectionDocumentStatus, CollectionDocument
 from weschatbot.services.document.chunking_strategy import AdvancedChunkingStrategy
+from weschatbot.services.vllm_embedding_service import VLLMEmbeddingService, VLLMEmbeddingAdapter
 from weschatbot.utils.db import provide_session
 
 
@@ -25,17 +25,25 @@ class PipelineMilvusStore(Pipeline, LoggingMixin):
     def __init__(
             self, collection_name: str,
             dim: int = 1024,
-            embedding_model_name: str = "Qwen/Qwen3-Embedding-0.6B",
+            vllm_base_url: str = "http://westaco-chatbot-vllm-embed:9290",
+            vllm_model: str = "Qwen/Qwen3-Embedding-0.6B",
             milvus_host: Optional[str] = None,
             milvus_port: Optional[int] = None,
-            metrics: Optional[str] = "COSINE",
+            metrics: str = "COSINE",
             *args, **kwargs
     ):
         super().__init__(*args, **kwargs)
         self.dim = dim
         self.collection_name = collection_name
-        self.embedding_model_name = embedding_model_name
-        self.embed_model = HuggingFaceEmbedding(model_name=self.embedding_model_name)
+        self.vllm_base_url = vllm_base_url
+        self.vllm_model = vllm_model
+
+        # Initialize VLLM embedding service
+        vllm_service = VLLMEmbeddingService(
+            base_url=self.vllm_base_url, 
+            model=self.vllm_model
+        )
+        self.embed_model = VLLMEmbeddingAdapter(vllm_service=vllm_service)
 
         self.milvus_host = milvus_host if milvus_host is not None else 'localhost'
         self.milvus_port = milvus_port if milvus_port is not None else 19530
@@ -67,11 +75,13 @@ class PipelineMilvusStore(Pipeline, LoggingMixin):
             all_chunks = []
             for i, content in enumerate(documents):
                 if content:
-                    if metadata_list and i < len(metadata_list):
-                        metadata = metadata_list[i]
-                    else:
-                        metadata = {"doc_id": f"doc_{i}"}
+                    # if metadata_list and i < len(metadata_list):
+                    #     metadata = metadata_list[i]
+                    # else:
+                    #     metadata = {"doc_id": f"doc_{i}"}
 
+                    metadata = {}
+                    metadata['document_id'] = metadata.get('doc_id')
                     metadata['document_name'] = metadata.get('file_name', f'document_{i}')
                     metadata['modified_date'] = datetime.now().isoformat()
 
@@ -229,3 +239,6 @@ class IndexDocumentWithoutConverterService(IndexDocumentService):
 
     def convert(self, doc):
         return self.read_converted_file(doc.converted_path)
+
+
+
