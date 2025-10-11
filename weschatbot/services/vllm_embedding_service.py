@@ -28,8 +28,11 @@ class VLLMEmbeddingService:
 
 class VLLMEmbeddingAdapter(BaseEmbedding):
     def __init__(self, vllm_service: VLLMEmbeddingService, **kwargs):
-        super().__init__(**kwargs)
         self.vllm_service = vllm_service
+        # Set model_name if not provided in kwargs
+        if 'model_name' not in kwargs:
+            kwargs['model_name'] = vllm_service.model
+        super().__init__(**kwargs)
 
     def _get_query_embedding(self, query: str) -> List[float]:
         return asyncio.run(self.vllm_service.get_embedding(query))

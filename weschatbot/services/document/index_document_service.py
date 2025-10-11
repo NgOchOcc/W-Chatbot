@@ -76,10 +76,10 @@ class PipelineMilvusStore(Pipeline, LoggingMixin):
             for i, content in enumerate(documents):
                 if content:
                     # Get metadata from metadata_list if provided, otherwise use defaults
-                    # if metadata_list and i < len(metadata_list):
-                    #     source_metadata = metadata_list[i]
-                    # else:
-                    #     source_metadata = {"doc_id": f"doc_{i}"}
+                    if metadata_list and i < len(metadata_list):
+                        source_metadata = metadata_list[i]
+                    else:
+                        source_metadata = {"doc_id": f"doc_{i}"}
 
                     metadata = {
                         'document_id': int(source_metadata.get('doc_id', 0)) if source_metadata.get('doc_id') else None,
