@@ -12,7 +12,6 @@ class VLLMEmbeddingService:
         self.sync_client = httpx.Client(timeout=60.0)
 
     def get_embedding_sync(self, text: str) -> List[float]:
-        """Synchronous method to get embedding"""
         endpoint = f"{self.base_url}/v1/embeddings"
         payload = {
             "input": text,
@@ -54,27 +53,21 @@ class VLLMEmbeddingAdapter(BaseEmbedding):
         self.model_name = vllm_service.model
 
     def _get_query_embedding(self, query: str) -> List[float]:
-        """Synchronous method to get embedding for a query - uses sync client"""
         return self._vllm_service.get_embedding_sync(query)
 
     def _get_text_embedding(self, text: str) -> List[float]:
-        """Synchronous method to get embedding for text - uses sync client"""
         return self._vllm_service.get_embedding_sync(text)
 
     def _get_text_embeddings(self, texts: List[str]) -> List[List[float]]:
-        """Synchronous method to get embeddings for multiple texts - uses sync client"""
         return [self._vllm_service.get_embedding_sync(text) for text in texts]
 
     async def _aget_query_embedding(self, query: str) -> List[float]:
-        """Asynchronous method to get embedding for a query - uses async client"""
         return await self._vllm_service.get_embedding(query)
 
     async def _aget_text_embedding(self, text: str) -> List[float]:
-        """Asynchronous method to get embedding for text - uses async client"""
         return await self._vllm_service.get_embedding(text)
 
     async def _aget_text_embeddings(self, texts: List[str]) -> List[List[float]]:
-        """Asynchronous method to get embeddings for multiple texts - uses async client"""
         embeddings = []
         for text in texts:
             embedding = await self._vllm_service.get_embedding(text)
