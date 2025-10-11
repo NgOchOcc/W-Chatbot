@@ -19,6 +19,8 @@ class Collection(Base):
 
     documents_link: Mapped[List["CollectionDocument"]] = relationship(back_populates="collection")
 
+    queries: Mapped[List["Query"]] = relationship(back_populates="collection")  # noqa
+
     chatbot_configurations: Mapped[List["ChatbotConfiguration"]] = relationship(
         "ChatbotConfiguration",
         back_populates="collection"
@@ -48,6 +50,8 @@ class Document(Base):
     status: Mapped["DocumentStatus"] = relationship(back_populates="documents")
 
     collections_link: Mapped[List["CollectionDocument"]] = relationship(back_populates="document")
+
+    queries: Mapped[List["Query"]] = relationship(back_populates="document")  # noqa
 
     @provide_session
     def to_dict(self, session=None):
