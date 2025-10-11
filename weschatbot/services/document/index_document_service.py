@@ -78,7 +78,7 @@ class PipelineMilvusStore(Pipeline, LoggingMixin):
                     if metadata_list and i < len(metadata_list):
                         source_metadata = metadata_list[i]
                     else:
-                        source_metadata = {"doc_id": f"doc_{i}"}
+                        source_metadata = {"doc_id": content['doc_id']}
 
                     metadata = {
                         'document_id': int(source_metadata.get('doc_id', 0)) if source_metadata.get('doc_id') else None,
@@ -197,7 +197,7 @@ class IndexDocumentService(LoggingMixin):
 
                 file_path = Path(doc.path)
                 metadata = {
-                    "doc_id": str(doc.id),
+                    "doc_id": doc.id,
                     "file_path": doc.path,
                     "file_name": file_path.name,
                     "document_name": file_path.name,
