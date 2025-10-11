@@ -18,14 +18,14 @@ from weschatbot.schemas.chat import Message
 from weschatbot.security.cookie_jwt_manager import FastAPICookieJwtManager
 from weschatbot.security.exceptions import TokenInvalidError, TokenExpiredError
 from weschatbot.services.chatbot_configuration_service import ChatbotConfigurationService
-from weschatbot.schemas.embedding import  RetrievalConfig
+from weschatbot.schemas.embedding import RetrievalConfig
+from weschatbot.services.query_service import QueryResult, make_query_result, QueryService
 from weschatbot.services.vllm_llm_service import VLLMService
 from weschatbot.services.session_service import SessionService, NotPermissionError
 from weschatbot.services.chatbot_service import ChatbotPipeline
 from weschatbot.services.user_service import UserService
 from weschatbot.utils.config import config
 from weschatbot.www.chatbot_ui.csrfsettings import CsrfSettings
-
 
 
 @CsrfProtect.load_config
@@ -66,6 +66,9 @@ vllm_client = VLLMService(
 
 session_service = SessionService()
 user_service = UserService()
+
+query_service = QueryService()
+
 chatbot_configuration = chatbot_configuration_service.get_configuration()
 chatbot_pipeline = ChatbotPipeline(
     retrieval_config=retrieval_config,
@@ -231,6 +234,19 @@ async def websocket_endpoint(websocket: WebSocket,
                 )
                 answer = result["response"]
 
+                messages = [
+                    Message(sender="user", receiver="bot", message=question),
+                    Message(sender="bot", receiver="user", message=answer),
+                ]
+
+                inserted_message_id = [x[0] for x in filter(lambda x: x[1] == "user",
+                                                            session_service.update_session(user_id, chat_id, messages))]
+                if len(inserted_message_id) > 0:
+                    message_id = inserted_message_id[-1]
+                    retrieved_docs = list(map(lambda x: make_query_result(*x), enumerate(result["retrieved_docs"])))
+                    query_service.add_query_result_for_message(list_query_results=retrieved_docs,
+                                                               message_id=message_id)
+
             except Exception as e:
                 answer = f"An error occurred: {str(e)}"
                 print(f"Error calling chatbot pipeline: {e}")
@@ -239,12 +255,6 @@ async def websocket_endpoint(websocket: WebSocket,
                 "text": f"{answer}"
             }
 
-            messages = [
-                Message(sender="user", receiver="bot", message=question),
-                Message(sender="bot", receiver="user", message=answer),
-            ]
-
-            session_service.update_session(user_id, chat_id, messages)
             await websocket.send_text(json.dumps(res))
     except WebSocketDisconnect:
         print("Client disconnected")

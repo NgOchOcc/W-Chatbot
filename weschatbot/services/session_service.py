@@ -39,6 +39,8 @@ class SessionService(LoggingMixin):
     @provide_session
     def add_session_in_db(self, user_id, chat_id, messages, session=None):
 
+        inserted_message_ids = []
+
         def add_messages(db_chat_id):
             for message in messages:
                 new_message = ChatMessage(
@@ -48,26 +50,33 @@ class SessionService(LoggingMixin):
                     chat_id=db_chat_id
                 )
                 session.add(new_message)
+                session.flush()
+                inserted_message_ids.append((new_message.id, message.sender))
 
         chat = session.query(ChatSession).filter(ChatSession.uuid == chat_id).first()
         if chat:
             add_messages(chat.id)
         else:
-            new_chat = ChatSession(name=messages[0].message[0:31], uuid=chat_id, user_id=user_id, status_id=1)
+            new_chat = ChatSession(
+                name=messages[0].message[0:31],
+                uuid=chat_id,
+                user_id=user_id,
+                status_id=1
+            )
             session.add(new_chat)
             session.commit()
             session.refresh(new_chat)
 
             add_messages(new_chat.id)
 
+        return inserted_message_ids
+
     def update_session(self, user_id, chat_id, messages):
         chat = self.get_chat(chat_id)
         chat.messages = chat.messages + messages
-        if not chat.in_db:
-            chat.in_db = True
-            self.add_session_in_db(user_id, chat_id, messages)
-
+        inserted_message_ids = self.add_session_in_db(user_id, chat_id, messages)
         self.store_chat(chat)
+        return inserted_message_ids
 
     @provide_session
     def delete_session(self, user_id, chat_id, session=None):

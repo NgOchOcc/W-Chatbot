@@ -1,6 +1,5 @@
 import json
 
-from docutils.nodes import title
 from flask import request, redirect, render_template, flash, jsonify
 
 from weschatbot.models.collection import Collection
@@ -147,10 +146,10 @@ class ViewModelCollection(ViewModel):
 
         collection = self.collection_service.get_collection(collection_id=collection_id, session=session)
         params["collection_name"] = collection.collection_name
-        params["output_fields"] = ["row_id", "text"]
+        params["output_fields"] = ["row_id", "text", "doc_id"]
         params["limit"] = 20
         entities, next_token = func(**params)
-        data = [{"row_id": str(x["row_id"]), "text": x["text"]} for x in entities]
+        data = [{"doc_id": str(x["doc_id"]), "row_id": str(x["row_id"]), "text": x["text"]} for x in entities]
         return jsonify({"status": "success", "data": data, "next_token": next_token}), 200
 
     @provide_session
