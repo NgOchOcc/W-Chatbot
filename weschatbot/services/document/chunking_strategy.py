@@ -1,8 +1,8 @@
 import re
 from typing import List, Dict
 
-from llama_index.core.node_parser import MarkdownNodeParser, SentenceSplitter
 from llama_index.core import Document as LlamaDocument
+from llama_index.core.node_parser import MarkdownNodeParser, SentenceSplitter
 
 
 class AdvancedChunkingStrategy:
@@ -18,8 +18,8 @@ class AdvancedChunkingStrategy:
         self.min_chunk_size = min_chunk_size
         self.max_chunk_size = max_chunk_size
         
-    def chunk_markdown(self, content: str, metadata: Dict = None) -> List[Dict]:
-        """Main chunking method for markdown content - returns list of dicts"""
+    def chunk_markdown(self, content: str, metadata: Dict = None) -> List[LlamaDocument]:
+        """Main chunking method for markdown content"""
         if metadata is None:
             metadata = {}
 
@@ -46,7 +46,7 @@ class AdvancedChunkingStrategy:
         else:
             return 'general'
     
-    def _chunk_table_document(self, content: str, metadata: Dict) -> List[Dict]:
+    def _chunk_table_document(self, content: str, metadata: Dict) -> List[LlamaDocument]:
         chunks = []
         current_chunk = []
         current_size = 0
@@ -61,10 +61,10 @@ class AdvancedChunkingStrategy:
                     if current_chunk:
                         chunk_text = '\n'.join(current_chunk)
                         if len(chunk_text.strip()) >= self.min_chunk_size:
-                            chunks.append({
-                                'text_chunk': chunk_text,
-                                'metadata': {**metadata}
-                            })
+                            chunks.append(LlamaDocument(
+                                text=chunk_text,
+                                metadata={**metadata}
+                            ))
                         current_chunk = []
                         current_size = 0
 
@@ -78,10 +78,10 @@ class AdvancedChunkingStrategy:
                 in_table = False
                 if current_chunk:
                     chunk_text = '\n'.join(current_chunk)
-                    chunks.append({
-                        'text_chunk': chunk_text,
-                        'metadata': {**metadata}
-                    })
+                    chunks.append(LlamaDocument(
+                        text=chunk_text,
+                        metadata={**metadata}
+                    ))
                     current_chunk = []
                     current_size = 0
 
@@ -90,10 +90,10 @@ class AdvancedChunkingStrategy:
 
             if current_size >= self.chunk_size and not in_table:
                 chunk_text = '\n'.join(current_chunk)
-                chunks.append({
-                    'text_chunk': chunk_text,
-                    'metadata': {**metadata}
-                })
+                chunks.append(LlamaDocument(
+                    text=chunk_text,
+                    metadata={**metadata}
+                ))
                 current_chunk = []
                 current_size = 0
 
@@ -104,14 +104,14 @@ class AdvancedChunkingStrategy:
         if current_chunk:
             chunk_text = '\n'.join(current_chunk)
             if len(chunk_text.strip()) >= self.min_chunk_size:
-                chunks.append({
-                    'text_chunk': chunk_text,
-                    'metadata': {**metadata}
-                })
+                chunks.append(LlamaDocument(
+                    text=chunk_text,
+                    metadata={**metadata}
+                ))
 
         return chunks
     
-    def _chunk_technical_report(self, content: str, metadata: Dict) -> List[Dict]:
+    def _chunk_technical_report(self, content: str, metadata: Dict) -> List[LlamaDocument]:
         parser = MarkdownNodeParser()
 
         temp_doc = LlamaDocument(text=content, metadata=metadata)
@@ -125,14 +125,14 @@ class AdvancedChunkingStrategy:
                 **metadata,
             }
 
-            chunks.append({
-                'text_chunk': node.text,
-                'metadata': chunk_metadata
-            })
+            chunks.append(LlamaDocument(
+                text=node.text,
+                metadata=chunk_metadata
+            ))
 
         return chunks
     
-    def _chunk_general_markdown(self, content: str, metadata: Dict) -> List[Dict]:
+    def _chunk_general_markdown(self, content: str, metadata: Dict) -> List[LlamaDocument]:
         splitter = SentenceSplitter(
             chunk_size=self.chunk_size,
             chunk_overlap=self.chunk_overlap
@@ -148,15 +148,15 @@ class AdvancedChunkingStrategy:
                 **metadata,
             }
 
-            chunks.append({
-                'text_chunk': node.text,
-                'metadata': chunk_metadata
-            })
+            chunks.append(LlamaDocument(
+                text=node.text,
+                metadata=chunk_metadata
+            ))
 
         return chunks
     
-    def add_context_to_chunks(self, chunks: List[Dict]) -> List[Dict]:
-        """Add context to chunks - currently just returns the chunks as-is"""
+    def add_context_to_chunks(self, chunks: List[LlamaDocument]) -> List[LlamaDocument]:
+        """Add context to chunks"""
         enhanced_chunks = []
 
         for i, chunk in enumerate(chunks):

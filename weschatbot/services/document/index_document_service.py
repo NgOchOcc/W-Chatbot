@@ -2,8 +2,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
 
-from pymilvus import DataType, FieldSchema, CollectionSchema, connections, utility, Collection
-from llama_index.core import VectorStoreIndex, StorageContext, Document as LlamaDocument
+from llama_index.core import VectorStoreIndex, StorageContext
 from llama_index.vector_stores.milvus import MilvusVectorStore
 from sqlalchemy.orm import joinedload
 
@@ -51,20 +50,14 @@ class PipelineMilvusStore(Pipeline, LoggingMixin):
         self.metrics = metrics
 
         try:
-            self._create_collection_with_schema()
+            print(f"Similarity: {self.metrics}")
             self.vector_store = MilvusVectorStore(
                 uri=f"http://{self.milvus_host}:{self.milvus_port}",
                 collection_name=self.collection_name,
                 dim=self.dim,
                 overwrite=False,
                 similarity_metric=self.metrics,
-                doc_id_field="doc_id", 
                 text_key="text_chunk", 
-                embedding_field="embedding",  
-                output_fields=[
-                    "document_id", "doc_id", "document_name", "modified_date",
-                    "text_chunk", "chunk_index", "file_path", "created_at"
-                ]
             )
             self.log.info(f"Connected to Milvus collection '{self.collection_name}' with dimension {self.dim}")
         except Exception as e:
@@ -74,60 +67,6 @@ class PipelineMilvusStore(Pipeline, LoggingMixin):
         self.storage_context = StorageContext.from_defaults(vector_store=self.vector_store)
         self.chunking_strategy = AdvancedChunkingStrategy()
 
-    def _create_collection_with_schema(self):
-        try:
-            alias = f"connection_{self.collection_name}"
-            if not connections.has_connection(alias):
-                connections.connect(
-                    alias=alias,
-                    host=self.milvus_host,
-                    port=str(self.milvus_port)
-                )
-
-            if utility.has_collection(self.collection_name, using=alias):
-                self.log.info(f"Collection '{self.collection_name}' already exists")
-                return
-
-            fields = [
-                FieldSchema(name="row_id", dtype=DataType.INT64, is_primary=True, auto_id=True),
-                FieldSchema(name="document_id", dtype=DataType.INT64, nullable=True),
-                FieldSchema(name="doc_id", dtype=DataType.VARCHAR, max_length=128),
-                FieldSchema(name="document_name", dtype=DataType.VARCHAR, max_length=512),
-                FieldSchema(name="modified_date", dtype=DataType.VARCHAR, max_length=128, nullable=True),
-                FieldSchema(name="text_chunk", dtype=DataType.VARCHAR, max_length=65535, nullable=True),
-                FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=self.dim),
-                FieldSchema(name="chunk_index", dtype=DataType.INT64, nullable=True),
-                FieldSchema(name="file_path", dtype=DataType.VARCHAR, max_length=1024),
-                FieldSchema(name="created_at", dtype=DataType.VARCHAR, max_length=128, nullable=True),
-            ]
-
-            schema = CollectionSchema(
-                fields=fields,
-                description=f"Collection for {self.collection_name}",
-                enable_dynamic_field=False
-            )
-
-            collection = Collection(
-                name=self.collection_name,
-                schema=schema,
-                using=alias
-            )
-
-            index_params = {
-                "index_type": "AUTOINDEX",
-                "metric_type": self.metrics,
-                "params": {}
-            }
-            collection.create_index(
-                field_name="embedding",
-                index_params=index_params
-            )
-
-            self.log.info(f"Created collection '{self.collection_name}' with custom schema")
-        except Exception as e:
-            self.log.error(f"Error creating collection with schema: {str(e)}")
-            raise
-
     def run(self, documents: List[str], metadata_list: List[dict] = None):
         if not documents:
             self.log.warning("No documents provided to index")
@@ -135,8 +74,6 @@ class PipelineMilvusStore(Pipeline, LoggingMixin):
 
         try:
             all_chunks = []
-            chunk_global_index = 0
-
             for i, content in enumerate(documents):
                 if content:
                     if metadata_list and i < len(metadata_list):
@@ -154,12 +91,8 @@ class PipelineMilvusStore(Pipeline, LoggingMixin):
                     }
 
                     chunks = self.chunking_strategy.chunk_markdown(content, metadata)
-
-                    for chunk in chunks:
-                        chunk['chunk_index'] = chunk_global_index
-                        chunk_global_index += 1
-
                     chunks = self.chunking_strategy.add_context_to_chunks(chunks)
+
                     all_chunks.extend(chunks)
 
             if not all_chunks:
@@ -168,34 +101,15 @@ class PipelineMilvusStore(Pipeline, LoggingMixin):
 
             self.log.info(
                 f"Indexing {len(all_chunks)} chunks from {len(documents)} documents into collection '{self.collection_name}'")
-
-            llama_documents = []
-            for chunk in all_chunks:
-                chunk_metadata = chunk.get('metadata', {})
-                full_metadata = {
-                    'document_id': chunk_metadata.get('document_id'),
-                    'doc_id': str(chunk_metadata.get('doc_id', '')),
-                    'document_name': chunk_metadata.get('document_name', ''),
-                    'modified_date': chunk_metadata.get('modified_date', ''),
-                    'file_path': chunk_metadata.get('file_path', ''),
-                    'created_at': chunk_metadata.get('created_at', ''),
-                    'chunk_index': chunk.get('chunk_index', 0)
-                }
-
-                llama_doc = LlamaDocument(
-                    text=chunk.get('text_chunk', ''),
-                    metadata=full_metadata
-                )
-                llama_documents.append(llama_doc)
-
             VectorStoreIndex.from_documents(
-                llama_documents,
+                all_chunks,
                 storage_context=self.storage_context,
                 embed_model=self.embed_model,
                 show_progress=True
             )
 
             self.log.info(f"Successfully indexed {len(all_chunks)} chunks")
+
 
         except Exception as e:
             self.log.error(f"Error indexing documents: {str(e)}")
