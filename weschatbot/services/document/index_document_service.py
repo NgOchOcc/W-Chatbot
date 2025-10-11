@@ -57,7 +57,6 @@ class PipelineMilvusStore(Pipeline, LoggingMixin):
                 dim=self.dim,
                 overwrite=False,
                 similarity_metric=self.metrics,
-                text_key="text_chunk", 
             )
             self.log.info(f"Connected to Milvus collection '{self.collection_name}' with dimension {self.dim}")
         except Exception as e:
