@@ -2,6 +2,7 @@ import httpx
 import asyncio
 from typing import List
 from llama_index.core.embeddings import BaseEmbedding
+from llama_index.core.bridge.pydantic import PrivateAttr
 
 class VLLMEmbeddingService:
     def __init__(self, base_url: str, model: str):
@@ -27,21 +28,31 @@ class VLLMEmbeddingService:
 
 
 class VLLMEmbeddingAdapter(BaseEmbedding):
+    _vllm_service: VLLMEmbeddingService = PrivateAttr()
+
     def __init__(self, vllm_service: VLLMEmbeddingService, **kwargs):
-        self.vllm_service = vllm_service
-        # Set model_name if not provided in kwargs
-        if 'model_name' not in kwargs:
-            kwargs['model_name'] = vllm_service.model
         super().__init__(**kwargs)
+        self._vllm_service = vllm_service
+        self.model_name = vllm_service.model
 
     def _get_query_embedding(self, query: str) -> List[float]:
-        return asyncio.run(self.vllm_service.get_embedding(query))
+        return asyncio.run(self._vllm_service.get_embedding(query))
 
     def _get_text_embedding(self, text: str) -> List[float]:
-        return asyncio.run(self.vllm_service.get_embedding(text))
+        return asyncio.run(self._vllm_service.get_embedding(text))
+
+    def _get_text_embeddings(self, texts: List[str]) -> List[List[float]]:
+        return [self._get_text_embedding(text) for text in texts]
 
     async def _aget_query_embedding(self, query: str) -> List[float]:
-        return await self.vllm_service.get_embedding(query)
+        return await self._vllm_service.get_embedding(query)
 
     async def _aget_text_embedding(self, text: str) -> List[float]:
-        return await self.vllm_service.get_embedding(text)
+        return await self._vllm_service.get_embedding(text)
+
+    async def _aget_text_embeddings(self, texts: List[str]) -> List[List[float]]:
+        embeddings = []
+        for text in texts:
+            embedding = await self._vllm_service.get_embedding(text)
+            embeddings.append(embedding)
+        return embeddings

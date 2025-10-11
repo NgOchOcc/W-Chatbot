@@ -40,7 +40,7 @@ class PipelineMilvusStore(Pipeline, LoggingMixin):
 
         # Initialize VLLM embedding service
         vllm_service = VLLMEmbeddingService(
-            base_url=self.vllm_base_url, 
+            base_url=self.vllm_base_url,
             model=self.vllm_model
         )
         self.embed_model = VLLMEmbeddingAdapter(vllm_service=vllm_service)
