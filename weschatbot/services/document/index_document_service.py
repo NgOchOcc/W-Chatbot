@@ -2,13 +2,15 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
 
-from pymilvus import MilvusClient, DataType, FieldSchema, CollectionSchema
+from pymilvus import DataType, FieldSchema, CollectionSchema, connections, utility, Collection
+from llama_index.core import VectorStoreIndex, StorageContext, Document as LlamaDocument
+from llama_index.vector_stores.milvus import MilvusVectorStore
 from sqlalchemy.orm import joinedload
 
 from weschatbot.log.logging_mixin import LoggingMixin
 from weschatbot.models.collection import Document, CollectionDocumentStatus, CollectionDocument
 from weschatbot.services.document.chunking_strategy import AdvancedChunkingStrategy
-from weschatbot.services.vllm_embedding_service import VLLMEmbeddingService
+from weschatbot.services.vllm_embedding_service import VLLMEmbeddingService, VLLMEmbeddingAdapter
 from weschatbot.utils.db import provide_session
 
 
@@ -38,41 +40,54 @@ class PipelineMilvusStore(Pipeline, LoggingMixin):
         self.vllm_model = vllm_model
 
         # Initialize VLLM embedding service
-        self.vllm_service = VLLMEmbeddingService(
+        vllm_service = VLLMEmbeddingService(
             base_url=self.vllm_base_url,
             model=self.vllm_model
         )
+        self.embed_model = VLLMEmbeddingAdapter(vllm_service=vllm_service)
 
         self.milvus_host = milvus_host if milvus_host is not None else 'localhost'
         self.milvus_port = milvus_port if milvus_port is not None else 19530
         self.metrics = metrics
 
         try:
-            print(f"Similarity: {self.metrics}")
-            # Initialize Milvus client
-            self.milvus_client = MilvusClient(
-                uri=f"http://{self.milvus_host}:{self.milvus_port}"
+            self._create_collection_with_schema()
+            self.vector_store = MilvusVectorStore(
+                uri=f"http://{self.milvus_host}:{self.milvus_port}",
+                collection_name=self.collection_name,
+                dim=self.dim,
+                overwrite=False,
+                similarity_metric=self.metrics,
+                doc_id_field="doc_id", 
+                text_key="text_chunk", 
+                embedding_field="embedding",  
+                output_fields=[
+                    "document_id", "doc_id", "document_name", "modified_date",
+                    "text_chunk", "chunk_index", "file_path", "created_at"
+                ]
             )
-
-            # Create collection if it doesn't exist
-            self._create_collection_if_not_exists()
-
             self.log.info(f"Connected to Milvus collection '{self.collection_name}' with dimension {self.dim}")
         except Exception as e:
-            self.log.error(f"Error creating Milvus connection: {str(e)}")
+            self.log.error(f"Error creating Milvus vector store: {str(e)}")
             raise
 
+        self.storage_context = StorageContext.from_defaults(vector_store=self.vector_store)
         self.chunking_strategy = AdvancedChunkingStrategy()
 
-    def _create_collection_if_not_exists(self):
-        """Create Milvus collection with proper schema if it doesn't exist"""
+    def _create_collection_with_schema(self):
         try:
-            # Check if collection exists
-            if self.milvus_client.has_collection(self.collection_name):
+            alias = f"connection_{self.collection_name}"
+            if not connections.has_connection(alias):
+                connections.connect(
+                    alias=alias,
+                    host=self.milvus_host,
+                    port=str(self.milvus_port)
+                )
+
+            if utility.has_collection(self.collection_name, using=alias):
                 self.log.info(f"Collection '{self.collection_name}' already exists")
                 return
 
-            # Define schema fields
             fields = [
                 FieldSchema(name="row_id", dtype=DataType.INT64, is_primary=True, auto_id=True),
                 FieldSchema(name="document_id", dtype=DataType.INT64, nullable=True),
@@ -86,31 +101,31 @@ class PipelineMilvusStore(Pipeline, LoggingMixin):
                 FieldSchema(name="created_at", dtype=DataType.VARCHAR, max_length=128, nullable=True),
             ]
 
-            # Create schema
             schema = CollectionSchema(
                 fields=fields,
                 description=f"Collection for {self.collection_name}",
                 enable_dynamic_field=False
             )
 
-            # Create index parameters
-            index_params = self.milvus_client.prepare_index_params()
-            index_params.add_index(
-                field_name="embedding",
-                index_type="AUTOINDEX",
-                metric_type=self.metrics
+            collection = Collection(
+                name=self.collection_name,
+                schema=schema,
+                using=alias
             )
 
-            # Create collection
-            self.milvus_client.create_collection(
-                collection_name=self.collection_name,
-                schema=schema,
+            index_params = {
+                "index_type": "AUTOINDEX",
+                "metric_type": self.metrics,
+                "params": {}
+            }
+            collection.create_index(
+                field_name="embedding",
                 index_params=index_params
             )
 
-            self.log.info(f"Created collection '{self.collection_name}' with schema")
+            self.log.info(f"Created collection '{self.collection_name}' with custom schema")
         except Exception as e:
-            self.log.error(f"Error creating collection: {str(e)}")
+            self.log.error(f"Error creating collection with schema: {str(e)}")
             raise
 
     def run(self, documents: List[str], metadata_list: List[dict] = None):
@@ -120,9 +135,10 @@ class PipelineMilvusStore(Pipeline, LoggingMixin):
 
         try:
             all_chunks = []
+            chunk_global_index = 0
+
             for i, content in enumerate(documents):
                 if content:
-                    # Get metadata from metadata_list if provided, otherwise use defaults
                     if metadata_list and i < len(metadata_list):
                         source_metadata = metadata_list[i]
                     else:
@@ -138,8 +154,12 @@ class PipelineMilvusStore(Pipeline, LoggingMixin):
                     }
 
                     chunks = self.chunking_strategy.chunk_markdown(content, metadata)
-                    chunks = self.chunking_strategy.add_context_to_chunks(chunks)
 
+                    for chunk in chunks:
+                        chunk['chunk_index'] = chunk_global_index
+                        chunk_global_index += 1
+
+                    chunks = self.chunking_strategy.add_context_to_chunks(chunks)
                     all_chunks.extend(chunks)
 
             if not all_chunks:
@@ -149,46 +169,33 @@ class PipelineMilvusStore(Pipeline, LoggingMixin):
             self.log.info(
                 f"Indexing {len(all_chunks)} chunks from {len(documents)} documents into collection '{self.collection_name}'")
 
-            # Generate embeddings and prepare entities for Milvus
-            entities = []
-            batch_size = 100
+            llama_documents = []
+            for chunk in all_chunks:
+                chunk_metadata = chunk.get('metadata', {})
+                full_metadata = {
+                    'document_id': chunk_metadata.get('document_id'),
+                    'doc_id': str(chunk_metadata.get('doc_id', '')),
+                    'document_name': chunk_metadata.get('document_name', ''),
+                    'modified_date': chunk_metadata.get('modified_date', ''),
+                    'file_path': chunk_metadata.get('file_path', ''),
+                    'created_at': chunk_metadata.get('created_at', ''),
+                    'chunk_index': chunk.get('chunk_index', 0)
+                }
 
-            for i in range(0, len(all_chunks), batch_size):
-                batch_chunks = all_chunks[i:i + batch_size]
-
-                for chunk_index, chunk in enumerate(batch_chunks):
-                    text_chunk = chunk.get('text_chunk', '')
-                    chunk_metadata = chunk.get('metadata', {})
-
-                    # Generate embedding
-                    embedding = self.vllm_service.get_embedding_sync(text_chunk)
-
-                    # Create entity matching Milvus schema
-                    entity = {
-                        'document_id': chunk_metadata.get('document_id'),
-                        'doc_id': str(chunk_metadata.get('doc_id', '')),
-                        'document_name': chunk_metadata.get('document_name', ''),
-                        'modified_date': chunk_metadata.get('modified_date', ''),
-                        'text_chunk': text_chunk,
-                        'embedding': embedding,
-                        'chunk_index': i + chunk_index,
-                        'file_path': chunk_metadata.get('file_path', ''),
-                        'created_at': chunk_metadata.get('created_at', '')
-                    }
-
-                    entities.append(entity)
-
-                self.log.info(f"Processed {min(i + batch_size, len(all_chunks))}/{len(all_chunks)} chunks")
-
-            # Insert into Milvus
-            if entities:
-                self.milvus_client.insert(
-                    collection_name=self.collection_name,
-                    data=entities
+                llama_doc = LlamaDocument(
+                    text=chunk.get('text_chunk', ''),
+                    metadata=full_metadata
                 )
-                self.log.info(f"Successfully indexed {len(entities)} chunks into Milvus")
-            else:
-                self.log.warning("No entities to insert")
+                llama_documents.append(llama_doc)
+
+            VectorStoreIndex.from_documents(
+                llama_documents,
+                storage_context=self.storage_context,
+                embed_model=self.embed_model,
+                show_progress=True
+            )
+
+            self.log.info(f"Successfully indexed {len(all_chunks)} chunks")
 
         except Exception as e:
             self.log.error(f"Error indexing documents: {str(e)}")
