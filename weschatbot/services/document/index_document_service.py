@@ -195,6 +195,7 @@ class IndexDocumentService(LoggingMixin):
 
                 file_path = Path(doc.path)
                 metadata = {
+                    "document_id": doc.id,
                     "doc_id": str(doc.id),
                     "file_path": doc.path,
                     "file_name": file_path.name,
