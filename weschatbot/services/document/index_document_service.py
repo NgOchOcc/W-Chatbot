@@ -40,7 +40,7 @@ class PipelineMilvusStore(Pipeline, LoggingMixin):
 
         # Initialize VLLM embedding service
         vllm_service = VLLMEmbeddingService(
-            base_url=self.vllm_base_url,
+            base_url=self.vllm_base_url, 
             model=self.vllm_model
         )
         self.embed_model = VLLMEmbeddingAdapter(vllm_service=vllm_service)
@@ -76,17 +76,13 @@ class PipelineMilvusStore(Pipeline, LoggingMixin):
             for i, content in enumerate(documents):
                 if content:
                     if metadata_list and i < len(metadata_list):
-                        source_metadata = metadata_list[i]
+                        metadata = metadata_list[i]
                     else:
-                        source_metadata = {"doc_id": content['doc_id']}
-
-                    metadata = {
-                        'doc_id': str(source_metadata.get('doc_id', f'doc_{i}')),
-                        'document_name': source_metadata.get('file_name', source_metadata.get('document_name', f'document_{i}')),
-                        'file_path': source_metadata.get('file_path', ''),
-                        'modified_date': source_metadata.get('modified_date', datetime.now().isoformat()),
-                        'created_at': source_metadata.get('created_at', datetime.now().isoformat())
-                    }
+                        metadata = {
+                            "doc_id": f"doc_{i}",
+                            "document_name": f"document_{i}",
+                            "modified_date": datetime.now().isoformat()
+                        }
 
                     chunks = self.chunking_strategy.chunk_markdown(content, metadata)
                     chunks = self.chunking_strategy.add_context_to_chunks(chunks)
@@ -196,7 +192,7 @@ class IndexDocumentService(LoggingMixin):
 
                 file_path = Path(doc.path)
                 metadata = {
-                    "doc_id": doc.id,
+                    "doc_id": str(doc.id),
                     "file_path": doc.path,
                     "file_name": file_path.name,
                     "document_name": file_path.name,
@@ -242,6 +238,3 @@ class IndexDocumentWithoutConverterService(IndexDocumentService):
 
     def convert(self, doc):
         return self.read_converted_file(doc.converted_path)
-
-
-
