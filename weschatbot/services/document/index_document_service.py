@@ -21,6 +21,55 @@ class Pipeline:
         pass
 
 
+class CustomMilvusVectorStore(MilvusVectorStore):
+    def add(self, nodes, **add_kwargs):
+        from llama_index.core.schema import BaseNode
+        from llama_index.core.vector_stores.utils import node_to_metadata_dict
+        from llama_index.vector_stores.milvus.utils import MILVUS_ID_FIELD
+        from llama_index.core.utils import iter_batch
+        from typing import List, Any
+        import logging
+
+        logger = logging.getLogger(__name__)
+
+        insert_list = []
+        insert_ids = []
+
+        for node in nodes:
+            entry = node_to_metadata_dict(
+                node, remove_text=True, text_field=self.text_key
+            )
+            entry["text_chunk"] = node.dict()[self.text_key]
+            entry[MILVUS_ID_FIELD] = node.node_id
+            if self.enable_dense:
+                entry[self.embedding_field] = node.embedding
+            if self.enable_sparse:
+                if hasattr(self, 'sparse_embedding_function') and self.sparse_embedding_function is not None:
+                    from llama_index.vector_stores.milvus.utils import BaseSparseEmbeddingFunction
+                    if isinstance(self.sparse_embedding_function, BaseSparseEmbeddingFunction):
+                        entry[self.sparse_embedding_field] = (
+                            self.sparse_embedding_function.encode_documents([node.text])[0]
+                        )
+
+            insert_ids.append(node.node_id)
+            insert_list.append(entry)
+
+        if self.upsert_mode:
+            executor_wrapper = self.client.upsert
+        else:
+            executor_wrapper = self.client.insert
+
+        for insert_batch in iter_batch(insert_list, self.batch_size):
+            executor_wrapper(self.collection_name, insert_batch)
+        if add_kwargs.get("force_flush", False):
+            self.client.flush(self.collection_name)
+        logger.debug(
+            f"Successfully inserted embeddings into: {self.collection_name} "
+            f"Num Inserted: {len(insert_list)}"
+        )
+        return insert_ids
+
+
 class PipelineMilvusStore(Pipeline, LoggingMixin):
     def __init__(
             self, collection_name: str,
@@ -40,7 +89,7 @@ class PipelineMilvusStore(Pipeline, LoggingMixin):
 
         # Initialize VLLM embedding service
         vllm_service = VLLMEmbeddingService(
-            base_url=self.vllm_base_url, 
+            base_url=self.vllm_base_url,
             model=self.vllm_model
         )
         self.embed_model = VLLMEmbeddingAdapter(vllm_service=vllm_service)
@@ -51,14 +100,14 @@ class PipelineMilvusStore(Pipeline, LoggingMixin):
 
         try:
             print(f"Similarity: {self.metrics}")
-            self.vector_store = MilvusVectorStore(
+            self.vector_store = CustomMilvusVectorStore(
                 uri=f"http://{self.milvus_host}:{self.milvus_port}",
                 collection_name=self.collection_name,
                 dim=self.dim,
                 overwrite=False,
                 similarity_metric=self.metrics,
-                text_key="text_chunk",
-                embedding_key="embedding",
+                text_key="text",
+                output_fields=["doc_id", "document_name", "modified_date", "text_chunk", "file_path", "created_at", "chunk_index"],
             )
             self.log.info(f"Connected to Milvus collection '{self.collection_name}' with dimension {self.dim}")
         except Exception as e:
@@ -197,14 +246,12 @@ class IndexDocumentService(LoggingMixin):
 
                 file_path = Path(doc.path)
                 metadata = {
-                    "document_id": doc.id,
                     "doc_id": str(doc.id),
-                    "file_path": doc.path,
-                    "file_name": file_path.name,
                     "document_name": file_path.name,
-                    "created_at": str(doc.created_at) if hasattr(doc, 'created_at') else "",
                     "modified_date": datetime.fromtimestamp(
                         file_path.stat().st_mtime).isoformat() if file_path.exists() else datetime.now().isoformat(),
+                    "file_path": doc.path,
+                    "created_at": str(doc.created_at) if hasattr(doc, 'created_at') else "",
                 }
                 metadata_list.append(metadata)
 
