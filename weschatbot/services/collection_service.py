@@ -161,8 +161,7 @@ class CollectionService:
 
         fields = [
             FieldSchema(name="row_id", dtype=DataType.INT64, is_primary=True, auto_id=True),
-            FieldSchema(name="document_id", dtype=DataType.INT64, nullable=True),
-            FieldSchema(name="doc_id", dtype=DataType.INT64, nullable=True),
+            FieldSchema(name="doc_id", dtype=DataType.VARCHAR, max_length=128),
             FieldSchema(name="document_name", dtype=DataType.VARCHAR, max_length=512),
             FieldSchema(name="modified_date", dtype=DataType.VARCHAR, max_length=128, nullable=True),
             # FieldSchema(name="text_chunk", dtype=DataType.VARCHAR, max_length=65535, nullable=True),

@@ -81,8 +81,7 @@ class PipelineMilvusStore(Pipeline, LoggingMixin):
                         source_metadata = {"doc_id": content['doc_id']}
 
                     metadata = {
-                        'document_id': int(source_metadata.get('doc_id', 0)) if source_metadata.get('doc_id') else None,
-                        'doc_id': int(source_metadata.get('doc_id', content['doc_id'])),
+                        'doc_id': str(source_metadata.get('doc_id', f'doc_{i}')),
                         'document_name': source_metadata.get('file_name', source_metadata.get('document_name', f'document_{i}')),
                         'file_path': source_metadata.get('file_path', ''),
                         'modified_date': source_metadata.get('modified_date', datetime.now().isoformat()),
