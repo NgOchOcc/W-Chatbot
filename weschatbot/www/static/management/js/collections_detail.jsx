@@ -6,7 +6,8 @@ import {
     CButtonGroup,
     CCard,
     CCardBody,
-    CCardHeader, CCollapse,
+    CCardHeader,
+    CCollapse,
     CFormInput,
     CInputGroup,
     CModal,
@@ -17,7 +18,8 @@ import {
     CNavItem,
     CNavLink,
     CPagination,
-    CPaginationItem, CSpinner,
+    CPaginationItem,
+    CSpinner,
     CTabContent,
     CTable,
     CTableBody,
@@ -28,7 +30,7 @@ import {
     CTabPane,
 } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
-import {cilCloudDownload, cilSearch, cilTrash} from "@coreui/icons";
+import {cilSearch, cilTrash} from "@coreui/icons";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import ReactMarkdown from "react-markdown";

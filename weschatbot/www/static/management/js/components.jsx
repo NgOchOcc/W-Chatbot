@@ -10,16 +10,21 @@ import {
     CPaginationItem
 } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
-import {cilCloudDownload, cilTrash} from "@coreui/icons";
+import {cilCloudDownload, cilSearch, cilTrash} from "@coreui/icons";
 
-export function ActionsColumn(
-    {
-        item,
-        hasDelete = false, onDelete = null, confirmDelete = false, confirmMessage = "Are you sure?",
-        hasDownload = false, onDownload = null
-    }) {
-
+export function ActionsColumn({
+                                  item,
+                                  hasDelete = false,
+                                  onDelete = null,
+                                  confirmDelete = false,
+                                  confirmMessage = "Are you sure?",
+                                  hasDownload = false,
+                                  onDownload = null,
+                                  hasShow = false,
+                                  showComponent = null
+                              }) {
     const [visibleConfirm, setVisibleConfirm] = useState(false)
+    const [visibleShow, setVisibleShow] = useState(false)
 
     function retOnClickDelete() {
         if (confirmDelete) {
@@ -28,9 +33,23 @@ export function ActionsColumn(
         return () => onDelete(item)
     }
 
+    function onShow() {
+        setVisibleShow(true)
+    }
+
     return (
         <>
             <CButtonGroup>
+                {hasShow &&
+                    <CButton
+                        color="secondary"
+                        variant="outline"
+                        style={{height: "25px", padding: "0px", width: "25px"}}
+                        onClick={onShow}
+                    >
+                        <CIcon icon={cilSearch}/>
+                    </CButton>
+                }
                 {hasDelete &&
                     <CButton
                         color="secondary"
@@ -55,15 +74,23 @@ export function ActionsColumn(
 
             <CModal visible={visibleConfirm} onClose={() => setVisibleConfirm(false)}>
                 <CModalHeader>Delete Confirm</CModalHeader>
-                <CModalBody>
-                    {confirmMessage}
-                </CModalBody>
+                <CModalBody>{confirmMessage}</CModalBody>
                 <CModalFooter>
                     <CButton color="danger" onClick={() => {
-                        onDelete(item);
-                        setVisibleConfirm(false);
+                        onDelete(item)
+                        setVisibleConfirm(false)
                     }}>Delete</CButton>
                     <CButton color="secondary" onClick={() => setVisibleConfirm(false)}>Cancel</CButton>
+                </CModalFooter>
+            </CModal>
+
+            <CModal visible={visibleShow} onClose={() => setVisibleShow(false)} size="xl">
+                <CModalHeader>Details</CModalHeader>
+                <CModalBody>
+                    {showComponent}
+                </CModalBody>
+                <CModalFooter>
+                    <CButton color="secondary" onClick={() => setVisibleShow(false)}>Close</CButton>
                 </CModalFooter>
             </CModal>
         </>
