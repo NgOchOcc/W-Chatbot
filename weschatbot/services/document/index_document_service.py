@@ -92,6 +92,9 @@ class PipelineMilvusStore(Pipeline, LoggingMixin):
                     chunks = self.chunking_strategy.chunk_markdown(content, metadata)
                     chunks = self.chunking_strategy.add_context_to_chunks(chunks)
 
+                    for chunk_idx, chunk in enumerate(chunks):
+                        chunk.metadata['chunk_index'] = chunk_idx
+
                     all_chunks.extend(chunks)
 
             if not all_chunks:
