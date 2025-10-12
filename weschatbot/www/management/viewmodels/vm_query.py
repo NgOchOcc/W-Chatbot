@@ -1,7 +1,7 @@
 import json
 from datetime import datetime
 
-from flask import render_template, request
+from flask import render_template, request, jsonify
 
 from weschatbot.services.query_service import QueryService
 from weschatbot.utils.db import provide_session
@@ -63,3 +63,15 @@ class ViewModelQuery(ViewModel):
 
         return render_template("management/list_query_results.html", model=json.dumps(model, default=str),
                                title="List of Queries")
+
+    @provide_session
+    def query_result_summary(self, session=None):
+        from_date = request.args.get('from_date', datetime.now().strftime("%Y-%m-%d"), type=str)
+        to_date = request.args.get('to_date', datetime.now().strftime("%Y-%m-%d"), type=str)
+
+        result = query_service.summary_query_results(from_date, to_date, session)
+        return jsonify({"status": "success", "data": result})
+
+    def register(self, flask_app_or_bp):
+        super(ViewModelQuery, self).register(flask_app_or_bp)
+        self.bp.route("/query_result_summary", methods=["GET"])(self.auth(self.query_result_summary))

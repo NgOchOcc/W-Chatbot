@@ -1,12 +1,17 @@
 import {createRoot} from "react-dom/client";
-import React, {useState} from "react";
+import React, {useEffect, useState} from "react";
+
+import remarkGfm from "remark-gfm";
+import rehypeRaw from "rehype-raw";
+import ReactMarkdown from "react-markdown";
+
 import {
-    CButton,
+    CButton, CCard, CCardBody, CCardHeader,
     CCol, CDropdown, CDropdownItem, CDropdownMenu, CDropdownToggle,
     CForm,
     CFormInput,
     CInputGroup,
-    CInputGroupText, CRow,
+    CInputGroupText, CModal, CModalBody, CModalFooter, CModalHeader, CRow,
     CTable,
     CTableBody,
     CTableDataCell,
@@ -56,6 +61,182 @@ function SearchBar({search, setSearch, fromDate, setFromDate, toDate, setToDate,
     )
 }
 
+function QuestionList({questions}) {
+    if (!questions || questions.length === 0) {
+        return <p>No questions available.</p>
+    }
+
+    return (
+        <CTable striped bordered responsive style={{fontSize: "0.9rem"}}>
+            <CTableHead>
+                <CTableRow>
+                    <CTableHeaderCell>#</CTableHeaderCell>
+                    <CTableHeaderCell>Text</CTableHeaderCell>
+                    <CTableHeaderCell>Created Date</CTableHeaderCell>
+                    <CTableHeaderCell>Message ID</CTableHeaderCell>
+                    <CTableHeaderCell>Query ID</CTableHeaderCell>
+                </CTableRow>
+            </CTableHead>
+            <CTableBody>
+                {questions.map((q, index) => (
+                    <CTableRow key={index}>
+                        <CTableDataCell>{index + 1}</CTableDataCell>
+                        <CTableDataCell>{q["text"]}</CTableDataCell>
+                        <CTableDataCell>{q["created_date"]}</CTableDataCell>
+                        <CTableDataCell>{q["message_id"]}</CTableDataCell>
+                        <CTableDataCell>{q["query_id"]}</CTableDataCell>
+                    </CTableRow>
+                ))}
+            </CTableBody>
+        </CTable>
+    )
+}
+
+function DetailQueryResultSummary({summary}) {
+    if (!summary) return <p>No data available.</p>
+
+    const {
+        row_id, document_text, count, v_avg, v_min, v_max,
+        first_seen, last_seen, query_ids, message_ids, questions
+    } = summary
+
+    return (
+        <>
+            <div style={{display: "flex", gap: "2rem", alignItems: "flex-start", maxHeight: "70vh"}}>
+                <div style={{flex: 1}}>
+                    <CCard style={{maxHeight: "70vh"}}>
+                        <CCardHeader>General Info</CCardHeader>
+                        <CCardBody style={{scrollBehavior: "smooth", overflowY: "auto"}}>
+                            <p><strong>Row ID:</strong> {row_id}</p>
+                            <p><strong>Count:</strong> {count}</p>
+                            <p><strong>Average Score:</strong> {v_avg.toFixed(3)}</p>
+                            <p><strong>Min Score:</strong> {v_min.toFixed(3)}</p>
+                            <p><strong>Max Score:</strong> {v_max.toFixed(3)}</p>
+                            <p><strong>First Seen:</strong> {first_seen}</p>
+                            <p><strong>Last Seen:</strong> {last_seen}</p>
+                            <p><strong>Query IDs:</strong> {query_ids.join(", ")}</p>
+                            <p><strong>Message IDs:</strong> {message_ids.join(", ")}</p>
+                            <p><strong>Document Text:</strong>
+                                <CCard style={{padding: "1rem"}}>
+                                    <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
+                                        {document_text}
+                                    </ReactMarkdown>
+                                </CCard>
+                            </p>
+                        </CCardBody>
+                    </CCard>
+                </div>
+
+                <div style={{flex: 1}}>
+                    <CCard>
+                        <CCardHeader>Questions</CCardHeader>
+                        <CCardBody style={{scrollBehavior: "smooth", overflowY: "auto"}}>
+                            {questions && questions.length > 0 ? (
+                                <CTable striped bordered responsive style={{fontSize: "0.9rem"}}>
+                                    <CTableHead>
+                                        <CTableRow>
+                                            <CTableHeaderCell>#</CTableHeaderCell>
+                                            <CTableHeaderCell>Text</CTableHeaderCell>
+                                            <CTableHeaderCell>Created Date</CTableHeaderCell>
+                                            <CTableHeaderCell>Message ID</CTableHeaderCell>
+                                            <CTableHeaderCell>Query ID</CTableHeaderCell>
+                                        </CTableRow>
+                                    </CTableHead>
+                                    <CTableBody>
+                                        {questions.map((q, index) => (
+                                            <CTableRow key={index}>
+                                                <CTableDataCell>{index + 1}</CTableDataCell>
+                                                <CTableDataCell>{q["text"]}</CTableDataCell>
+                                                <CTableDataCell>{q["created_date"]}</CTableDataCell>
+                                                <CTableDataCell>{q["message_id"]}</CTableDataCell>
+                                                <CTableDataCell>{q["query_id"]}</CTableDataCell>
+                                            </CTableRow>
+                                        ))}
+                                    </CTableBody>
+                                </CTable>
+                            ) : (
+                                <p>No questions available.</p>
+                            )}
+                        </CCardBody>
+                    </CCard>
+                </div>
+            </div>
+        </>
+    )
+}
+
+function SummaryPage({data}) {
+    return (
+        <>
+            <CTable striped bordered responsive style={{fontSize: "0.9rem"}}>
+                <CTableHead>
+                    <CTableRow>
+                        <CTableHeaderCell>#</CTableHeaderCell>
+                        <CTableHeaderCell>row_id</CTableHeaderCell>
+                        <CTableHeaderCell style={{width: '40vw'}}>text</CTableHeaderCell>
+                        <CTableHeaderCell>count</CTableHeaderCell>
+                        <CTableHeaderCell>avg</CTableHeaderCell>
+                        <CTableHeaderCell>min</CTableHeaderCell>
+                        <CTableHeaderCell>max</CTableHeaderCell>
+                        <CTableHeaderCell>first_seen</CTableHeaderCell>
+                        <CTableHeaderCell>last_seen</CTableHeaderCell>
+                    </CTableRow>
+                </CTableHead>
+                <CTableBody>
+                    {data.map((item, index) => (
+                        <CTableRow key={index}>
+                            <CTableDataCell><ActionsColumn hasShow={true}
+                                                           showComponent={<DetailQueryResultSummary
+                                                               summary={item}></DetailQueryResultSummary>}></ActionsColumn></CTableDataCell>
+                            <CTableDataCell>{item["row_id"]}</CTableDataCell>
+                            <CTableDataCell>{item["document_text"]}</CTableDataCell>
+                            <CTableDataCell>{item["count"]}</CTableDataCell>
+                            <CTableDataCell>{item["v_avg"].toFixed(3)}</CTableDataCell>
+                            <CTableDataCell>{item["v_min"].toFixed(3)}</CTableDataCell>
+                            <CTableDataCell>{item["v_max"].toFixed(3)}</CTableDataCell>
+                            <CTableDataCell>{item["first_seen"]}</CTableDataCell>
+                            <CTableDataCell>{item["last_seen"]}</CTableDataCell>
+                        </CTableRow>
+                    ))}
+                </CTableBody>
+            </CTable>
+        </>
+    )
+}
+
+function SummaryModal({visible, setVisible, fromDate, toDate}) {
+    const [summaryData, setSummaryData] = useState([])
+    const [loading, setLoading] = useState(false)
+
+    useEffect(() => {
+        if (visible) {
+            setLoading(true)
+            fetch(`/management/ViewModelQuery/query_result_summary?from_date=${fromDate}&to_date=${toDate}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === "success") {
+                        setSummaryData(data.data)
+                    }
+                })
+                .catch(err => {
+                    console.error("Error fetching summary:", err)
+                })
+                .finally(() => setLoading(false))
+        }
+    }, [visible])
+
+    return (
+        <CModal visible={visible} onClose={() => setVisible(false)} className="modal-fullscreen">
+            <CModalHeader>Summary</CModalHeader>
+            <CModalBody className={"modal-scroll-body"}>
+                {loading ? <p>Loading...</p> : <SummaryPage data={summaryData}/>}
+            </CModalBody>
+            <CModalFooter>
+                <CButton color="secondary" onClick={() => setVisible(false)}>Close</CButton>
+            </CModalFooter>
+        </CModal>
+    )
+}
 
 function App({model}) {
     const pagination = model["pagination"]
@@ -67,6 +248,8 @@ function App({model}) {
     const pageSize = pagination["page_size"]
     const [fromDate, setFromDate] = useState(searchParams["from_date"])
     const [toDate, setToDate] = useState(searchParams["to_date"])
+
+    const [summaryVisible, setSummaryVisible] = useState(false)
 
 
     function search(pageNum) {
@@ -101,11 +284,17 @@ function App({model}) {
                     <CDropdown>
                         <CDropdownToggle color="secondary">Actions</CDropdownToggle>
                         <CDropdownMenu>
-                            <CDropdownItem onClick={() => console.log("Export CSV")}>Summary</CDropdownItem>
+                            <CDropdownItem onClick={() => setSummaryVisible(true)}>Summary</CDropdownItem>
                             <CDropdownItem onClick={() => console.log("Refresh")}>Analytic Result</CDropdownItem>
                             <CDropdownItem onClick={() => console.log("Refresh")}>Quiz</CDropdownItem>
                         </CDropdownMenu>
                     </CDropdown>
+
+                    {summaryVisible &&
+                        <SummaryModal visible={summaryVisible} setVisible={setSummaryVisible} fromDate={fromDate}
+                                      toDate={toDate}></SummaryModal>
+                    }
+
                 </CCol>
             </CRow>
             <br/>
@@ -113,8 +302,7 @@ function App({model}) {
                 <CTable striped hover responsive small bordered>
                     <CTableHead>
                         <CTableRow>
-                            <CTableHeaderCell style={{width: "5%"}}>#</CTableHeaderCell>
-                            <CTableHeaderCell>id</CTableHeaderCell>
+                            <CTableHeaderCell>q_id</CTableHeaderCell>
                             <CTableHeaderCell style={{width: "15%"}}>query</CTableHeaderCell>
                             <CTableHeaderCell>document_text</CTableHeaderCell>
                             <CTableHeaderCell>cosine_score</CTableHeaderCell>
@@ -128,10 +316,6 @@ function App({model}) {
                     <CTableBody style={{fontSize: "0.9rem"}}>
                         {data.map((item, index) => (
                             <CTableRow key={index}>
-                                <CTableDataCell style={{width: "5%"}}>
-                                    <ActionsColumn item={item} hasDelete={true} confirmDelete={true}
-                                                   onDelete={() => _}/>
-                                </CTableDataCell>
                                 <CTableDataCell><span>{item["id"]}</span></CTableDataCell>
                                 <CTableDataCell><span>{item["message_content"]}</span></CTableDataCell>
                                 <CTableDataCell><span>{item["document_text"]}</span></CTableDataCell>
