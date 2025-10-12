@@ -79,9 +79,12 @@ class PipelineMilvusStore(Pipeline, LoggingMixin):
                         metadata = metadata_list[i]
                     else:
                         metadata = {
-                            "doc_id": f"doc_{i}",
-                            "document_name": f"document_{i}",
-                            "modified_date": datetime.now().isoformat()
+                            "doc_id": metadata_list[i]['doc_id'],
+                            "file_path": metadata_list[i]['file_path'],
+                            "file_name": metadata_list[i]['file_name'],
+                            "document_name": metadata_list[i]['document_name'],
+                            "created_at": metadata_list[i]['created_at'],
+                            "modified_date": metadata_list[i]['modified_date'],
                         }
 
                     chunks = self.chunking_strategy.chunk_markdown(content, metadata)
