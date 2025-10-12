@@ -156,9 +156,9 @@ class AdvancedChunkingStrategy:
         return chunks
     
     def add_context_to_chunks(self, chunks: List[LlamaDocument]) -> List[LlamaDocument]:
-        """Add context to chunks"""
         enhanced_chunks = []
 
         for i, chunk in enumerate(chunks):
+            chunk.metadata['chunk_index'] = i
             enhanced_chunks.append(chunk)
         return enhanced_chunks
