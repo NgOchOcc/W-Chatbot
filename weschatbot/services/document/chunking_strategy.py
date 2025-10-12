@@ -159,6 +159,5 @@ class AdvancedChunkingStrategy:
         enhanced_chunks = []
 
         for i, chunk in enumerate(chunks):
-            chunk.metadata['chunk_index'] = i
             enhanced_chunks.append(chunk)
         return enhanced_chunks

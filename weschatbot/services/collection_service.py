@@ -166,7 +166,6 @@ class CollectionService:
             FieldSchema(name="modified_date", dtype=DataType.VARCHAR, max_length=128, nullable=True),
             FieldSchema(name="text", dtype=DataType.VARCHAR, max_length=65535, nullable=True),
             FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=dim),
-            FieldSchema(name="chunk_index", dtype=DataType.INT64, nullable=True),
             FieldSchema(name="file_path", dtype=DataType.VARCHAR, max_length=1024),
             FieldSchema(name="created_at", dtype=DataType.VARCHAR, max_length=128, nullable=True),
         ]

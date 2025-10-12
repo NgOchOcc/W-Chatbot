@@ -58,7 +58,7 @@ class PipelineMilvusStore(Pipeline, LoggingMixin):
                 overwrite=False,
                 similarity_metric=self.metrics,
                 text_key="text",
-                output_fields=["doc_id", "document_name", "modified_date", "text", "file_path", "created_at", "chunk_index"],
+                output_fields=["doc_id", "document_name", "modified_date", "text", "file_path", "created_at"],
             )
             self.log.info(f"Connected to Milvus collection '{self.collection_name}' with dimension {self.dim}")
         except Exception as e:
