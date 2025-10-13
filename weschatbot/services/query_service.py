@@ -8,7 +8,7 @@ def make_query_result(rank, doc):
     # TODO
     return QueryResult(document_id=14, row_id=doc["id"], document_text=doc["text"], cosine_score=doc["score"],
                        rank=rank,
-                       collection_id=23, collection_name="test_collection")
+                       collection_id=8, collection_name="test_collection")
 
 
 class Question:
