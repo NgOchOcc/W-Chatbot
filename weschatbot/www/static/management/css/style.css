@@ -10,3 +10,26 @@
     align-items: center;
     z-index: 9999;
 }
+
+.container-main {
+    padding-left: 0;
+    padding-right: 0;
+    margin-left: 0;
+    margin-right: 0;
+}
+
+.modal-fullscreen .modal-dialog {
+    max-width: 95vw;
+    margin: 1rem auto;
+}
+
+.modal-fullscreen .modal-content {
+    height: 100vh;
+    overflow-y: auto;
+}
+
+.modal-scroll-body {
+    max-height: 80vh;
+    overflow-y: auto;
+    padding-right: 1rem;
+}

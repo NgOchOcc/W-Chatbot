@@ -8,7 +8,7 @@ from weschatbot.exceptions.user_exceptions import InvalidUserError
 from weschatbot.log.logging_mixin import LoggingMixin
 from weschatbot.models.collection import Collection, Document, ChatbotConfiguration
 from weschatbot.models.job import Job
-from weschatbot.models.user import User, ChatSession, Role, Permission
+from weschatbot.models.user import User, ChatSession, Role, Permission, Query
 from weschatbot.www.management.addition_blueprint import addition_blueprint
 from weschatbot.www.management.utils import outside_url_for
 from weschatbot.www.management.viewmodels.vm_chat import ViewModelChat
@@ -17,6 +17,7 @@ from weschatbot.www.management.viewmodels.vm_collection import ViewModelCollecti
 from weschatbot.www.management.viewmodels.vm_document import ViewModelDocument
 from weschatbot.www.management.viewmodels.vm_job import ViewModelJob
 from weschatbot.www.management.viewmodels.vm_permission import ViewModelPermission
+from weschatbot.www.management.viewmodels.vm_query import ViewModelQuery
 from weschatbot.www.management.viewmodels.vm_role import ViewModelRole
 from weschatbot.www.management.viewmodels.vm_user import ViewModelUser
 import weschatbot
@@ -78,6 +79,7 @@ class Management(LoggingMixin):
         ViewModelJob(Job, auth=self.auth.required).register(self.bp)
         ViewModelCollection(Collection, auth=self.auth.required).register(self.bp)
         ViewModelChatbotConfiguration(ChatbotConfiguration, auth=self.auth.required).register(self.bp)
+        ViewModelQuery(Query, auth=self.auth.required).register(self.bp)
 
         self.bp.register_blueprint(addition_blueprint)
         return self.bp

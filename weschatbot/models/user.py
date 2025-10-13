@@ -2,7 +2,7 @@ import json
 from typing import List
 
 from flask_login import UserMixin
-from sqlalchemy import Integer, Column, String, ForeignKey, Table, Boolean, Text
+from sqlalchemy import Integer, Column, String, ForeignKey, Table, Boolean, Text, Float, BigInteger
 from sqlalchemy.orm import mapped_column, relationship, Mapped
 
 from weschatbot.models.base import basic_fields, Base
@@ -156,6 +156,8 @@ class ChatMessage(Base):
     chat: Mapped["ChatSession"] = relationship(back_populates="messages")
     chat_id = Column(Integer, ForeignKey('chats.id'), nullable=False)
 
+    queries: Mapped[List["Query"]] = relationship(back_populates="message")
+
     def to_dict(self, session=None):
         return {
             "id": self.id,
@@ -167,3 +169,39 @@ class ChatMessage(Base):
 
     def __repr__(self):
         return f"{self.sender}: {self.content}\n"
+
+
+@basic_fields
+class Query(Base):
+    __tablename__ = "queries"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    message_id = Column(Integer, ForeignKey("messages.id"), nullable=True)
+
+    document_id = Column(Integer, ForeignKey("documents.id"), nullable=False)
+    document: Mapped["Document"] = relationship(back_populates="queries")  # noqa
+
+    row_id = Column(BigInteger, nullable=False)
+    document_text = Column(Text, nullable=False)
+    cosine_score = Column(Float, nullable=False)
+    rank = Column(Integer, nullable=False)
+
+    message: Mapped["ChatMessage"] = relationship(back_populates="queries")
+
+    collection_id = Column(Integer, ForeignKey("collections.id"), nullable=False)
+    collection: Mapped["Collection"] = relationship(back_populates="queries")  # noqa
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "message_id": self.message_id,
+            "document_id": self.document_id,
+            "row_id": self.row_id,
+            "document_text": self.document_text,
+            "cosine_score": self.cosine_score,
+            "collection_id": self.collection_id,
+            "collection_name": self.collection.name if self.collection else None,
+            "document_name": self.document.name if self.document else None,
+            "rank": self.rank,
+            "message_content": self.message.content if self.message else None
+        }

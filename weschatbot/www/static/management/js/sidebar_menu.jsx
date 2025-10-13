@@ -1,8 +1,11 @@
 import {createRoot} from "react-dom/client";
-import React, {useEffect} from "react";
+import React from "react";
 
 import {
-    CDropdown, CDropdownItem, CDropdownMenu, CDropdownToggle,
+    CDropdown,
+    CDropdownItem,
+    CDropdownMenu,
+    CDropdownToggle,
     CNavItem,
     CNavTitle,
     CSidebar,
@@ -12,7 +15,7 @@ import {
 } from '@coreui/react'
 
 import CIcon from '@coreui/icons-react'
-import {cilUser, cilChatBubble, cilBank, cilBookmark, cilLayers, cilFile, cilAppsSettings, cilBook} from '@coreui/icons'
+import {cilAppsSettings, cilBank, cilBook, cilBookmark, cilChatBubble, cilFile, cilLayers, cilUser} from '@coreui/icons'
 
 
 const stringToColor = (str) => {
@@ -41,14 +44,15 @@ function SidebarMenu({userName = 'User', onLogout, currentUser, userPermissions}
 
     return (
         <CSidebar className="border-end" colorScheme="dark" style={{height: '100vh', position: 'relative'}}>
-            <CSidebarHeader className="border-bottom">
-                <CSidebarBrand style={{textDecoration: 'none', fontSize: '1.5rem'}}>
+            <CSidebarHeader>
+                <CSidebarBrand
+                    style={{textDecoration: 'none', fontSize: '1.5rem', paddingTop: '0px', paddingBottom: '0px'}}>
                     <img
                         src="/management/static/westaco.png"
                         alt="Logo"
-                        style={{height: '30px', marginRight: '10px', textDecoration: 'none'}}
+                        style={{height: '30px', marginRight: '5px', textDecoration: 'none'}}
                     />
-                    Chatbot MGT
+                    WesChatbot MGT
                 </CSidebarBrand>
             </CSidebarHeader>
 
@@ -72,6 +76,8 @@ function SidebarMenu({userName = 'User', onLogout, currentUser, userPermissions}
                 <NavItem href={"/management/ViewModelChatbotConfiguration/"} icon={cilAppsSettings}
                          role={currentUser.role.name}
                          permissions={permissions} value={"Chatbot Configuration"}></NavItem>
+                <NavItem href={"/management/ViewModelQuery/list"} icon={cilFile} role={currentUser.role.name}
+                         permissions={permissions} value={"Query Results"}></NavItem>
                 <CNavTitle>Docs</CNavTitle>
                 <CNavItem href="/management/docs">
                     <CIcon customClassName="nav-icon" icon={cilBook}/> Administrator Guideline

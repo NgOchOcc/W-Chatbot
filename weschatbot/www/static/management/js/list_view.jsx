@@ -127,7 +127,7 @@ function DataListView({items, data_types, list_fields}) {
 
     return (
         <>
-            <div style={{maxHeight: "750px", overflowY: "auto"}}>
+            <div style={{maxHeight: "730px", overflowY: "auto"}}>
                 <table className={"table table-bordered table-hover table-sm"}>
                     <thead>
                     <tr>
@@ -173,8 +173,6 @@ function App({model}) {
     const keyword = model["keyword"]
     return (
         <>
-            <h4>{title}</h4>
-            <br/>
             <div className={"row"}>
                 <div className={"col-md-6"}>
                     <SearchBox search_url={search_url} keyword={keyword}

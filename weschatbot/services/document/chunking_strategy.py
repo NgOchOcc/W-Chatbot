@@ -24,10 +24,10 @@ class SentencesplitStrategy:
         """Main chunking method for markdown content"""
         if metadata is None:
             metadata = {}
-            
+
         doc_type = self._detect_document_type(content)
         metadata['doc_type'] = doc_type
-        
+
         if doc_type == 'table_heavy':
             return self._chunk_table_document(content, metadata)
         elif doc_type == 'technical_report':
@@ -54,9 +54,9 @@ class SentencesplitStrategy:
         current_size = 0
         in_table = False
         table_header = []
-        
+
         lines = content.split('\n')
-        
+
         for i, line in enumerate(lines):
             if '|' in line and line.count('|') >= 3:
                 if not in_table:
@@ -65,77 +65,73 @@ class SentencesplitStrategy:
                         if len(chunk_text.strip()) >= self.min_chunk_size:
                             chunks.append(LlamaDocument(
                                 text=chunk_text,
-                                metadata={**metadata, 'chunk_type': 'text'}
+                                metadata={**metadata}
                             ))
                         current_chunk = []
                         current_size = 0
-                    
+
                     in_table = True
                     table_header = []
-                
+
                 if i < len(lines) - 1 and '---' in lines[i + 1]:
                     table_header = [line, lines[i + 1]]
-            
+
             elif in_table and line.strip() == '':
                 in_table = False
                 if current_chunk:
                     chunk_text = '\n'.join(current_chunk)
                     chunks.append(LlamaDocument(
                         text=chunk_text,
-                        metadata={**metadata, 'chunk_type': 'table'}
+                        metadata={**metadata}
                     ))
                     current_chunk = []
                     current_size = 0
-            
+
             current_chunk.append(line)
             current_size += len(line)
-            
+
             if current_size >= self.chunk_size and not in_table:
                 chunk_text = '\n'.join(current_chunk)
                 chunks.append(LlamaDocument(
                     text=chunk_text,
-                    metadata={**metadata, 'chunk_type': 'mixed'}
+                    metadata={**metadata}
                 ))
                 current_chunk = []
                 current_size = 0
-                
+
                 if table_header and in_table:
                     current_chunk.extend(table_header)
                     current_size = sum(len(h) for h in table_header)
-        
+
         if current_chunk:
             chunk_text = '\n'.join(current_chunk)
             if len(chunk_text.strip()) >= self.min_chunk_size:
                 chunks.append(LlamaDocument(
                     text=chunk_text,
-                    metadata={**metadata, 'chunk_type': 'text' if not in_table else 'table'}
+                    metadata={**metadata}
                 ))
-        
+
         return chunks
     
     def _chunk_technical_report(self, content: str, metadata: Dict) -> List[LlamaDocument]:
         parser = MarkdownNodeParser()
-        
-        temp_doc = LlamaDocument(text=content, metadata=metadata)        
+
+        temp_doc = LlamaDocument(text=content, metadata=metadata)
         nodes = parser.get_nodes_from_documents([temp_doc])
-        
+
         chunks = []
         for i, node in enumerate(nodes):
             section_match = re.search(r'^#+\s+(.+)$', node.text.split('\n')[0], re.MULTILINE)
-            section_title = section_match.group(1) if section_match else f"Section {i+1}"
-            
+
             chunk_metadata = {
                 **metadata,
-                'chunk_type': 'report_section',
-                'section_title': section_title,
-                'chunk_index': i
             }
-            
+
             chunks.append(LlamaDocument(
                 text=node.text,
                 metadata=chunk_metadata
             ))
-        
+
         return chunks
     
     def _chunk_general_markdown(self, content: str, metadata: Dict) -> List[LlamaDocument]:
@@ -143,32 +139,28 @@ class SentencesplitStrategy:
             chunk_size=self.chunk_size,
             chunk_overlap=self.chunk_overlap
         )
-        
+
         temp_doc = LlamaDocument(text=content, metadata=metadata)
-        
+
         nodes = splitter.get_nodes_from_documents([temp_doc])
-        
+
         chunks = []
         for i, node in enumerate(nodes):
             chunk_metadata = {
                 **metadata,
-                'chunk_type': 'general',
-                'chunk_index': i
             }
-            
+
             chunks.append(LlamaDocument(
                 text=node.text,
                 metadata=chunk_metadata
             ))
-        
+
         return chunks
     
     def add_context_to_chunks(self, chunks: List[LlamaDocument]) -> List[LlamaDocument]:
         enhanced_chunks = []
+
         for i, chunk in enumerate(chunks):
-            chunk.metadata['total_chunks'] = len(chunks)
-            chunk.metadata['chunk_position'] = i + 1
-            
             enhanced_chunks.append(chunk)
         return enhanced_chunks
 

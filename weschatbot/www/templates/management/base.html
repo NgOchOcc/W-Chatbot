@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>{{ title or "Chatbot Management" }}</title>
+    <title>{{ title or "Westaco Chatbot Management" }}</title>
     {% block head %}
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -20,28 +20,38 @@
 <body style="background-color: var(--cui-tertiary-bg-rgb)">
 <main class="d-flex flex-nowrap">
     <div id="sidebar_menu"></div>
-    <div class="container-fluid"
-         style="background: var(--cui-tertiary-bg-rgb); height: auto; max-height: 100vh; padding: 20px;padding-left: 0 !important; margin-left: 20px; overflow-y: auto">
+    <div class="container-fluid" style="
+        padding-left: 0;
+        padding-right: 0;
+        margin-left: 0;
+        margin-right: 0;
+    ">
+        <div id="page_header"></div>
+        <div class="container-fluid"
+             style="background: var(--cui-tertiary-bg-rgb); height: auto; max-height: 100vh; padding: 20px; margin-left: 0; overflow-y: auto">
 
-        {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-        {% for category, message in messages %}
-        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-            {{ message }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+            {% for category, message in messages %}
+            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+            {% endfor %}
+            {% endif %}
+            {% endwith %}
+
+            {% block content %}
+
+            {% endblock %}
+
         </div>
-        {% endfor %}
-        {% endif %}
-        {% endwith %}
-
-        {% block content %}
-
-        {% endblock %}
-
     </div>
-
 </main>
 </body>
+<div hidden id="title">
+    {{ title }}
+</div>
 <div hidden id="current_user">
     {{current_user.to_json()}}
 </div>
@@ -50,5 +60,6 @@
 </div>
 {% block footer %}
 <script src="{{ url_for('management.static', filename='dist/sidebar_menu.js') }}"></script>
+<script src="{{ url_for('management.static', filename='dist/page_header.js') }}"></script>
 {% endblock %}
 </html>

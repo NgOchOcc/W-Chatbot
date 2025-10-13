@@ -63,6 +63,8 @@ const managementConfig = {
         collections_detail: [`${MANAGEMENT_JS_DIR}/collections_detail.jsx`],
         converted_document: [`${MANAGEMENT_JS_DIR}/converted_document.jsx`],
         chat_details: [`${MANAGEMENT_JS_DIR}/chat_details.jsx`],
+        page_header: [`${MANAGEMENT_JS_DIR}/page_header.jsx`],
+        queries: [`${MANAGEMENT_JS_DIR}/queries.jsx`],
 
     },
     output: {

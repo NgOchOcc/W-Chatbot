@@ -37,7 +37,8 @@ class ViewModelCollection(ViewModel):
         try:
             collection_detail = self.collection_service.get_collection(collection_id=item_id)
             return render_template("management/collection_detail.html",
-                                   model=json.dumps(collection_detail.to_dict(), default=str))
+                                   model=json.dumps(collection_detail.to_dict(), default=str),
+                                   title=f"Details of Collection: {collection_detail.collection_name}", )
 
         except Exception as e:
             return f"{e}", 500
@@ -145,10 +146,10 @@ class ViewModelCollection(ViewModel):
 
         collection = self.collection_service.get_collection(collection_id=collection_id, session=session)
         params["collection_name"] = collection.collection_name
-        params["output_fields"] = ["row_id", "text"]
+        params["output_fields"] = ["row_id", "text", "doc_id"]
         params["limit"] = 20
         entities, next_token = func(**params)
-        data = [{"row_id": str(x["row_id"]), "text": x["text"]} for x in entities]
+        data = [{"doc_id": str(x["doc_id"]), "row_id": str(x["row_id"]), "text": x["text"]} for x in entities]
         return jsonify({"status": "success", "data": data, "next_token": next_token}), 200
 
     @provide_session

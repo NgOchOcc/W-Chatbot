@@ -3,13 +3,13 @@ from pathlib import Path
 from typing import List, Optional
 
 from llama_index.core import VectorStoreIndex, StorageContext
-from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.vector_stores.milvus import MilvusVectorStore
 from sqlalchemy.orm import joinedload
 
 from weschatbot.log.logging_mixin import LoggingMixin
 from weschatbot.models.collection import Document, CollectionDocumentStatus, CollectionDocument
 from weschatbot.services.document.chunking_strategy import AdvancedChunkingStrategy
+from weschatbot.services.vllm_embedding_service import VLLMEmbeddingService, VLLMEmbeddingAdapter
 from weschatbot.utils.db import provide_session
 
 
@@ -25,17 +25,25 @@ class PipelineMilvusStore(Pipeline, LoggingMixin):
     def __init__(
             self, collection_name: str,
             dim: int = 1024,
-            embedding_model_name: str = "Qwen/Qwen3-Embedding-0.6B",
+            vllm_base_url: str = "http://westaco-chatbot-vllm-embed:9290",
+            vllm_model: str = "Qwen/Qwen3-Embedding-0.6B",
             milvus_host: Optional[str] = None,
             milvus_port: Optional[int] = None,
-            metrics: Optional[str] = "COSINE",
+            metrics: str = "COSINE",
             *args, **kwargs
     ):
         super().__init__(*args, **kwargs)
         self.dim = dim
         self.collection_name = collection_name
-        self.embedding_model_name = embedding_model_name
-        self.embed_model = HuggingFaceEmbedding(model_name=self.embedding_model_name)
+        self.vllm_base_url = vllm_base_url
+        self.vllm_model = vllm_model
+
+        # Initialize VLLM embedding service
+        vllm_service = VLLMEmbeddingService(
+            base_url=self.vllm_base_url,
+            model=self.vllm_model
+        )
+        self.embed_model = VLLMEmbeddingAdapter(vllm_service=vllm_service)
 
         self.milvus_host = milvus_host if milvus_host is not None else 'localhost'
         self.milvus_port = milvus_port if milvus_port is not None else 19530
@@ -49,6 +57,8 @@ class PipelineMilvusStore(Pipeline, LoggingMixin):
                 dim=self.dim,
                 overwrite=False,
                 similarity_metric=self.metrics,
+                text_key="text",
+                output_fields=["doc_id", "document_name", "modified_date", "text", "file_path", "created_at"],
             )
             self.log.info(f"Connected to Milvus collection '{self.collection_name}' with dimension {self.dim}")
         except Exception as e:
@@ -70,13 +80,20 @@ class PipelineMilvusStore(Pipeline, LoggingMixin):
                     if metadata_list and i < len(metadata_list):
                         metadata = metadata_list[i]
                     else:
-                        metadata = {"doc_id": f"doc_{i}"}
-
-                    metadata['document_name'] = metadata.get('file_name', f'document_{i}')
-                    metadata['modified_date'] = datetime.now().isoformat()
+                        metadata = {
+                            "doc_id": metadata_list[i]['doc_id'],
+                            "file_path": metadata_list[i]['file_path'],
+                            "file_name": metadata_list[i]['file_name'],
+                            "document_name": metadata_list[i]['document_name'],
+                            "created_at": metadata_list[i]['created_at'],
+                            "modified_date": metadata_list[i]['modified_date'],
+                        }
 
                     chunks = self.chunking_strategy.chunk_markdown(content, metadata)
                     chunks = self.chunking_strategy.add_context_to_chunks(chunks)
+
+                    for chunk_idx, chunk in enumerate(chunks):
+                        chunk.metadata['chunk_index'] = chunk_idx
 
                     all_chunks.extend(chunks)
 
@@ -184,12 +201,11 @@ class IndexDocumentService(LoggingMixin):
                 file_path = Path(doc.path)
                 metadata = {
                     "doc_id": str(doc.id),
-                    "file_path": doc.path,
-                    "file_name": file_path.name,
                     "document_name": file_path.name,
-                    "created_at": str(doc.created_at) if hasattr(doc, 'created_at') else "",
                     "modified_date": datetime.fromtimestamp(
                         file_path.stat().st_mtime).isoformat() if file_path.exists() else datetime.now().isoformat(),
+                    "file_path": doc.path,
+                    "created_at": str(doc.created_at) if hasattr(doc, 'created_at') else "",
                 }
                 metadata_list.append(metadata)
 
