@@ -139,6 +139,9 @@ class ChatbotConfiguration(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     prompt = Column(Text, nullable=True)
 
+    summary_prompt = Column(Text, nullable=True)
+    analytic_topic_prompt = Column(Text, nullable=True)
+
     collection_id: Mapped[int] = Column(
         Integer,
         ForeignKey("collections.id"), nullable=True,
