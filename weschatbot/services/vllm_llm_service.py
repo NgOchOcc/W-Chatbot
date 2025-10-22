@@ -1,8 +1,26 @@
-import aiohttp
+import asyncio
+import functools
 from typing import List, Dict, Optional
-import json
+
+import aiohttp
 
 from weschatbot.services.chatbot_configuration_service import ChatbotConfigurationService
+
+
+def provide_loop(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        loop = asyncio.get_event_loop()
+        if loop.is_closed():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        kwargs['loop'] = loop
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
+chatbot_configuration_service = ChatbotConfigurationService()
 
 
 class VLLMService:
@@ -15,6 +33,68 @@ class VLLMService:
         if self.session is None:
             self.session = aiohttp.ClientSession()
         return self.session
+
+    @provide_loop
+    def sync_count_tokens(self, text, loop=None):
+        return loop.run_until_complete(self._count_tokens(text))
+
+    def sync_get_summary(self, text):
+        return self.sync_call_llm(self.get_summary, text)
+
+    def sync_get_topics(self, text):
+        return self.sync_call_llm(self.get_topics, text)
+
+    @provide_loop
+    def sync_call_llm(self, func, text, loop=None):
+        ret = loop.run_until_complete(func(text))
+        try:
+            return ret["choices"][0]["message"]["content"].split("</think>")[1]
+        except IndexError:
+            return ret["choices"][0]["message"]["content"]
+
+    async def get_topics(self, text):
+
+        # TODO refactor get_summary
+
+        session = await self._get_session()
+        messages = [
+            {
+                "role": "system",
+                "content": chatbot_configuration_service.get_configuration().analytic_topic_prompt
+            },
+            {
+                "role": "user",
+                "content": text
+            }
+        ]
+
+        payload = {
+            "model": self.model,
+            "messages": messages
+        }
+
+        return await self._non_stream_chat(session, payload)
+
+    async def get_summary(self, text):
+        session = await self._get_session()
+
+        messages = [
+            {
+                "role": "system",
+                "content": chatbot_configuration_service.get_configuration().summary_prompt
+            },
+            {
+                "role": "user",
+                "content": text
+            }
+        ]
+
+        payload = {
+            "model": self.model,
+            "messages": messages
+        }
+
+        return await self._non_stream_chat(session, payload)
 
     async def _count_tokens(self, text: str) -> int:
         try:
@@ -39,6 +119,7 @@ class VLLMService:
             return len(text) // 2
 
     async def _truncate_messages(self, messages: List[Dict[str, str]], max_tokens: int = 5120) -> List[Dict[str, str]]:
+        # TODO need to rewrite, this function also truncate the context
         if not messages:
             return messages
 
@@ -138,6 +219,7 @@ class VLLMService:
                 raise Exception(f"vLLM API error: {response.status} - {error_text}")
 
     async def _non_stream_chat(self, session, payload):
+        # TODO exception aiohttp.client_exceptions.ServerDisconnectedError: Server disconnected
         async with session.post(
                 f"{self.base_url}/v1/chat/completions",
                 json=payload,
@@ -164,7 +246,9 @@ class VLLMService:
 
         if conversation_history and len(conversation_history) > 0:
             # Take only the last 3 messages (1 conversation turn)
-            limited_history = conversation_history[-3:] if len(conversation_history) >= 3 else conversation_history[-len(conversation_history):]
+            limited_history = conversation_history[-3:] if len(conversation_history) >= 3 else conversation_history[
+                                                                                               -len(
+                                                                                                   conversation_history):]
             messages.extend(limited_history)
 
         system_message = f"{ChatbotConfigurationService().get_prompt()}\n{context}"

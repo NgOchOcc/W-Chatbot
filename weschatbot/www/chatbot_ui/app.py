@@ -1,8 +1,5 @@
 import json
-from typing import List, Dict, Optional, Union
-from enum import Enum
-from dataclasses import dataclass
-import asyncio
+from typing import List, Dict
 
 from fastapi import Depends, Form, FastAPI, WebSocket, Request, Cookie, status, HTTPException
 from fastapi.responses import JSONResponse
@@ -11,19 +8,19 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.websockets import WebSocketDisconnect
 from fastapi_csrf_protect import CsrfProtect
-from pymilvus import Collection, connections
+from pymilvus import connections
 
 from weschatbot.exceptions.user_exceptions import InvalidUserError
 from weschatbot.schemas.chat import Message
+from weschatbot.schemas.embedding import RetrievalConfig
 from weschatbot.security.cookie_jwt_manager import FastAPICookieJwtManager
 from weschatbot.security.exceptions import TokenInvalidError, TokenExpiredError
 from weschatbot.services.chatbot_configuration_service import ChatbotConfigurationService
-from weschatbot.schemas.embedding import RetrievalConfig
-from weschatbot.services.query_service import QueryResult, make_query_result, QueryService
-from weschatbot.services.vllm_llm_service import VLLMService
-from weschatbot.services.session_service import SessionService, NotPermissionError
 from weschatbot.services.chatbot_service import ChatbotPipeline
+from weschatbot.services.query_service import make_query_result, QueryService
+from weschatbot.services.session_service import SessionService, NotPermissionError
 from weschatbot.services.user_service import UserService
+from weschatbot.services.vllm_llm_service import VLLMService
 from weschatbot.utils.config import config
 from weschatbot.www.chatbot_ui.csrfsettings import CsrfSettings
 
@@ -243,7 +240,8 @@ async def websocket_endpoint(websocket: WebSocket,
                                                             session_service.update_session(user_id, chat_id, messages))]
                 if len(inserted_message_id) > 0:
                     message_id = inserted_message_id[-1]
-                    retrieved_docs = list(map(lambda x: make_query_result(*x), enumerate(result["retrieved_docs"])))
+                    collection_id = chatbot_configuration.collection_id
+                    retrieved_docs = list(map(lambda x: make_query_result(*x, collection_id=collection_id), enumerate(result["retrieved_docs"])))
                     query_service.add_query_result_for_message(list_query_results=retrieved_docs,
                                                                message_id=message_id)
 

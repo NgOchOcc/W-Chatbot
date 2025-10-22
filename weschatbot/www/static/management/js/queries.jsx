@@ -131,36 +131,23 @@ function DetailQueryResultSummary({summary}) {
                     <CCard>
                         <CCardHeader>Questions</CCardHeader>
                         <CCardBody style={{scrollBehavior: "smooth", overflowY: "auto"}}>
-                            {questions && questions.length > 0 ? (
-                                <CTable striped bordered responsive style={{fontSize: "0.9rem"}}>
-                                    <CTableHead>
-                                        <CTableRow>
-                                            <CTableHeaderCell>#</CTableHeaderCell>
-                                            <CTableHeaderCell>Text</CTableHeaderCell>
-                                            <CTableHeaderCell>Created Date</CTableHeaderCell>
-                                            <CTableHeaderCell>Message ID</CTableHeaderCell>
-                                            <CTableHeaderCell>Query ID</CTableHeaderCell>
-                                        </CTableRow>
-                                    </CTableHead>
-                                    <CTableBody>
-                                        {questions.map((q, index) => (
-                                            <CTableRow key={index}>
-                                                <CTableDataCell>{index + 1}</CTableDataCell>
-                                                <CTableDataCell>{q["text"]}</CTableDataCell>
-                                                <CTableDataCell>{q["created_date"]}</CTableDataCell>
-                                                <CTableDataCell>{q["message_id"]}</CTableDataCell>
-                                                <CTableDataCell>{q["query_id"]}</CTableDataCell>
-                                            </CTableRow>
-                                        ))}
-                                    </CTableBody>
-                                </CTable>
-                            ) : (
-                                <p>No questions available.</p>
-                            )}
+                            <QuestionList questions={questions}></QuestionList>
                         </CCardBody>
                     </CCard>
                 </div>
             </div>
+        </>
+    )
+}
+
+function AnalyticPage({data}) {
+    return (
+        <>
+            <p>
+                <ReactMarkdown>
+                    {data}
+                </ReactMarkdown>
+            </p>
         </>
     )
 }
@@ -201,6 +188,41 @@ function SummaryPage({data}) {
                 </CTableBody>
             </CTable>
         </>
+    )
+}
+
+function AnalyticModal({visible, setVisible, fromDate, toDate}) {
+
+    const [loading, setLoading] = useState(false)
+    const [data, setData] = useState("")
+
+    useEffect(() => {
+        if (visible) {
+            setLoading(true)
+            fetch(`/management/ViewModelQuery/analyze_query_results?from_date=${fromDate}&to_date=${toDate}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === "success") {
+                        setData(data.data)
+                    }
+                })
+                .catch(err => {
+                    console.error("Error fetching summary:", err)
+                })
+                .finally(() => setLoading(false))
+        }
+    }, [visible])
+
+    return (
+        <CModal visible={visible} onClose={() => setVisible(false)} className="modal-fullscreen">
+            <CModalHeader>Analytic</CModalHeader>
+            <CModalBody className={"modal-scroll-body"}>
+                {loading ? <p>Loading...</p> : <AnalyticPage data={data}/>}
+            </CModalBody>
+            <CModalFooter>
+                <CButton color="secondary" onClick={() => setVisible(false)}>Close</CButton>
+            </CModalFooter>
+        </CModal>
     )
 }
 
@@ -250,6 +272,7 @@ function App({model}) {
     const [toDate, setToDate] = useState(searchParams["to_date"])
 
     const [summaryVisible, setSummaryVisible] = useState(false)
+    const [analyzeVisible, setAnalyzeVisible] = useState(false)
 
 
     function search(pageNum) {
@@ -285,14 +308,18 @@ function App({model}) {
                         <CDropdownToggle color="secondary">Actions</CDropdownToggle>
                         <CDropdownMenu>
                             <CDropdownItem onClick={() => setSummaryVisible(true)}>Summary</CDropdownItem>
-                            <CDropdownItem onClick={() => console.log("Refresh")}>Analytic Result</CDropdownItem>
-                            <CDropdownItem onClick={() => console.log("Refresh")}>Quiz</CDropdownItem>
+                            <CDropdownItem onClick={() => setAnalyzeVisible(true)}>Analytic Result</CDropdownItem>
                         </CDropdownMenu>
                     </CDropdown>
 
                     {summaryVisible &&
                         <SummaryModal visible={summaryVisible} setVisible={setSummaryVisible} fromDate={fromDate}
                                       toDate={toDate}></SummaryModal>
+                    }
+
+                    {analyzeVisible &&
+                        <AnalyticModal visible={analyzeVisible} setVisible={setAnalyzeVisible} fromDate={fromDate}
+                                       toDate={toDate}></AnalyticModal>
                     }
 
                 </CCol>
