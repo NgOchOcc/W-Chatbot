@@ -22,6 +22,7 @@ from weschatbot.services.session_service import SessionService, NotPermissionErr
 from weschatbot.services.user_service import UserService
 from weschatbot.services.vllm_llm_service import VLLMService
 from weschatbot.utils.config import config
+from weschatbot.utils.limiter import limiter
 from weschatbot.www.chatbot_ui.csrfsettings import CsrfSettings
 
 
@@ -214,45 +215,59 @@ async def websocket_endpoint(websocket: WebSocket,
         while True:
             data = await websocket.receive_text()
 
-            question = json.loads(data)["message"]
-            chat_id = json.loads(data)["chat_id"]
+            limit_interval = chatbot_configuration.limit_interval_seconds
+            limit = chatbot_configuration.limit
 
-            # Get current chat and conversation history
-            chat = session_service.get_session(chat_id)
-            conversation_history = get_conversation_history_from_chat(chat)
+            async def limit_failing_callback():
+                await websocket.send_text(json.dumps({
+                    "text": f"You have reached the limitation {limit} questions/{limit_interval / 60} minute(s)."
+                }))
 
-            answer = "Error: Could not get answer from chatbot."
+            @limiter(user_id=user_id, interval=limit_interval, limit=limit, failing_callback=limit_failing_callback)
+            async def process_message():
+                question = json.loads(data)["message"]
+                chat_id = json.loads(data)["chat_id"]
 
-            try:
-                result = await chatbot_pipeline.run(
-                    query=question,
-                    conversation_history=conversation_history,
-                    filter_expr=None
-                )
-                answer = result["response"]
+                chat = session_service.get_session(chat_id)
+                conversation_history = get_conversation_history_from_chat(chat)
 
-                messages = [
-                    Message(sender="user", receiver="bot", message=question),
-                    Message(sender="bot", receiver="user", message=answer),
-                ]
+                answer = "Error: Could not get answer from chatbot."
 
-                inserted_message_id = [x[0] for x in filter(lambda x: x[1] == "user",
-                                                            session_service.update_session(user_id, chat_id, messages))]
-                if len(inserted_message_id) > 0:
-                    message_id = inserted_message_id[-1]
-                    collection_id = chatbot_configuration.collection_id
-                    retrieved_docs = list(map(lambda x: make_query_result(*x, collection_id=collection_id), enumerate(result["retrieved_docs"])))
-                    query_service.add_query_result_for_message(list_query_results=retrieved_docs,
-                                                               message_id=message_id)
+                try:
+                    result = await chatbot_pipeline.run(
+                        query=question,
+                        conversation_history=conversation_history,
+                        filter_expr=None
+                    )
+                    answer = result["response"]
 
-            except Exception as e:
-                answer = f"An error occurred: {str(e)}"
-                print(f"Error calling chatbot pipeline: {e}")
+                    messages = [
+                        Message(sender="user", receiver="bot", message=question),
+                        Message(sender="bot", receiver="user", message=answer),
+                    ]
 
-            res = {
-                "text": f"{answer}"
-            }
+                    inserted_message_id = [x[0] for x in filter(lambda x: x[1] == "user",
+                                                                session_service.update_session(user_id, chat_id,
+                                                                                               messages))]
+                    if len(inserted_message_id) > 0:
+                        message_id = inserted_message_id[-1]
+                        collection_id = chatbot_configuration.collection_id
+                        retrieved_docs = list(map(lambda x: make_query_result(*x, collection_id=collection_id),
+                                                  enumerate(result["retrieved_docs"])))
+                        query_service.add_query_result_for_message(list_query_results=retrieved_docs,
+                                                                   message_id=message_id)
 
-            await websocket.send_text(json.dumps(res))
+                except Exception as e:
+                    answer = f"An error occurred. Please try again!"
+                    print(f"Error calling chatbot pipeline: {e}")
+
+                res = {
+                    "text": f"{answer}"
+                }
+
+                await websocket.send_text(json.dumps(res))
+
+            await process_message()
+
     except WebSocketDisconnect:
         print("Client disconnected")
