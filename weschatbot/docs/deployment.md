@@ -82,7 +82,7 @@ docker run -d -p 3000:3000 --gpus all \
   -v weschatbot_converted_volume:/srv/weschatbot/converted \
   -v weschatbot_models_volume:/root/.cache/huggingface \
   westaco-chatbot:0.0.1 \
-  weschatbot chatbot start
+  weschatbot chatbot start bind=0.0.0.0:3000 worker_class=uvicorn.workers.UvicornWorker workers=4
 ```
 
 ##### Management
@@ -103,7 +103,7 @@ docker run -d -p 9090:5000 --gpus all \
   -v weschatbot_uploads_volume:/srv/weschatbot/uploads \
   -v weschatbot_converted_volume:/srv/weschatbot/converted \
   westaco-chatbot:0.0.1 \
-  weschatbot management start bind=0.0.0.0:5000 timeout=120
+  weschatbot management start bind=0.0.0.0:5000 timeout=120 workers=4
 ```
 
 ##### Worker

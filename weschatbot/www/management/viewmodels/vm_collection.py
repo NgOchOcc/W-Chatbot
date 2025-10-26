@@ -2,7 +2,7 @@ import json
 
 from flask import request, redirect, render_template, flash, jsonify
 
-from weschatbot.models.collection import Collection
+from weschatbot.models.user import Collection
 from weschatbot.services.collection_service import CollectionService
 from weschatbot.utils.config import config
 from weschatbot.utils.db import provide_session

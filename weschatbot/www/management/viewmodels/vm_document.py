@@ -1,6 +1,6 @@
 import json
 
-from weschatbot.models.collection import Document
+from weschatbot.models.user import Document
 from weschatbot.services.celery_service import convert_document
 from weschatbot.utils.db import provide_session
 from weschatbot.www.management.model_vm import ViewModel
