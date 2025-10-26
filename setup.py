@@ -48,6 +48,7 @@ setup(
         "llama-index-vector-stores-milvus==0.8.7",
         "celery==5.5.3",
         "pymilvus==2.5.10",
+        "pyrate-limiter==3.9.0",
         "fastapi==0.115.12"
     ]
 )

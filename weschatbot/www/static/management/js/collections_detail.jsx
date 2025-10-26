@@ -6,7 +6,8 @@ import {
     CButtonGroup,
     CCard,
     CCardBody,
-    CCardHeader, CCollapse,
+    CCardHeader,
+    CCollapse,
     CFormInput,
     CInputGroup,
     CModal,
@@ -17,7 +18,8 @@ import {
     CNavItem,
     CNavLink,
     CPagination,
-    CPaginationItem, CSpinner,
+    CPaginationItem,
+    CSpinner,
     CTabContent,
     CTable,
     CTableBody,
@@ -28,10 +30,11 @@ import {
     CTabPane,
 } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
-import {cilCloudDownload, cilSearch, cilTrash} from "@coreui/icons";
+import {cilSearch, cilTrash} from "@coreui/icons";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import ReactMarkdown from "react-markdown";
+import ActionsColumn from "./components";
 
 const container = document.getElementById("root_container");
 const root = createRoot(container);
@@ -429,65 +432,6 @@ function AddDocumentBox({handleAddDocument}) {
 }
 
 
-function ListDocumentsActions(
-    {
-        item,
-        hasDelete = false, onDelete = null, confirmDelete = false, confirmMessage = "Are you sure?",
-        hasDownload = false, onDownload = null
-    }) {
-
-    const [visibleConfirm, setVisibleConfirm] = useState(false)
-
-    function retOnClickDelete() {
-        if (confirmDelete) {
-            return () => setVisibleConfirm(true)
-        }
-        return () => onDelete(item)
-    }
-
-    return (
-        <>
-            <CButtonGroup>
-                {hasDelete &&
-                    <CButton
-                        color="secondary"
-                        variant="outline"
-                        style={{height: "25px", padding: "0px", width: "25px"}}
-                        onClick={retOnClickDelete()}
-                    >
-                        <CIcon icon={cilTrash} size="md"/>
-                    </CButton>
-                }
-                {hasDownload &&
-                    <CButton
-                        color="secondary"
-                        variant="outline"
-                        style={{height: "25px", padding: "0px", width: "25px"}}
-                        onClick={onDownload}
-                    >
-                        <CIcon icon={cilCloudDownload}/>
-                    </CButton>
-                }
-            </CButtonGroup>
-
-            <CModal visible={visibleConfirm} onClose={() => setVisibleConfirm(false)}>
-                <CModalHeader>Delete Confirm</CModalHeader>
-                <CModalBody>
-                    {confirmMessage}
-                </CModalBody>
-                <CModalFooter>
-                    <CButton color="danger" onClick={() => {
-                        onDelete(item);
-                        setVisibleConfirm(false);
-                    }}>Delete</CButton>
-                    <CButton color="secondary" onClick={() => setVisibleConfirm(false)}>Cancel</CButton>
-                </CModalFooter>
-            </CModal>
-        </>
-    )
-}
-
-
 function StatusBadge({status}) {
     let color = 'secondary'
     let label = status
@@ -557,12 +501,12 @@ function ListDocuments({documentsList, handleRemoveDocument}) {
                                     documentsList.map((doc, index) => (
                                         <CTableRow key={index}>
                                             <CTableDataCell>
-                                                <ListDocumentsActions
+                                                <ActionsColumn
                                                     item={doc.id} hasDelete={true}
                                                     confirmDelete={true}
                                                     onDelete={handleRemoveDocument}
                                                 >
-                                                </ListDocumentsActions>
+                                                </ActionsColumn>
                                             </CTableDataCell>
                                             <CTableDataCell
                                                 style={{minWidth: '50px', fontSize: "0.9rem"}}>{doc.id}</CTableDataCell>

@@ -1,4 +1,4 @@
-from logging import DEBUG
+from logging import DEBUG, INFO
 
 import click
 import uvicorn
@@ -73,7 +73,7 @@ def scheduler_start():
 @chatbot.command("start")
 def chatbot_start():
     from weschatbot.www.chatbot_ui.app import app
-    uvicorn.run(app, host="0.0.0.0", port=3000, log_level=DEBUG)
+    uvicorn.run(app, host="0.0.0.0", port=3000, log_level=INFO)
 
 
 @cli.command()

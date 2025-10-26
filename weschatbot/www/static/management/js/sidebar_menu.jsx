@@ -45,7 +45,8 @@ function SidebarMenu({userName = 'User', onLogout, currentUser, userPermissions}
     return (
         <CSidebar className="border-end" colorScheme="dark" style={{height: '100vh', position: 'relative'}}>
             <CSidebarHeader>
-                <CSidebarBrand style={{textDecoration: 'none', fontSize: '1.5rem', paddingTop: '0px', paddingBottom: '0px' }}>
+                <CSidebarBrand
+                    style={{textDecoration: 'none', fontSize: '1.5rem', paddingTop: '0px', paddingBottom: '0px'}}>
                     <img
                         src="/management/static/westaco.png"
                         alt="Logo"
@@ -75,6 +76,8 @@ function SidebarMenu({userName = 'User', onLogout, currentUser, userPermissions}
                 <NavItem href={"/management/ViewModelChatbotConfiguration/"} icon={cilAppsSettings}
                          role={currentUser.role.name}
                          permissions={permissions} value={"Chatbot Configuration"}></NavItem>
+                <NavItem href={"/management/ViewModelQuery/list"} icon={cilFile} role={currentUser.role.name}
+                         permissions={permissions} value={"Query Results"}></NavItem>
                 <CNavTitle>Docs</CNavTitle>
                 <CNavItem href="/management/docs">
                     <CIcon customClassName="nav-icon" icon={cilBook}/> Administrator Guideline
