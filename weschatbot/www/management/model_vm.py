@@ -579,6 +579,8 @@ class ViewModel(LoggingMixin):
                         res = UpdateValue(float(value))
                     case "text":
                         res = UpdateValue(str(value))
+                    case "integer":
+                        res = UpdateValue(int(value))
                     case _:
                         res = NoUpdate()
             if res.is_updated():

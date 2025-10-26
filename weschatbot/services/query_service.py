@@ -1,14 +1,52 @@
+import functools
+import inspect
+import pickle
+
+import redis
 from sqlalchemy import desc, func
 
-from weschatbot.models.user import Query, ChatMessage
+from weschatbot.models.user import Query
+from weschatbot.services.vllm_llm_service import VLLMService
+from weschatbot.utils.config import config
 from weschatbot.utils.db import provide_session
 
 
-def make_query_result(rank, doc):
+def make_query_result(rank, doc, collection_id):
     # TODO
     return QueryResult(document_id=14, row_id=doc["id"], document_text=doc["text"], cosine_score=doc["score"],
                        rank=rank,
-                       collection_id=8, collection_name="test_collection")
+                       collection_id=collection_id, collection_name="test_collection")
+
+
+def redis_cache(expire_seconds=3600, key_args=None, redis_url="redis://localhost:6379/0"):
+    def decorator(fn):
+        @functools.wraps(fn)
+        def wrapper(*args, **kwargs):
+            r = redis.Redis.from_url(redis_url)
+
+            sig = inspect.signature(fn)
+            bound = sig.bind(*args, **kwargs)
+            bound.apply_defaults()
+            arg_map = bound.arguments
+
+            key_parts = [fn.__name__]
+            if key_args:
+                for k in key_args:
+                    val = arg_map.get(k)
+                    key_parts.append(f"{k}={val}")
+            redis_key = "cache:" + "|".join(key_parts)
+
+            cached = r.get(redis_key)
+            if cached:
+                return pickle.loads(cached)
+
+            result = fn(*args, **kwargs)
+            r.setex(redis_key, expire_seconds, pickle.dumps(result))
+            return result
+
+        return wrapper
+
+    return decorator
 
 
 class Question:
@@ -70,6 +108,8 @@ class QueryResult:
 
 
 class QueryService:
+    vllm_service = VLLMService(config["vllm"]["base_url"], config["vllm"]["model"])
+
     @provide_session
     def add_query_result_for_message(self, list_query_results, message_id, session=None):
         for query_result in list_query_results:
@@ -100,23 +140,7 @@ class QueryService:
 
     @provide_session
     def summary_query_results(self, from_date, to_date, session=None):
-        stats = (
-            session.query(
-                Query.row_id.label("row_id"),
-                func.min(Query.document_text).label("document_text"),
-                func.count(Query.id).label("count"),
-                func.avg(Query.cosine_score).label("avg"),
-                func.min(Query.cosine_score).label("min"),
-                func.max(Query.cosine_score).label("max"),
-                func.group_concat(Query.id).label("query_ids"),
-                func.group_concat(Query.message_id).label("message_ids"),
-                func.min(Query.modified_date).label("first_seen"),  # noqa
-                func.max(Query.modified_date).label("last_seen")  # noqa
-            )
-            .filter(Query.modified_date >= from_date, Query.modified_date <= to_date)  # noqa
-            .group_by(Query.row_id)
-            .order_by(desc("count"))
-        ).all()
+        stats = self.summary_query_by_date(from_date, to_date, session=session)
 
         result = []
 
@@ -151,6 +175,90 @@ class QueryService:
                 message_ids=[int(x) for x in row.message_ids.split(",") if x],
                 document_text=row.document_text,
                 questions=questions
-            ).to_dict())
+            ))
 
         return result
+
+    @provide_session
+    def summary_query_by_date(self, from_date, to_date, session=None):
+        stats = (
+            session.query(
+                Query.row_id.label("row_id"),
+                func.min(Query.document_text).label("document_text"),
+                func.count(Query.id).label("count"),
+                func.avg(Query.cosine_score).label("avg"),
+                func.min(Query.cosine_score).label("min"),
+                func.max(Query.cosine_score).label("max"),
+                func.group_concat(Query.id).label("query_ids"),
+                func.group_concat(Query.message_id).label("message_ids"),
+                func.min(Query.modified_date).label("first_seen"),  # noqa
+                func.max(Query.modified_date).label("last_seen")  # noqa
+            )
+            .filter(Query.modified_date >= from_date, Query.modified_date <= to_date)  # noqa
+            .group_by(Query.row_id)
+            .order_by(desc("count"))
+        ).all()
+
+        return stats
+
+    @staticmethod
+    def split_documents(documents, max_tokens: int):
+        groups = []
+        current_group = []
+        current_token_sum = 0
+
+        for doc in documents:
+            if doc.number_of_tokens > max_tokens:
+                groups.append([doc])
+                continue
+
+            if current_token_sum + doc.number_of_tokens <= max_tokens:
+                current_group.append(doc)
+                current_token_sum += doc.number_of_tokens
+            else:
+                groups.append(current_group)
+                current_group = [doc]
+                current_token_sum = doc.number_of_tokens
+
+        if current_group:
+            groups.append(current_group)
+
+        return groups
+
+    @redis_cache(expire_seconds=300, key_args=["from_date", "to_date"],
+                 redis_url=f"redis://{config['redis']['host']}:{config['redis']['port']}/0")
+    @provide_session
+    def analyze_query_results(self, from_date, to_date, max_tokens=5120, session=None):
+        # TODO refactor
+        stats = self.summary_query_by_date(from_date, to_date, session=session)
+
+        documents = [QueryResultWithLLM(row.document_text, row.count).get_number_tokens(vllm_service=self.vllm_service)
+                     for row in stats]
+
+        grouped_documents = self.split_documents(documents, max_tokens=max_tokens)
+        summaries = [self.get_summary(self.vllm_service, "\n".join([y.document_text for y in x])) for x in
+                     grouped_documents]
+        if len(summaries) == 1:
+            return self.get_topics(self.vllm_service, summaries[0])
+        return self.get_topics(self.vllm_service, "\n".join(summaries))
+
+    @staticmethod
+    def get_topics(vllm_service, text):
+        return vllm_service.sync_get_topics(text)
+
+    @staticmethod
+    def get_summary(vllm_service, text):
+        summary = vllm_service.sync_get_summary(text)
+        return summary
+
+
+class QueryResultWithLLM:
+    def __init__(self, document_text, count):
+        self.document_text = document_text
+        self.count = count
+        self.number_of_tokens = 0
+        self.summary = None
+
+    def get_number_tokens(self, vllm_service):
+        self.number_of_tokens = vllm_service.sync_count_tokens(self.document_text)
+        return self

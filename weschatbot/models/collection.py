@@ -139,6 +139,9 @@ class ChatbotConfiguration(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     prompt = Column(Text, nullable=True)
 
+    summary_prompt = Column(Text, nullable=True)
+    analytic_topic_prompt = Column(Text, nullable=True)
+
     collection_id: Mapped[int] = Column(
         Integer,
         ForeignKey("collections.id"), nullable=True,
@@ -153,6 +156,9 @@ class ChatbotConfiguration(Base):
     temperature = Column(Float, nullable=False, default=0)
     max_completion_tokens = Column(Integer, nullable=False, default=0)
 
+    limit_interval_seconds = Column(Integer, nullable=False, default=60)
+    limit = Column(Integer, nullable=False, default=10)
+
     def to_dict(self, session=None):
         return {
             "id": self.id,
@@ -161,4 +167,6 @@ class ChatbotConfiguration(Base):
             "similar_threshold": self.similar_threshold,
             "temperature": self.temperature,
             "max_completion_tokens": self.max_completion_tokens,
+            "limit_interval_seconds": self.limit_interval_seconds,
+            "limit": self.limit,
         }

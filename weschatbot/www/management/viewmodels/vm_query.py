@@ -69,9 +69,18 @@ class ViewModelQuery(ViewModel):
         from_date = request.args.get('from_date', datetime.now().strftime("%Y-%m-%d"), type=str)
         to_date = request.args.get('to_date', datetime.now().strftime("%Y-%m-%d"), type=str)
 
-        result = query_service.summary_query_results(from_date, to_date, session)
+        result = [x.to_dict() for x in query_service.summary_query_results(from_date, to_date, session)]
         return jsonify({"status": "success", "data": result})
+
+    @provide_session
+    def analyze_query_results(self, session=None):
+        from_date = request.args.get('from_date', datetime.now().strftime("%Y-%m-%d"), type=str)
+        to_date = request.args.get('to_date', datetime.now().strftime("%Y-%m-%d"), type=str)
+
+        result = query_service.analyze_query_results(from_date, to_date, max_tokens=5120, session=session)
+        return {"status": "success", "data": result}
 
     def register(self, flask_app_or_bp):
         super(ViewModelQuery, self).register(flask_app_or_bp)
         self.bp.route("/query_result_summary", methods=["GET"])(self.auth(self.query_result_summary))
+        self.bp.route("/analyze_query_results", methods=["GET"])(self.auth(self.analyze_query_results))

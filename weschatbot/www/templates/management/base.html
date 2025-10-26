@@ -25,10 +25,12 @@
         padding-right: 0;
         margin-left: 0;
         margin-right: 0;
+        height: 100vh;
+        overflow-y: auto;
     ">
         <div id="page_header"></div>
         <div class="container-fluid"
-             style="background: var(--cui-tertiary-bg-rgb); height: auto; max-height: 100vh; padding: 20px; margin-left: 0; overflow-y: auto">
+             style="background: var(--cui-tertiary-bg-rgb); height: auto; max-height: 100vh; padding: 20px; margin-left: 0;">
 
             {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
@@ -44,6 +46,7 @@
             {% block content %}
 
             {% endblock %}
+            <br/>
 
         </div>
     </div>
