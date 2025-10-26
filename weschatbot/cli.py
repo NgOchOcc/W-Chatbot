@@ -71,9 +71,20 @@ def scheduler_start():
 
 
 @chatbot.command("start")
-def chatbot_start():
+@click.argument("gunicorn_args", nargs=-1, type=click.UNPROCESSED)
+def chatbot_start(gunicorn_args):
+    # from weschatbot.www.chatbot_ui.app import app
+    # uvicorn.run(app, host="0.0.0.0", port=3000, log_level=INFO)
+
     from weschatbot.www.chatbot_ui.app import app
-    uvicorn.run(app, host="0.0.0.0", port=3000, log_level=INFO)
+    from weschatbot.www.management.standalone_application import StandaloneApplication
+
+    options = {}
+
+    for k, v in map(lambda x: x.split("=", 1), gunicorn_args):
+        options[k] = v
+
+    StandaloneApplication(app, options).run()
 
 
 @cli.command()
