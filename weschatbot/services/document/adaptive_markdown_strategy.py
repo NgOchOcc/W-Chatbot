@@ -1,9 +1,14 @@
 import re
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict
 from llama_index.core import Document as LlamaDocument
-from llama_index.core.node_parser import MarkdownNodeParser, SentenceSplitter
+from llama_index.core.node_parser import (
+    MarkdownNodeParser,
+    SentenceSplitter,
+    SentenceWindowNodeParser
+)
 
 from base_chunking import BaseChunkingStrategy
+
 
 class AdaptiveMarkdownStrategy(BaseChunkingStrategy):
     def __init__(
@@ -12,22 +17,22 @@ class AdaptiveMarkdownStrategy(BaseChunkingStrategy):
         chunk_overlap: int = 128,
         min_chunk_size: int = 128,
         max_chunk_size: int = 3192,
-        table_max_chunk_size: int = 2048, 
-        table_min_rows_per_chunk: int = 30,  
-        table_max_rows_threshold: int = 200, 
+        min_tokens: int = 256,  
+        max_tokens: int = 1024,  
+        table_max_chunk_size: int = 2048,
+        table_min_rows_per_chunk: int = 30,
+        table_max_rows_threshold: int = 200,
         preserve_table_headers: bool = True,
-        add_table_summary: bool = True, 
+        add_table_summary: bool = True,
         table_context_lines_before: int = 3,
-        table_context_lines_after: int = 2,  
-        min_words_per_chunk: int = 30, 
-        remove_image_references: bool = True, 
+        table_context_lines_after: int = 2,
+        min_words_per_chunk: int = 30,
+        remove_image_references: bool = True,
         merge_short_chunks: bool = True
     ):
         super().__init__(chunk_size, chunk_overlap, min_chunk_size, max_chunk_size)
-        self.chunk_size = chunk_size
-        self.chunk_overlap = chunk_overlap
-        self.min_chunk_size = min_chunk_size
-        self.max_chunk_size = max_chunk_size
+        self.min_tokens = min_tokens
+        self.max_tokens = max_tokens
         self.table_max_chunk_size = table_max_chunk_size
         self.table_min_rows_per_chunk = table_min_rows_per_chunk
         self.table_max_rows_threshold = table_max_rows_threshold
@@ -39,547 +44,207 @@ class AdaptiveMarkdownStrategy(BaseChunkingStrategy):
         self.remove_image_references = remove_image_references
         self.merge_short_chunks = merge_short_chunks
 
+        # LlamaIndex parsers with token-based sizing
+        # Approximate: 1 token ≈ 0.75 words, so adjust chunk_size accordingly
+        token_based_chunk_size = int(max_tokens * 0.75)  # ~768 words for 1024 tokens
+
         self.markdown_parser = MarkdownNodeParser()
         self.sentence_splitter = SentenceSplitter(
-            chunk_size=chunk_size,
-            chunk_overlap=chunk_overlap
+            chunk_size=token_based_chunk_size,
+            chunk_overlap=int(chunk_overlap * 0.75),
+            paragraph_separator="\n\n"
         )
 
     def chunk_markdown(self, content: str, metadata: Dict = None) -> List[LlamaDocument]:
-        if metadata is None:
-            metadata = {}
+        metadata = metadata or {}
+        if self.remove_image_references:
+            content = self._remove_images(content)
 
-        content, preprocessing_stats = self._preprocess_content(content)
-
-        sections = self._parse_content_sections(content)
-        merged_sections = self._merge_adjacent_sections(sections)
-
+        sections = self._split_tables_and_text(content)
         chunks = []
-        for section in merged_sections:
+        for section in sections:
             if section['type'] == 'table':
-                table_chunks = self._chunk_table(section, metadata)
-                chunks.extend(table_chunks)
+                chunks.extend(self._chunk_table(section, metadata))
             else:
-                text_chunks = self._chunk_text(section, metadata)
-                chunks.extend(text_chunks)
+                chunks.extend(self._chunk_text_with_llamaindex(section['content'], metadata))
 
         if self.merge_short_chunks:
-            chunks = self._merge_short_text_chunks(chunks)
+            chunks = self._merge_and_split_chunks(chunks)
 
+        chunks = self._validate_token_limits(chunks)
         return self.add_context_to_chunks(chunks)
 
-    def _preprocess_content(self, content: str) -> Tuple[str, Dict]:
-        stats = {
-            'removed_empty_lines': 0,
-            'normalized_tables': 0,
-            'removed_duplicate_rows': 0,
-            'trimmed_whitespace': 0,
-            'fixed_table_formatting': 0,
-            'removed_image_references': 0,
-            'removed_file_links': 0
-        }
+    def _estimate_tokens(self, text: str) -> int:
+        return len(text) // 4
 
-        original_content = content
-        content = content.replace('\r\n', '\n').replace('\r', '\n')
-
-        if self.remove_image_references:
-            content, img_stats = self._remove_image_and_file_references(content)
-            stats['removed_image_references'] = img_stats['images']
-            stats['removed_file_links'] = img_stats['files']
-
-        lines = content.split('\n')
-        cleaned_lines = []
-        for line in lines:
-            stripped = line.rstrip()
-            if stripped != line:
-                stats['trimmed_whitespace'] += 1
-            cleaned_lines.append(stripped)
-
-        normalized_lines = []
-        empty_count = 0
-
-        for line in cleaned_lines:
-            if line.strip() == '':
-                empty_count += 1
-                if empty_count <= 2:
-                    normalized_lines.append(line)
-                else:
-                    stats['removed_empty_lines'] += 1
-            else:
-                empty_count = 0
-                normalized_lines.append(line)
-
-        normalized_lines = self._normalize_tables(normalized_lines, stats)
-        while normalized_lines and normalized_lines[0].strip() == '':
-            normalized_lines.pop(0)
-            stats['removed_empty_lines'] += 1
-
-        while normalized_lines and normalized_lines[-1].strip() == '':
-            normalized_lines.pop()
-            stats['removed_empty_lines'] += 1
-
-        content = '\n'.join(normalized_lines)
-
-        if content != original_content:
-            return content, stats
-        return content, {}
-
-    def _remove_image_and_file_references(self, content: str) -> Tuple[str, Dict]:
-        stats = {'images': 0, 'files': 0}
-
-        image_extensions = r'\.(jpg|jpeg|png|gif|svg|bmp|webp|ico|tiff?)'
-        file_extensions = r'\.(pdf|docx?|xlsx?|pptx?|zip|rar|7z|tar|gz)'
-
-        pattern = r'!\[([^\]]*)\]\([^\)]*' + image_extensions + r'[^\)]*\)'
-        matches = re.findall(pattern, content, re.IGNORECASE)
-        stats['images'] += len(matches)
-        content = re.sub(pattern, '', content, flags=re.IGNORECASE)
-
-        pattern = r'<img[^>]*' + image_extensions + r'[^>]*/?>'
-        matches = re.findall(pattern, content, re.IGNORECASE)
-        stats['images'] += len(matches)
-        content = re.sub(pattern, '', content, flags=re.IGNORECASE)
-
-        pattern = r'\[([^\]]*)\]\([^\)]*' + file_extensions + r'[^\)]*\)'
-        matches = re.findall(pattern, content, re.IGNORECASE)
-        stats['files'] += len(matches)
-
-        content = re.sub(pattern, r'\1', content, flags=re.IGNORECASE)
-
-
-        pattern = r'(?<!\[)\bhttps?://[^\s<>"{}|\\^\[\]`]+' + image_extensions + r'\b'
-        matches = re.findall(pattern, content, re.IGNORECASE)
-        stats['images'] += len(matches)
-        content = re.sub(pattern, '', content, flags=re.IGNORECASE)
-
-        pattern = r'(?<!\[)\bhttps?://[^\s<>"{}|\\^\[\]`]+' + file_extensions + r'\b'
-        matches = re.findall(pattern, content, re.IGNORECASE)
-        stats['files'] += len(matches)
-        content = re.sub(pattern, '', content, flags=re.IGNORECASE)
-
-        pattern = r'(?:^|\s)(?:[./\\]?[\w\-./\\]+)?' + image_extensions + r'\b'
-        matches = re.findall(pattern, content, re.IGNORECASE)
-        stats['images'] += len(matches)
-        content = re.sub(pattern, ' ', content, flags=re.IGNORECASE)
-
-        content = re.sub(r' +', ' ', content)
-        return content, stats
-
-    def _normalize_tables(self, lines: List[str], stats: Dict) -> List[str]:
-        normalized = []
+    def _validate_token_limits(self, chunks: List[LlamaDocument]) -> List[LlamaDocument]:
+        validated = []
         i = 0
 
-        while i < len(lines):
-            line = lines[i]
-            if self._is_table_line(line):
-                table_lines, i = self._extract_and_normalize_table(lines, i, stats)
-                normalized.extend(table_lines)
-            else:
-                normalized.append(line)
+        while i < len(chunks):
+            current = chunks[i]
+            token_count = self._estimate_tokens(current.text)
+
+            # Chunk is too small - try to merge with next
+            if token_count < self.min_tokens and i + 1 < len(chunks):
+                next_chunk = chunks[i + 1]
+                combined_text = f"{current.text}\n\n{next_chunk.text}"
+                combined_tokens = self._estimate_tokens(combined_text)
+
+                # If combined is within limits, merge
+                if combined_tokens <= self.max_tokens:
+                    validated.append(LlamaDocument(
+                        text=combined_text,
+                        metadata={**next_chunk.metadata}
+                    ))
+                    i += 2
+                    continue
+                # If combined is too large, split it
+                elif combined_tokens > self.max_tokens:
+                    split_chunks = self._split_by_tokens(combined_text, current.metadata)
+                    validated.extend(split_chunks)
+                    i += 2
+                    continue
+
+            # Chunk is too large - split it
+            if token_count > self.max_tokens:
+                split_chunks = self._split_by_tokens(current.text, current.metadata)
+                validated.extend(split_chunks)
                 i += 1
+                continue
 
-        return normalized
-
-    def _extract_and_normalize_table(self, lines: List[str], start: int, stats: Dict) -> Tuple[List[str], int]:
-        table_lines = []
-        i = start
-        header_line = None
-        separator_line = None
-        data_rows = []
-
-        while i < len(lines):
-            line = lines[i]
-
-            if self._is_table_line(line):
-                normalized_line = self._normalize_table_row(line)
-
-                if normalized_line != line:
-                    stats['fixed_table_formatting'] += 1
-
-                if header_line is None:
-                    header_line = normalized_line
-                elif separator_line is None and self._is_table_separator(line):
-                    separator_line = self._normalize_table_separator(line)
-                    if separator_line != line:
-                        stats['fixed_table_formatting'] += 1
-                else:
-                    data_rows.append(normalized_line)
-
-                i += 1
-            elif line.strip() == '' and i + 1 < len(lines) and self._is_table_line(lines[i + 1]):
-                i += 1
-            else:
-                break
-
-        if data_rows:
-            unique_rows = []
-            seen = set()
-
-            for row in data_rows:
-                normalized_for_comparison = re.sub(r'\s+', '', row)
-                if normalized_for_comparison not in seen:
-                    seen.add(normalized_for_comparison)
-                    unique_rows.append(row)
-                else:
-                    stats['removed_duplicate_rows'] += 1
-
-            data_rows = unique_rows
-
-        if header_line:
-            table_lines.append(header_line)
-
-        if separator_line:
-            table_lines.append(separator_line)
-        elif header_line:
-            table_lines.append(self._generate_table_separator(header_line))
-            stats['fixed_table_formatting'] += 1
-
-        table_lines.extend(data_rows)
-
-        if table_lines:
-            stats['normalized_tables'] += 1
-
-        return table_lines, i
-
-    def _normalize_table_row(self, line: str) -> str:
-        parts = line.split('|')
-        normalized_parts = []
-
-        for part in parts:
-            cleaned = part.strip()
-            cleaned = re.sub(r'\s+', ' ', cleaned)
-
-            if cleaned:
-                normalized_parts.append(f' {cleaned} ')
-            else:
-                normalized_parts.append('')
-
-        return '|'.join(normalized_parts)
-
-    def _normalize_table_separator(self, line: str) -> str:
-        parts = line.split('|')
-        normalized_parts = []
-
-        for part in parts:
-            stripped = part.strip()
-            if stripped:
-                if stripped.startswith(':') and stripped.endswith(':'):
-                    normalized_parts.append(':---:')  # Center
-                elif stripped.endswith(':'):
-                    normalized_parts.append('---:')   # Right
-                elif stripped.startswith(':'):
-                    normalized_parts.append(':---')   # Left
-                else:
-                    normalized_parts.append('---')    # Default
-            else:
-                normalized_parts.append('')
-
-        return '|'.join(normalized_parts)
-
-    def _generate_table_separator(self, header_line: str) -> str:
-        num_cols = header_line.count('|') - 1
-        if header_line.startswith('|') and header_line.endswith('|'):
-            num_cols = header_line.count('|') - 1
-
-        parts = [''] + ['---'] * num_cols + ['']
-        return '|'.join(parts)
-
-    def _parse_content_sections(self, content: str) -> List[Dict]:
-        sections = []
-        lines = content.split('\n')
-        i = 0
-
-        while i < len(lines):
-            line = lines[i]
-
-            if self._is_table_line(line):
-                section, i = self._extract_table_section(lines, i)
-                sections.append(section)
-            else:
-                section, i = self._extract_text_section(lines, i)
-                if section['content'].strip():
-                    sections.append(section)
-
-        return sections
-
-    def _merge_adjacent_sections(self, sections: List[Dict]) -> List[Dict]:
-        if len(sections) <= 1:
-            return sections
-
-        merged = []
-        i = 0
-
-        while i < len(sections):
-            current = sections[i]
-
-            if current['type'] == 'table':
-                text_before = merged[-1] if merged and merged[-1]['type'] == 'text' else None
-                text_after = sections[i + 1] if i + 1 < len(sections) and sections[i + 1]['type'] == 'text' else None
-
-                table_size = len(current['content'])
-                before_size = len(text_before['content']) if text_before else 0
-                after_size = len(text_after['content']) if text_after else 0
-                total_size = table_size + before_size + after_size + 10  # +10 for newlines
-
-                if total_size <= self.table_max_chunk_size:
-                    merged_content_parts = []
-
-                    if text_before:
-                        merged_content_parts.append(text_before['content'])
-                        merged_content_parts.append('')
-                        merged.pop() 
-
-                    merged_content_parts.append(current['content'])
-
-                    if text_after:
-                        merged_content_parts.append('')
-                        merged_content_parts.append(text_after['content'])
-                        i += 1  
-
-                    merged_content = '\n'.join(merged_content_parts)
-
-                    merged.append({
-                        'type': 'table',
-                        'content': merged_content,
-                        'table_only': current['content'],
-                        'header': current['header'],
-                        'row_count': current['row_count'],
-                        'has_merged_context': True,
-                        'merged_content_size': len(merged_content),  # Track actual size
-                        'context_before': text_before['content'] if text_before else '',
-                        'context_after': text_after['content'] if text_after else ''
-                    })
-                else:
-                    merged.append(current)
-            else:
-                merged.append(current)
-
+            # Chunk is within limits
+            validated.append(current)
             i += 1
 
-        return merged
+        return validated
 
-    def _is_table_line(self, line: str) -> bool:
-        return '|' in line and line.count('|') >= 3
+    def _split_by_tokens(self, text: str, metadata: Dict) -> List[LlamaDocument]:
+        doc = LlamaDocument(text=text, metadata=metadata)
 
-    def _extract_table_section(self, lines: List[str], start: int) -> tuple:
-        context_before = []
-        context_start = max(0, start - self.table_context_lines_before)
+        # Use SentenceSplitter to split intelligently
+        nodes = self.sentence_splitter.get_nodes_from_documents([doc])
 
-        for j in range(context_start, start):
-            if lines[j].strip() and not self._is_table_line(lines[j]):
-                context_before.append(lines[j])
-
-        table_lines = []
-        table_header = None
-        i = start
-
-        while i < len(lines):
-            line = lines[i]
-
-            if self._is_table_line(line):
-                table_lines.append(line)
-
-                if table_header is None and i + 1 < len(lines):
-                    next_line = lines[i + 1]
-                    if self._is_table_separator(next_line):
-                        table_header = [line, next_line]
-
-                i += 1
-            elif line.strip() == '':
-                if i + 1 < len(lines) and self._is_table_line(lines[i + 1]):
-                    table_lines.append(line)
-                    i += 1
-                else:
-                    i += 1
-                    break
-            else:
-                break
-
-        context_after = []
-        for j in range(i, min(i + self.table_context_lines_after, len(lines))):
-            if lines[j].strip() and not self._is_table_line(lines[j]):
-                context_after.append(lines[j])
-
-        return {
-            'type': 'table',
-            'content': '\n'.join(table_lines),
-            'table_only': '\n'.join(table_lines),
-            'header': table_header,
-            'row_count': len([l for l in table_lines if l.strip() and not self._is_table_separator(l)]),
-            'context_before': '\n'.join(context_before[-self.table_context_lines_before:]) if context_before else '',
-            'context_after': '\n'.join(context_after[:self.table_context_lines_after]) if context_after else ''
-        }, i
-
-    def _is_table_separator(self, line: str) -> bool:
-        return bool(re.match(r'^\s*\|?[\s\-:|]+\|[\s\-:|]*$', line))
-
-    def _extract_text_section(self, lines: List[str], start: int) -> tuple:
-        text_lines = []
-        i = start
-
-        while i < len(lines):
-            line = lines[i]
-            if self._is_table_line(line):
-                break
-
-            text_lines.append(line)
-            i += 1
-
-        return {
-            'type': 'text',
-            'content': '\n'.join(text_lines)
-        }, i
-
-    def _chunk_table(self, section: Dict, metadata: Dict) -> List[LlamaDocument]:
         chunks = []
-        table_content = section['content']
-        header = section['header']
-        row_count = section['row_count']
-        context_before = section.get('context_before', '')
-        context_after = section.get('context_after', '')
+        for node in nodes:
+            node_tokens = self._estimate_tokens(node.text)
+            if node_tokens > self.max_tokens:
+                sentences = node.text.split('. ')
+                current_chunk = []
+                current_tokens = 0
 
-        lines = table_content.split('\n')
-        table_lines = [l for l in lines if l.strip()]
+                for sentence in sentences:
+                    sentence_tokens = self._estimate_tokens(sentence)
 
-        if not header:
-            if len(table_lines) >= 2 and self._is_table_separator(table_lines[1]):
-                header = table_lines[:2]
-                data_lines = table_lines[2:]
-            else:
-                header = []
-                data_lines = table_lines
-        else:
-            header_idx = -1
-            for idx, line in enumerate(table_lines):
-                if header and line == header[0]:
-                    header_idx = idx
-                    break
+                    if current_tokens + sentence_tokens <= self.max_tokens:
+                        current_chunk.append(sentence)
+                        current_tokens += sentence_tokens
+                    else:
+                        if current_chunk:
+                            chunks.append(LlamaDocument(
+                                text='. '.join(current_chunk) + '.',
+                                metadata={**metadata}
+                            ))
+                        current_chunk = [sentence]
+                        current_tokens = sentence_tokens
 
-            if header_idx >= 0 and header_idx + len(header) < len(table_lines):
-                data_lines = table_lines[header_idx + len(header):]
-            else:
-                data_lines = table_lines
-
-        data_row_count = len(data_lines)
-
-        can_keep_whole = (
-            len(table_content) <= self.table_max_chunk_size and
-            data_row_count <= self.table_max_rows_threshold
-        )
-
-        if can_keep_whole:
-            full_content_parts = []
-
-            if self.add_table_summary:
-                summary = self._generate_table_summary(section)
-                full_content_parts.append(summary)
-                full_content_parts.append('')
-
-            if context_before:
-                full_content_parts.append(context_before)
-                full_content_parts.append('')
-
-            full_content_parts.append('\n'.join(table_lines))
-            if context_after:
-                full_content_parts.append('')
-                full_content_parts.append(context_after)
-
-            chunk_text = '\n'.join(full_content_parts)
-
-            chunks.append(LlamaDocument(
-                text=chunk_text,
-                metadata={**metadata}
-            ))
-        else:
-            header_size = sum(len(h) + 1 for h in header) if header else 0
-            avg_row_size = sum(len(line) for line in data_lines) / max(len(data_lines), 1)
-            available_size_per_chunk = self.table_max_chunk_size - header_size - 100
-            estimated_rows_per_chunk = max(
-                int(available_size_per_chunk / avg_row_size),
-                self.table_min_rows_per_chunk
-            )
-
-            current_chunk = []
-            current_size = 0
-            chunk_index = 0
-
-            for row_idx, line in enumerate(data_lines):
-                line_size = len(line) + 1 
-                projected_chunk_size = current_size + line_size + header_size
-
-                should_split = False
-
-                if len(current_chunk) >= self.table_min_rows_per_chunk:
-                    if projected_chunk_size > self.table_max_chunk_size:
-                        should_split = True
-                    elif len(current_chunk) >= estimated_rows_per_chunk:
-                        should_split = True
-                elif projected_chunk_size > self.table_max_chunk_size:
-                    should_split = True
-
-                if should_split and current_chunk:
-                    chunk_lines = []
-                    if chunk_index == 0 and self.add_table_summary:
-                        summary = self._generate_table_summary(section)
-                        chunk_lines.append(summary)
-                        chunk_lines.append('')
-
-                    if chunk_index == 0 and context_before:
-                        chunk_lines.append(context_before)
-                        chunk_lines.append('')
-
-                    if self.preserve_table_headers and header:
-                        chunk_lines.extend(header)
-
-                    chunk_lines.extend(current_chunk)
-                    chunk_text = '\n'.join(chunk_lines)
+                if current_chunk:
                     chunks.append(LlamaDocument(
-                        text=chunk_text,
+                        text='. '.join(current_chunk),
                         metadata={**metadata}
                     ))
-
-                    current_chunk = []
-                    current_size = 0
-                    chunk_index += 1
-
-                current_chunk.append(line)
-                current_size += line_size
-
-            if current_chunk:
-                chunk_lines = []
-                if chunk_index == 0 and self.add_table_summary:
-                    summary = self._generate_table_summary(section)
-                    chunk_lines.append(summary)
-                    chunk_lines.append('')
-
-                if chunk_index == 0 and context_before:
-                    chunk_lines.append(context_before)
-                    chunk_lines.append('')
-
-                if self.preserve_table_headers and header:
-                    chunk_lines.extend(header)
-
-                chunk_lines.extend(current_chunk)
-
-                if context_after:
-                    chunk_lines.append('')
-                    chunk_lines.append(context_after)
-
-                chunk_text = '\n'.join(chunk_lines)
+            else:
                 chunks.append(LlamaDocument(
-                    text=chunk_text,
+                    text=node.text,
                     metadata={**metadata}
                 ))
 
         return chunks
 
-    def _chunk_text(self, section: Dict, metadata: Dict) -> List[LlamaDocument]:
-        content = section['content']
-        temp_doc = LlamaDocument(text=content, metadata=metadata)
-        nodes = self.markdown_parser.get_nodes_from_documents([temp_doc])
+    def _remove_images(self, content: str) -> str:
+        patterns = [
+            r'!\[.*?\]\(.*?\.(jpg|jpeg|png|gif|svg|bmp|webp|ico).*?\)',
+            r'<img[^>]*>',
+            r'https?://\S+\.(jpg|jpeg|png|gif|svg|bmp|webp|ico)\b'
+        ]
+        for pattern in patterns:
+            content = re.sub(pattern, '', content, flags=re.IGNORECASE)
+        return content
 
+    def _split_tables_and_text(self, content: str) -> List[Dict]:
+        sections = []
+        lines = content.split('\n')
+        i = 0
+
+        while i < len(lines):
+            if self._is_table_line(lines[i]):
+                section, i = self._extract_table_section(lines, i)
+            else:
+                section, i = self._extract_text_section(lines, i)
+
+            if section['content'].strip():
+                sections.append(section)
+
+        return sections
+
+    def _is_table_line(self, line: str) -> bool:
+        return '|' in line and line.count('|') >= 3
+
+    def _is_table_separator(self, line: str) -> bool:
+        return bool(re.match(r'^\s*\|?[\s\-:|]+\|[\s\-:|]*$', line))
+
+    def _extract_table_section(self, lines: List[str], start: int) -> tuple:
+        ctx_before = [
+            lines[j] for j in range(max(0, start - self.table_context_lines_before), start)
+            if lines[j].strip() and not self._is_table_line(lines[j])
+        ]
+
+        table_lines = []
+        header = None
+        i = start
+
+        while i < len(lines):
+            if self._is_table_line(lines[i]):
+                table_lines.append(lines[i])
+                if not header and i + 1 < len(lines) and self._is_table_separator(lines[i + 1]):
+                    header = [lines[i], lines[i + 1]]
+                i += 1
+            elif not lines[i].strip() and i + 1 < len(lines) and self._is_table_line(lines[i + 1]):
+                i += 1 
+            else:
+                i += 1
+                break
+
+        ctx_after = [
+            lines[j] for j in range(i, min(i + self.table_context_lines_after, len(lines)))
+            if lines[j].strip() and not self._is_table_line(lines[j])
+        ]
+
+        return {
+            'type': 'table',
+            'content': '\n'.join(table_lines),
+            'header': header,
+            'row_count': sum(1 for l in table_lines if l.strip() and not self._is_table_separator(l)),
+            'context_before': '\n'.join(ctx_before[-self.table_context_lines_before:]),
+            'context_after': '\n'.join(ctx_after[:self.table_context_lines_after])
+        }, i
+
+    def _extract_text_section(self, lines: List[str], start: int) -> tuple:
+        text_lines = []
+        i = start
+        while i < len(lines) and not self._is_table_line(lines[i]):
+            text_lines.append(lines[i])
+            i += 1
+        return {'type': 'text', 'content': '\n'.join(text_lines)}, i
+
+    def _chunk_text_with_llamaindex(self, content: str, metadata: Dict) -> List[LlamaDocument]:
+        if not content.strip():
+            return []
+
+        doc = LlamaDocument(text=content, metadata=metadata)
+        nodes = self.markdown_parser.get_nodes_from_documents([doc])
         chunks = []
-        for i, node in enumerate(nodes):
+        for node in nodes:
             chunks.append(LlamaDocument(
                 text=node.text,
                 metadata={**metadata}
@@ -587,79 +252,120 @@ class AdaptiveMarkdownStrategy(BaseChunkingStrategy):
 
         return chunks
 
+    def _chunk_table(self, section: Dict, metadata: Dict) -> List[LlamaDocument]:
+        content = section['content']
+        header = section['header']
+        ctx_before = section.get('context_before', '')
+        ctx_after = section.get('context_after', '')
 
-    def _generate_table_summary(self, section: Dict) -> str:
-        header = section.get('header', [])
-        row_count = section.get('row_count', 0)
+        lines = [l for l in content.split('\n') if l.strip()]
+        if not header and len(lines) >= 2 and self._is_table_separator(lines[1]):
+            header, data = lines[:2], lines[2:]
+        elif header:
+            header_idx = next((i for i, l in enumerate(lines) if l == header[0]), -1)
+            data = lines[header_idx + len(header):] if header_idx >= 0 else lines
+        else:
+            header, data = [], lines
 
-        if header and len(header) > 0:
-            header_line = header[0]
-            cols = [col.strip() for col in header_line.split('|') if col.strip()]
+        if len(content) <= self.table_max_chunk_size and len(data) <= self.table_max_rows_threshold:
+            return [self._build_table_chunk(
+                lines, header, ctx_before, ctx_after, metadata, section['row_count']
+            )]
 
-            col_names = ', '.join(cols[:5])
+        return self._split_large_table(data, header, ctx_before, ctx_after, metadata, section['row_count'])
+
+    def _build_table_chunk(self, lines, header, ctx_before, ctx_after, metadata, row_count,
+                          split_idx=0, is_last=False) -> LlamaDocument:
+        parts = []
+        if split_idx == 0 and self.add_table_summary and header:
+            cols = [c.strip() for c in header[0].split('|') if c.strip()]
+            col_preview = ', '.join(cols[:5])
             if len(cols) > 5:
-                col_names += f', ... ({len(cols)} columns total)'
+                col_preview += f', ... ({len(cols)} total)'
+            parts.append(f'[Table: {row_count} rows, columns: {col_preview}]\n')
 
-            return f'[Table Summary: {row_count} rows with columns: {col_names}]'
+        if split_idx == 0 and ctx_before:
+            parts.append(f'{ctx_before}\n')
 
-        return f'[Table Summary: {row_count} rows]'
+        parts.append('\n'.join(lines))
+        if (split_idx == 0 or is_last) and ctx_after:
+            parts.append(f'\n{ctx_after}')
 
-    def _count_words(self, text: str) -> int:
-        return len(text.split())
+        return LlamaDocument(
+            text=''.join(parts),
+            metadata={**metadata}
+        )
 
-    def _merge_short_text_chunks(self, chunks: List[LlamaDocument]) -> List[LlamaDocument]:
-        if not chunks:
-            return chunks
+    def _split_large_table(self, data, header, ctx_before, ctx_after, metadata, row_count) -> List[LlamaDocument]:
+        header_size = sum(len(h) for h in header) if header else 0
+        avg_row_size = sum(len(l) for l in data) / max(len(data), 1)
+        rows_per_chunk = max(
+            int((self.table_max_chunk_size - header_size - 100) / avg_row_size),
+            self.table_min_rows_per_chunk
+        )
 
-        max_iterations = 10  
-        iteration = 0
+        chunks = []
+        for idx in range(0, len(data), rows_per_chunk):
+            chunk_data = data[idx:idx + rows_per_chunk]
+            chunk_lines = (header if self.preserve_table_headers and header else []) + chunk_data
 
-        while iteration < max_iterations:
-            merged_chunks = self._merge_short_chunks_single_pass(chunks)
-            if len(merged_chunks) == len(chunks):
-                break
-
-            chunks = merged_chunks
-            iteration += 1
+            chunks.append(self._build_table_chunk(
+                chunk_lines, header,
+                ctx_before if idx == 0 else '',
+                ctx_after if idx + rows_per_chunk >= len(data) else '',
+                metadata, row_count,
+                split_idx=idx // rows_per_chunk,
+                is_last=(idx + rows_per_chunk >= len(data))
+            ))
 
         return chunks
 
-    def _merge_short_chunks_single_pass(self, chunks: List[LlamaDocument]) -> List[LlamaDocument]:
-        merged_chunks = []
+    def _merge_and_split_chunks(self, chunks: List[LlamaDocument]) -> List[LlamaDocument]:
+        if not chunks:
+            return chunks
+
+        merged = []
         i = 0
 
         while i < len(chunks):
-            current_chunk = chunks[i]
-            current_text = current_chunk.text
-            current_word_count = self._count_words(current_text)
+            current = chunks[i]
+            word_count = len(current.text.split())
+            if word_count < self.min_words_per_chunk and i + 1 < len(chunks):
+                next_chunk = chunks[i + 1]
+                combined_text = f"{current.text}\n\n{next_chunk.text}"
 
-            if current_word_count < self.min_words_per_chunk:
-                if i + 1 < len(chunks):
-                    next_chunk = chunks[i + 1]
-                    merged_text = current_text + '\n\n' + next_chunk.text
+                if len(combined_text) <= self.max_chunk_size:
+                    merged.append(LlamaDocument(
+                        text=combined_text,
+                        metadata={**next_chunk.metadata}
+                    ))
+                    i += 2
+                    continue
+                else:
+                    # Use SentenceSplitter to split oversized combined chunk
+                    doc = LlamaDocument(text=combined_text, metadata=current.metadata)
+                    split_nodes = self.sentence_splitter.get_nodes_from_documents([doc])
+                    for node in split_nodes:
+                        merged.append(LlamaDocument(
+                            text=node.text,
+                            metadata={**current.metadata}
+                        ))
+                    i += 2
+                    continue
 
-                    if len(merged_text) <= self.max_chunk_size:
-                        merged_chunk = LlamaDocument(
-                            text=merged_text,
-                            metadata={**next_chunk.metadata}
-                        )
-                        merged_chunks.append(merged_chunk)
-                        i += 2
-                        continue
+            # Split oversized chunks
+            if len(current.text) > self.max_chunk_size:
+                doc = LlamaDocument(text=current.text, metadata=current.metadata)
+                split_nodes = self.sentence_splitter.get_nodes_from_documents([doc])
+                for node in split_nodes:
+                    merged.append(LlamaDocument(
+                        text=node.text,
+                        metadata={**current.metadata}
+                    ))
+                i += 1
+                continue
 
-                if merged_chunks:
-                    prev_chunk = merged_chunks[-1]
-                    merged_text = prev_chunk.text + '\n\n' + current_text
-
-                    if len(merged_text) <= self.max_chunk_size:
-                        merged_chunks[-1] = LlamaDocument(
-                            text=merged_text,
-                            metadata={**prev_chunk.metadata}
-                        )
-                        i += 1
-                        continue
-
-            merged_chunks.append(current_chunk)
+            merged.append(current)
             i += 1
 
-        return merged_chunks
+        return merged

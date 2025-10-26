@@ -25,8 +25,5 @@ class BaseChunkingStrategy(ABC):
         enhanced_chunks = []
 
         for i, chunk in enumerate(chunks):
-            chunk.metadata['total_chunks'] = len(chunks)
-            chunk.metadata['chunk_position'] = i + 1
             enhanced_chunks.append(chunk)
-
         return enhanced_chunks
