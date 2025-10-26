@@ -50,8 +50,6 @@ class AdaptiveMarkdownStrategy(BaseChunkingStrategy):
             metadata = {}
 
         content, preprocessing_stats = self._preprocess_content(content)
-        if preprocessing_stats:
-            metadata['preprocessing_stats'] = preprocessing_stats
 
         sections = self._parse_content_sections(content)
         merged_sections = self._merge_adjacent_sections(sections)
@@ -490,16 +488,7 @@ class AdaptiveMarkdownStrategy(BaseChunkingStrategy):
 
             chunks.append(LlamaDocument(
                 text=chunk_text,
-                metadata={
-                    **metadata,
-                    'chunk_type': 'table',
-                    'row_count': row_count,
-                    'is_split': False,
-                    'table_strategy': 'keep_whole',
-                    'has_context': bool(context_before or context_after),
-                    'has_summary': self.add_table_summary,
-                    'table_header': header[0] if header else ''
-                }
+                metadata={**metadata}
             ))
         else:
             header_size = sum(len(h) + 1 for h in header) if header else 0
@@ -546,17 +535,7 @@ class AdaptiveMarkdownStrategy(BaseChunkingStrategy):
                     chunk_text = '\n'.join(chunk_lines)
                     chunks.append(LlamaDocument(
                         text=chunk_text,
-                        metadata={
-                            **metadata,
-                            'chunk_type': 'table',
-                            'is_split': True,
-                            'split_index': chunk_index,
-                            'row_count': len(current_chunk),
-                            'table_strategy': 'row_based_split',
-                            'has_context': chunk_index == 0 and bool(context_before),
-                            'has_summary': chunk_index == 0 and self.add_table_summary,
-                            'table_header': header[0] if header else ''
-                        }
+                        metadata={**metadata}
                     ))
 
                     current_chunk = []
@@ -577,7 +556,6 @@ class AdaptiveMarkdownStrategy(BaseChunkingStrategy):
                     chunk_lines.append(context_before)
                     chunk_lines.append('')
 
-                # Add header
                 if self.preserve_table_headers and header:
                     chunk_lines.extend(header)
 
@@ -590,18 +568,7 @@ class AdaptiveMarkdownStrategy(BaseChunkingStrategy):
                 chunk_text = '\n'.join(chunk_lines)
                 chunks.append(LlamaDocument(
                     text=chunk_text,
-                    metadata={
-                        **metadata,
-                        'chunk_type': 'table',
-                        'is_split': True,
-                        'split_index': chunk_index,
-                        'is_last_split': True,
-                        'row_count': len(current_chunk),
-                        'table_strategy': 'row_based_split',
-                        'has_context': (chunk_index == 0 and bool(context_before)) or bool(context_after),
-                        'has_summary': chunk_index == 0 and self.add_table_summary,
-                        'table_header': header[0] if header else ''
-                    }
+                    metadata={**metadata}
                 ))
 
         return chunks
@@ -613,17 +580,9 @@ class AdaptiveMarkdownStrategy(BaseChunkingStrategy):
 
         chunks = []
         for i, node in enumerate(nodes):
-            first_line = node.text.split('\n')[0]
-            section_title = first_line if first_line.strip().startswith('#') else None
-
             chunks.append(LlamaDocument(
                 text=node.text,
-                metadata={
-                    **metadata,
-                    'chunk_type': 'markdown_section',
-                    'chunk_index': i,
-                    'section_title': section_title
-                }
+                metadata={**metadata}
             ))
 
         return chunks
@@ -673,55 +632,33 @@ class AdaptiveMarkdownStrategy(BaseChunkingStrategy):
             current_chunk = chunks[i]
             current_text = current_chunk.text
             current_word_count = self._count_words(current_text)
-            current_type = current_chunk.metadata.get('chunk_type', 'text')
-
-            if current_type == 'table':
-                merged_chunks.append(current_chunk)
-                i += 1
-                continue
 
             if current_word_count < self.min_words_per_chunk:
                 if i + 1 < len(chunks):
                     next_chunk = chunks[i + 1]
-                    next_type = next_chunk.metadata.get('chunk_type', 'text')
+                    merged_text = current_text + '\n\n' + next_chunk.text
 
-                    if next_type != 'table':
-                        merged_text = current_text + '\n\n' + next_chunk.text
-                        merged_word_count = self._count_words(merged_text)
+                    if len(merged_text) <= self.max_chunk_size:
+                        merged_chunk = LlamaDocument(
+                            text=merged_text,
+                            metadata={**next_chunk.metadata}
+                        )
+                        merged_chunks.append(merged_chunk)
+                        i += 2
+                        continue
 
-                        if len(merged_text) <= self.max_chunk_size:
-                            merged_chunk = LlamaDocument(
-                                text=merged_text,
-                                metadata={
-                                    **next_chunk.metadata,
-                                    'word_count': merged_word_count,
-                                    'was_merged': True,
-                                    'merged_from_short_chunk': True
-                                }
-                            )
-                            merged_chunks.append(merged_chunk)
-                            i += 2  
-                            continue
-
-                if merged_chunks and merged_chunks[-1].metadata.get('chunk_type') != 'table':
+                if merged_chunks:
                     prev_chunk = merged_chunks[-1]
                     merged_text = prev_chunk.text + '\n\n' + current_text
-                    merged_word_count = self._count_words(merged_text)
 
                     if len(merged_text) <= self.max_chunk_size:
                         merged_chunks[-1] = LlamaDocument(
                             text=merged_text,
-                            metadata={
-                                **prev_chunk.metadata,
-                                'word_count': merged_word_count,
-                                'was_merged': True,
-                                'merged_from_short_chunk': True
-                            }
+                            metadata={**prev_chunk.metadata}
                         )
                         i += 1
                         continue
 
-            current_chunk.metadata['word_count'] = current_word_count
             merged_chunks.append(current_chunk)
             i += 1
 
