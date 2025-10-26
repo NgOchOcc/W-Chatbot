@@ -7,7 +7,7 @@ from llama_index.vector_stores.milvus import MilvusVectorStore
 from sqlalchemy.orm import joinedload
 
 from weschatbot.log.logging_mixin import LoggingMixin
-from weschatbot.models.collection import Document, CollectionDocumentStatus, CollectionDocument
+from weschatbot.models.user import Document, CollectionDocumentStatus, CollectionDocument
 from weschatbot.services.document.chunking_strategy import SentencesplitStrategy
 from weschatbot.services.document.adaptive_markdown_strategy import AdaptiveMarkdownStrategy
 from weschatbot.services.vllm_embedding_service import VLLMEmbeddingService, VLLMEmbeddingAdapter

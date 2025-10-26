@@ -1,25 +1,23 @@
 import re
 from typing import List, Dict
-from llama_index.core import Document as LlamaDocument
-from llama_index.core.node_parser import MarkdownNodeParser, SentenceSplitter, SemanticSplitterNodeParser
-from llama_index.core.embeddings import BaseEmbedding
 
-from base_chunking import BaseChunkingStrategy
+from llama_index.core import Document as LlamaDocument
+from llama_index.core.node_parser import MarkdownNodeParser, SentenceSplitter
 
 
 class SentencesplitStrategy:
     def __init__(
-        self,
-        chunk_size: int = 768,
-        chunk_overlap: int = 128,
-        min_chunk_size: int = 128,
-        max_chunk_size: int = 1024
+            self,
+            chunk_size: int = 768,
+            chunk_overlap: int = 128,
+            min_chunk_size: int = 128,
+            max_chunk_size: int = 1024
     ):
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
         self.min_chunk_size = min_chunk_size
         self.max_chunk_size = max_chunk_size
-        
+
     def chunk_markdown(self, content: str, metadata: Dict = None) -> List[LlamaDocument]:
         """Main chunking method for markdown content"""
         if metadata is None:
@@ -34,20 +32,20 @@ class SentencesplitStrategy:
             return self._chunk_technical_report(content, metadata)
         else:
             return self._chunk_general_markdown(content, metadata)
-    
+
     def _detect_document_type(self, content: str) -> str:
         """Detect the type of document based on content patterns"""
         lines = content.split('\n')
         table_count = sum(1 for line in lines if '|' in line and line.count('|') >= 3)
         total_lines = len(lines)
-        
+
         if table_count > total_lines * 0.3:
             return 'table_heavy'
         elif any(keyword in content.lower() for keyword in ['raport', 'report', 'anexa', 'inventory']):
             return 'technical_report'
         else:
             return 'general'
-    
+
     def _chunk_table_document(self, content: str, metadata: Dict) -> List[LlamaDocument]:
         chunks = []
         current_chunk = []
@@ -112,7 +110,7 @@ class SentencesplitStrategy:
                 ))
 
         return chunks
-    
+
     def _chunk_technical_report(self, content: str, metadata: Dict) -> List[LlamaDocument]:
         parser = MarkdownNodeParser()
 
@@ -133,7 +131,7 @@ class SentencesplitStrategy:
             ))
 
         return chunks
-    
+
     def _chunk_general_markdown(self, content: str, metadata: Dict) -> List[LlamaDocument]:
         splitter = SentenceSplitter(
             chunk_size=self.chunk_size,
@@ -156,7 +154,7 @@ class SentencesplitStrategy:
             ))
 
         return chunks
-    
+
     def add_context_to_chunks(self, chunks: List[LlamaDocument]) -> List[LlamaDocument]:
         enhanced_chunks = []
 

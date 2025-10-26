@@ -7,8 +7,8 @@ from sqlalchemy.orm import joinedload
 
 from weschatbot.exceptions.collection_exception import CollectionNotFoundException, ExistingCollectionDocumentException, \
     StatusNotFound
-from weschatbot.models.collection import Collection as WCollection, Document, CollectionDocument, \
-    CollectionDocumentStatus, DocumentStatus
+from weschatbot.models.user import Collection as WCollection, Document, DocumentStatus, CollectionDocumentStatus, \
+    CollectionDocument
 from weschatbot.schemas.collection import CollectionDesc, MilvusNotFoundCollectionDesc
 from weschatbot.services.celery_service import index_collection_to_milvus
 from weschatbot.utils.db import provide_session

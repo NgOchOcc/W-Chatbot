@@ -1,5 +1,5 @@
 from weschatbot.log.logging_mixin import LoggingMixin
-from weschatbot.models.collection import ChatbotConfiguration
+from weschatbot.models.user import ChatbotConfiguration
 from weschatbot.utils.db import provide_session
 
 

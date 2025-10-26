@@ -1,6 +1,6 @@
 from weschatbot.exceptions.collection_exception import DocumentNotFoundError
 from weschatbot.log.logging_mixin import LoggingMixin
-from weschatbot.models.collection import Document, DocumentStatus
+from weschatbot.models.user import Document, DocumentStatus
 from weschatbot.services.document.converting import DocumentConverter
 from weschatbot.utils.config import config
 from weschatbot.utils.db import provide_session

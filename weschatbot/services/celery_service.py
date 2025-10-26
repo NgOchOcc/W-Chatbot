@@ -2,7 +2,7 @@ import logging
 import subprocess
 from functools import wraps
 
-from weschatbot.models.collection import CollectionStatus, Collection
+from weschatbot.models.user import Collection, CollectionStatus
 from weschatbot.models.job import Job, JobStatus
 from weschatbot.services.document.index_document_service import PipelineMilvusStore, \
     IndexDocumentWithoutConverterService

@@ -1,13 +1,13 @@
 import re
 from typing import List, Dict
+
 from llama_index.core import Document as LlamaDocument
 from llama_index.core.node_parser import (
     MarkdownNodeParser,
-    SentenceSplitter,
-    SentenceWindowNodeParser
+    SentenceSplitter
 )
 
-from base_chunking import BaseChunkingStrategy
+from weschatbot.services.document.base_chunking import BaseChunkingStrategy
 
 
 class AdaptiveMarkdownStrategy(BaseChunkingStrategy):
