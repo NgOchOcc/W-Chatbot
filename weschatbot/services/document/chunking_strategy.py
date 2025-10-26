@@ -1,11 +1,13 @@
 import re
 from typing import List, Dict
-
 from llama_index.core import Document as LlamaDocument
-from llama_index.core.node_parser import MarkdownNodeParser, SentenceSplitter
+from llama_index.core.node_parser import MarkdownNodeParser, SentenceSplitter, SemanticSplitterNodeParser
+from llama_index.core.embeddings import BaseEmbedding
+
+from base_chunking import BaseChunkingStrategy
 
 
-class AdvancedChunkingStrategy:
+class SentencesplitStrategy:
     def __init__(
         self,
         chunk_size: int = 768,

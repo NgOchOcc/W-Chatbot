@@ -155,25 +155,24 @@ docker run -d --gpus all \
 ###### embed
 ```shell
 docker run -d --gpus all \
-    -p 9393:9393 \
-    --restart=always \
-    --name westaco-chatbot-vllm-embed \
-    --network westaco_chatbot \
-    --env-file .env \
-    -e WESCHATBOT__DB__SQL_ALCHEMY_CONN=mysql://root:Adcef#1234@westaco-mysql:3306/chatbot \
-    -e WESCHATBOT__DB__ASYNC_SQL_ALCHEMY_CONN=mysql+aiomysql://root:Adcef#1234@westaco-mysql:3306/chatbot \
-    -e WESCHATBOT__REDIS__HOST=westaco-redis \
-    -e WESCHATBOT__REDIS__PORT=6379 \
-    -v weschatbot_uploads_volume:/srv/weschatbot/uploads \
-    -v weschatbot_models_volume:/root/.cache/huggingface \
-    westaco-chatbot:0.0.1 \
-    python -m vllm.entrypoints.openai.api_server \
-    --model Qwen/Qwen3-Embedding-0.6B \
-    --max-model-len 2048 \
-    --gpu-memory-utilization 0.2 \ 
-    --task embed \
-    --port 9393 \
-    --tensor-parallel-size 1
-
-    --enforce-eager
+  -p 9290:9290 \
+  --restart=always \
+  --name westaco-chatbot-vllm-embed \
+  --network westaco_chatbot \
+  --env-file .env \
+  -e WESCHATBOT__DB__SQL_ALCHEMY_CONN=mysql://root:Adcef#1234@westaco-mysql:3306/chatbot \
+  -e WESCHATBOT__DB__ASYNC_SQL_ALCHEMY_CONN=mysql+aiomysql://root:Adcef#1234@westaco-mysql:3306/chatbot \
+  -e WESCHATBOT__REDIS__HOST=westaco-redis \
+  -e WESCHATBOT__REDIS__PORT=6379 \
+  -v weschatbot_uploads_volume:/srv/weschatbot/uploads \
+  -v weschatbot_models_volume:/root/.cache/huggingface \
+  westaco-chatbot:0.0.1 \
+  python -m vllm.entrypoints.openai.api_server \
+  --model Qwen/Qwen3-Embedding-0.6B \
+  --max-model-len 2048 \
+  --gpu-memory-utilization 0.2 \
+  --task embed \
+  --port 9290 \
+  --tensor-parallel-size 1 \
+  --enforce-eager
 ```

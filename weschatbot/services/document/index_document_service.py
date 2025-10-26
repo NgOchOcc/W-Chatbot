@@ -8,7 +8,8 @@ from sqlalchemy.orm import joinedload
 
 from weschatbot.log.logging_mixin import LoggingMixin
 from weschatbot.models.collection import Document, CollectionDocumentStatus, CollectionDocument
-from weschatbot.services.document.chunking_strategy import AdvancedChunkingStrategy
+from weschatbot.services.document.chunking_strategy import SentencesplitStrategy
+from weschatbot.services.document.adaptive_markdown_strategy import AdaptiveMarkdownStrategy
 from weschatbot.services.vllm_embedding_service import VLLMEmbeddingService, VLLMEmbeddingAdapter
 from weschatbot.utils.db import provide_session
 
@@ -66,7 +67,7 @@ class PipelineMilvusStore(Pipeline, LoggingMixin):
             raise
 
         self.storage_context = StorageContext.from_defaults(vector_store=self.vector_store)
-        self.chunking_strategy = AdvancedChunkingStrategy()
+        self.chunking_strategy = AdaptiveMarkdownStrategy()
 
     def run(self, documents: List[str], metadata_list: List[dict] = None):
         if not documents:
