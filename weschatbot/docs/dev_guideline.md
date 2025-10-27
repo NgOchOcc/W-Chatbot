@@ -1,6 +1,4 @@
-# Deployment
-
-## Build
+# DEV guideline
 
 ### Base image
 
@@ -88,7 +86,7 @@ docker run -d -p 3000:3000 --gpus all \
 ##### Management
 
 ```shell
-docker run -d -p 9090:5000 --gpus all \
+docker run -d -p 9090:5000 \
   --restart=always \
   --name westaco-chatbot-management \
   --network westaco_chatbot \
@@ -128,10 +126,10 @@ docker run -d --gpus all \
   weschatbot worker start
 ```
 
-
 ##### VLLM
 
 ###### chat completions
+
 ```shell
 docker run -d --gpus all \
     -p 9292:9292 \
@@ -153,6 +151,7 @@ docker run -d --gpus all \
 ```
 
 ###### embed
+
 ```shell
 docker run -d --gpus all \
   -p 9290:9290 \

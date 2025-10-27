@@ -34,7 +34,7 @@ import {cilSearch, cilTrash} from "@coreui/icons";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import ReactMarkdown from "react-markdown";
-import ActionsColumn from "./components";
+import {ActionsColumn} from "./components";
 
 const container = document.getElementById("root_container");
 const root = createRoot(container);
