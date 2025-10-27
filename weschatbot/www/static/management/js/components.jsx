@@ -131,6 +131,3 @@ export function Pagination({page, setPage, page_size, total, searchFunc}) {
         </CPagination>
     )
 }
-
-
-export default [ActionsColumn, Pagination]

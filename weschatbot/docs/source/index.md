@@ -18,3 +18,5 @@ rbac
 rag_document_management
 collection_management
 chatbot_configuration
+deployment
+configuration
