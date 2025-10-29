@@ -11,6 +11,7 @@ from weschatbot.models.user import User, ChatSession, Role, Permission, Query, C
     ChatbotConfiguration
 from weschatbot.www.management.addition_blueprint import addition_blueprint
 from weschatbot.www.management.utils import outside_url_for
+from weschatbot.www.management.viewmodels.vm_active_user import ViewModelActiveUser
 from weschatbot.www.management.viewmodels.vm_chat import ViewModelChat
 from weschatbot.www.management.viewmodels.vm_chatbot_configuration import ViewModelChatbotConfiguration
 from weschatbot.www.management.viewmodels.vm_collection import ViewModelCollection
@@ -80,6 +81,7 @@ class Management(LoggingMixin):
         ViewModelCollection(Collection, auth=self.auth.required).register(self.bp)
         ViewModelChatbotConfiguration(ChatbotConfiguration, auth=self.auth.required).register(self.bp)
         ViewModelQuery(Query, auth=self.auth.required).register(self.bp)
+        ViewModelActiveUser(auth=self.auth.required).register(self.bp)
 
         self.bp.register_blueprint(addition_blueprint)
         return self.bp

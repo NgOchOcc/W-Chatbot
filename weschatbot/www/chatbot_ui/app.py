@@ -15,6 +15,7 @@ from weschatbot.schemas.chat import Message
 from weschatbot.schemas.embedding import RetrievalConfig
 from weschatbot.security.cookie_jwt_manager import FastAPICookieJwtManager
 from weschatbot.security.exceptions import TokenInvalidError, TokenExpiredError
+from weschatbot.services.active_status_service import ActiveStatusService
 from weschatbot.services.chatbot_configuration_service import ChatbotConfigurationService
 from weschatbot.services.chatbot_service import ChatbotPipeline
 from weschatbot.services.query_service import make_query_result, QueryService
@@ -23,6 +24,7 @@ from weschatbot.services.user_service import UserService
 from weschatbot.services.vllm_llm_service import VLLMService
 from weschatbot.utils.config import config
 from weschatbot.utils.limiter import limiter
+from weschatbot.utils.redis_config import redis_client
 from weschatbot.www.chatbot_ui.csrfsettings import CsrfSettings
 
 
@@ -211,6 +213,10 @@ async def websocket_endpoint(websocket: WebSocket,
 
     await websocket.accept()
     websocket.state.user = payload.get("sub")
+
+    rd_client = redis_client(0)
+    presence = ActiveStatusService(redis_client=rd_client)
+
     try:
         while True:
             data = await websocket.receive_text()
@@ -224,6 +230,7 @@ async def websocket_endpoint(websocket: WebSocket,
                 }))
 
             @limiter(user_id=user_id, interval=limit_interval, limit=limit, failing_callback=limit_failing_callback)
+            @presence.active(user_id=user_id)
             async def process_message():
                 question = json.loads(data)["message"]
                 chat_id = json.loads(data)["chat_id"]
