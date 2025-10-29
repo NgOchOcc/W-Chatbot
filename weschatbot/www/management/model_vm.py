@@ -681,3 +681,21 @@ class SingleViewModel(ViewModel):
         item = session.query(self.model_class).first()
         item_id = item_id or item.id
         return super().update_item_get(item_id, item_name_func=lambda: "", session=session)
+
+
+class EmptyViewModel:
+    bp: Blueprint = None
+    template_folder = "templates"
+    static_folder = "static"
+
+    def __init__(self, auth):
+        self.auth = auth
+        self.__class__.bp = Blueprint(
+            self.__class__.__name__, __name__,
+            url_prefix=f"{self.__class__.__name__}",
+            template_folder=self.template_folder,
+            static_folder=self.static_folder
+        )
+
+    def register(self, flask_app_or_bp):
+        flask_app_or_bp.register_blueprint(self.bp)
