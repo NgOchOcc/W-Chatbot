@@ -15,7 +15,17 @@ import {
 } from '@coreui/react'
 
 import CIcon from '@coreui/icons-react'
-import {cilAppsSettings, cilBank, cilBook, cilBookmark, cilChatBubble, cilFile, cilLayers, cilUser} from '@coreui/icons'
+import {
+    cilAppsSettings,
+    cilBank,
+    cilBook,
+    cilBookmark,
+    cilChatBubble,
+    cilFile,
+    cilLayers,
+    cilStar,
+    cilUser
+} from '@coreui/icons'
 
 
 const stringToColor = (str) => {
@@ -78,6 +88,9 @@ function SidebarMenu({userName = 'User', onLogout, currentUser, userPermissions}
                          permissions={permissions} value={"Chatbot Configuration"}></NavItem>
                 <NavItem href={"/management/ViewModelQuery/list"} icon={cilFile} role={currentUser.role.name}
                          permissions={permissions} value={"Query Results"}></NavItem>
+                <NavItem href={"/management/ViewModelActiveUser/active_users"} icon={cilStar}
+                         role={currentUser.role.name}
+                         permissions={permissions} value={"Active Users"}></NavItem>
                 <CNavTitle>Docs</CNavTitle>
                 <CNavItem href="/management/docs">
                     <CIcon customClassName="nav-icon" icon={cilBook}/> Administrator Guideline
