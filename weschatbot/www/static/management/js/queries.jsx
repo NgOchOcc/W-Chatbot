@@ -67,6 +67,7 @@ function QuestionList({questions}) {
     }
 
     return (
+
         <CTable striped bordered responsive style={{fontSize: "0.9rem"}}>
             <CTableHead>
                 <CTableRow>
@@ -114,8 +115,18 @@ function DetailQueryResultSummary({summary}) {
                             <p><strong>Max Score:</strong> {v_max.toFixed(3)}</p>
                             <p><strong>First Seen:</strong> {first_seen}</p>
                             <p><strong>Last Seen:</strong> {last_seen}</p>
-                            <p><strong>Query IDs:</strong> {query_ids.join(", ")}</p>
-                            <p><strong>Message IDs:</strong> {message_ids.join(", ")}</p>
+                            <p style={{whiteSpace: "normal", wordBreak: "break-word"}}>
+                                <strong>Query IDs:</strong>{" "}
+                                <span style={{whiteSpace: "normal", wordBreak: "break-word"}}>
+                                    {query_ids.join(", ")}
+                                </span>
+                            </p>
+                            <p style={{whiteSpace: "normal", wordBreak: "break-word"}}>
+                                <strong>Message IDs:</strong>{" "}
+                                <span style={{whiteSpace: "normal", wordBreak: "break-word"}}>
+                                    {message_ids.join(", ")}
+                                </span>
+                            </p>
                             <p><strong>Document Text:</strong>
                                 <CCard style={{padding: "1rem"}}>
                                     <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
@@ -128,7 +139,7 @@ function DetailQueryResultSummary({summary}) {
                 </div>
 
                 <div style={{flex: 1}}>
-                    <CCard>
+                    <CCard style={{maxHeight: "70vh"}}>
                         <CCardHeader>Questions</CCardHeader>
                         <CCardBody style={{scrollBehavior: "smooth", overflowY: "auto"}}>
                             <QuestionList questions={questions}></QuestionList>
