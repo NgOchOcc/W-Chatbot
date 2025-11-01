@@ -15,6 +15,7 @@ from weschatbot.www.management.viewmodels.vm_active_user import ViewModelActiveU
 from weschatbot.www.management.viewmodels.vm_chat import ViewModelChat
 from weschatbot.www.management.viewmodels.vm_chatbot_configuration import ViewModelChatbotConfiguration
 from weschatbot.www.management.viewmodels.vm_collection import ViewModelCollection
+from weschatbot.www.management.viewmodels.vm_dashboard import ViewModelDashboard
 from weschatbot.www.management.viewmodels.vm_document import ViewModelDocument
 from weschatbot.www.management.viewmodels.vm_job import ViewModelJob
 from weschatbot.www.management.viewmodels.vm_permission import ViewModelPermission
@@ -41,7 +42,7 @@ class Management(LoggingMixin):
 
     @staticmethod
     def index():
-        return render_template("management/index.html")  # noqa
+        return redirect("/management/ViewModelDashboard/dashboard")
 
     @staticmethod
     def logout():
@@ -82,6 +83,7 @@ class Management(LoggingMixin):
         ViewModelChatbotConfiguration(ChatbotConfiguration, auth=self.auth.required).register(self.bp)
         ViewModelQuery(Query, auth=self.auth.required).register(self.bp)
         ViewModelActiveUser(auth=self.auth.required).register(self.bp)
+        ViewModelDashboard(auth=self.auth.required).register(self.bp)
 
         self.bp.register_blueprint(addition_blueprint)
         return self.bp

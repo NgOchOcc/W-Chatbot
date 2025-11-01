@@ -66,6 +66,7 @@ const managementConfig = {
         page_header: [`${MANAGEMENT_JS_DIR}/page_header.jsx`],
         queries: [`${MANAGEMENT_JS_DIR}/queries.jsx`],
         active_users: [`${MANAGEMENT_JS_DIR}/active_users.jsx`],
+        dashboard: [`${MANAGEMENT_JS_DIR}/dashboard.jsx`],
 
     },
     output: {

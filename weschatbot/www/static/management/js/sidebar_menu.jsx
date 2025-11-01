@@ -19,7 +19,7 @@ import {
     cilAppsSettings,
     cilBank,
     cilBook,
-    cilBookmark,
+    cilBookmark, cilChartLine,
     cilChatBubble,
     cilFile,
     cilLayers,
@@ -68,6 +68,9 @@ function SidebarMenu({userName = 'User', onLogout, currentUser, userPermissions}
 
             <CSidebarNav>
                 <CNavTitle>Administration</CNavTitle>
+                <NavItem href={"/management/ViewModelDashboard/dashboard"} icon={cilChartLine}
+                         role={currentUser.role.name}
+                         permissions={permissions} value={"Dashboard"}></NavItem>
                 <NavItem href={"/management/ViewModelUser/list"} icon={cilUser} role={currentUser.role.name}
                          permissions={permissions} value={"Users"}></NavItem>
                 <NavItem href={"/management/ViewModelChat/list"} icon={cilChatBubble} role={currentUser.role.name}
