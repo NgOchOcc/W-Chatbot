@@ -49,6 +49,7 @@ setup(
         "celery==5.5.3",
         "pymilvus==2.5.10",
         "pyrate-limiter==3.9.0",
+        "bcrypt==5.0.0",
         "fastapi==0.115.12"
     ]
 )

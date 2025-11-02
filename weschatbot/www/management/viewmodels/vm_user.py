@@ -3,12 +3,12 @@ import json
 from flask import request, redirect, abort, url_for, render_template, jsonify
 
 from weschatbot.models.user import Role, User
-from weschatbot.services.user_service import generate_random_string, UserService
+from weschatbot.services.user_service import generate_random_string, BcryptUserService
 from weschatbot.utils.db import provide_session
 from weschatbot.www.management.model_vm import ViewModel
 from weschatbot.www.management.utils import outside_url_for
 
-user_service = UserService()
+user_service = BcryptUserService()
 
 
 class ViewModelUser(ViewModel):

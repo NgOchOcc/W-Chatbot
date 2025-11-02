@@ -17,7 +17,7 @@ class User(Base, UserMixin):
     id = mapped_column(Integer, autoincrement=True, primary_key=True, nullable=False)
     name = Column(String(31), nullable=False)
     password = Column(String(2047), nullable=False)
-    salt = Column(String(7), nullable=False)
+    salt = Column(String(7), nullable=True)
     is_active = Column(Boolean, default=True, nullable=False, index=True)
 
     role: Mapped["Role"] = relationship(back_populates="users")

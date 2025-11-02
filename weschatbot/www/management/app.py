@@ -7,7 +7,7 @@ from sqlalchemy.orm import selectinload
 
 from weschatbot.models.user import User
 from weschatbot.security.flask_jwt_manager import FlaskJWTManager
-from weschatbot.services.user_service import UserService
+from weschatbot.services.user_service import BcryptUserService
 from weschatbot.utils.config import config
 from weschatbot.utils.db import provide_session
 from weschatbot.www.management.docs_blueprint import docs_bp
@@ -108,7 +108,7 @@ def notfound_error(error):
                            description="Looks like this page doesn't exist anymore or has been moved."), 404
 
 
-user_service = UserService()
+user_service = BcryptUserService()
 
 auth = LoginAuth(login_manager)
 
