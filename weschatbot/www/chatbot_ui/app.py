@@ -20,7 +20,7 @@ from weschatbot.services.chatbot_configuration_service import ChatbotConfigurati
 from weschatbot.services.chatbot_service import ChatbotPipeline
 from weschatbot.services.query_service import make_query_result, QueryService
 from weschatbot.services.session_service import SessionService, NotPermissionError
-from weschatbot.services.user_service import UserService
+from weschatbot.services.user_service import BcryptUserService
 from weschatbot.services.vllm_llm_service import VLLMService
 from weschatbot.utils.config import config
 from weschatbot.utils.limiter import limiter
@@ -65,7 +65,7 @@ vllm_client = VLLMService(
 )
 
 session_service = SessionService()
-user_service = UserService()
+user_service = BcryptUserService()
 
 query_service = QueryService()
 
