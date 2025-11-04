@@ -23,7 +23,7 @@ import {
     cilChatBubble,
     cilFile,
     cilLayers,
-    cilStar,
+    cilStar, cilTags,
     cilUser
 } from '@coreui/icons'
 
@@ -73,6 +73,8 @@ function SidebarMenu({userName = 'User', onLogout, currentUser, userPermissions}
                          permissions={permissions} value={"Dashboard"}></NavItem>
                 <NavItem href={"/management/ViewModelUser/list"} icon={cilUser} role={currentUser.role.name}
                          permissions={permissions} value={"Users"}></NavItem>
+                <NavItem href={"/management/ViewModelRefreshToken/list"} icon={cilTags} role={currentUser.role.name}
+                         permissions={permissions} value={"Tokens"}></NavItem>
                 <NavItem href={"/management/ViewModelChat/list"} icon={cilChatBubble} role={currentUser.role.name}
                          permissions={permissions} value={"Chats"}></NavItem>
                 <NavItem href={"/management/ViewModelRole/list"} icon={cilBank} role={currentUser.role.name}

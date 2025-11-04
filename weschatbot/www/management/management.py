@@ -8,7 +8,7 @@ from weschatbot.exceptions.user_exceptions import InvalidUserError
 from weschatbot.log.logging_mixin import LoggingMixin
 from weschatbot.models.job import Job
 from weschatbot.models.user import User, ChatSession, Role, Permission, Query, Collection, Document, \
-    ChatbotConfiguration
+    ChatbotConfiguration, RefreshToken
 from weschatbot.www.management.addition_blueprint import addition_blueprint
 from weschatbot.www.management.utils import outside_url_for
 from weschatbot.www.management.viewmodels.vm_active_user import ViewModelActiveUser
@@ -20,6 +20,7 @@ from weschatbot.www.management.viewmodels.vm_document import ViewModelDocument
 from weschatbot.www.management.viewmodels.vm_job import ViewModelJob
 from weschatbot.www.management.viewmodels.vm_permission import ViewModelPermission
 from weschatbot.www.management.viewmodels.vm_query import ViewModelQuery
+from weschatbot.www.management.viewmodels.vm_refresh_token import ViewModelRefreshToken
 from weschatbot.www.management.viewmodels.vm_role import ViewModelRole
 from weschatbot.www.management.viewmodels.vm_user import ViewModelUser
 import weschatbot
@@ -82,6 +83,7 @@ class Management(LoggingMixin):
         ViewModelCollection(Collection, auth=self.auth.required).register(self.bp)
         ViewModelChatbotConfiguration(ChatbotConfiguration, auth=self.auth.required).register(self.bp)
         ViewModelQuery(Query, auth=self.auth.required).register(self.bp)
+        ViewModelRefreshToken(RefreshToken, auth=self.auth.required).register(self.bp)
         ViewModelActiveUser(auth=self.auth.required).register(self.bp)
         ViewModelDashboard(auth=self.auth.required).register(self.bp)
 

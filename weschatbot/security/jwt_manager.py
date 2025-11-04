@@ -1,6 +1,7 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import jwt
+from jwt import InvalidTokenError
 
 from weschatbot.security.exceptions import TokenExpiredError, TokenInvalidError
 from weschatbot.utils.config import config
@@ -13,7 +14,7 @@ class JWTManager:
 
     def create_token(self, exp_in_seconds, payload):
         if exp_in_seconds is not None:
-            expire = datetime.now() + timedelta(seconds=exp_in_seconds)
+            expire = datetime.now(timezone.utc) + timedelta(seconds=exp_in_seconds)
             payload["exp"] = expire
 
         encoded_jwt = jwt.encode(payload, self.secret_key, algorithm=self.security_algorithm)
@@ -50,10 +51,31 @@ class JWTManager:
         return self.create_token(exp_in_seconds, payload)
 
     def verify_refresh_token(self, token):
-        return self.verify_token(token, "refresh")
+        try:
+            return self.verify_token(token, "refresh")
+        except TokenExpiredError:
+            raise
+        except TokenInvalidError:
+            raise
 
     def verify_access_token(self, token):
-        return self.verify_token(token, "access")
+        try:
+            return self.verify_token(token, "access")
+        except TokenExpiredError:
+            raise
+        except TokenInvalidError:
+            raise
+
+    def get_exp(self, token):
+        try:
+            payload = jwt.decode(token, self.secret_key,
+                                 algorithms=[self.security_algorithm],
+                                 options={"verify_exp": False})
+        except jwt.ExpiredSignatureError:
+            raise TokenExpiredError("Expired token")
+        except jwt.InvalidTokenError as e:
+            raise TokenInvalidError("Invalid token")
+        return datetime.fromtimestamp(int(payload["exp"]), tz=timezone.utc)
 
 
 _jwt_manager = JWTManager(
