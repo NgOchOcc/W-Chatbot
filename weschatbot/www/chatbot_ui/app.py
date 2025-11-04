@@ -1,7 +1,7 @@
 import json
 from typing import List, Dict
 
-from fastapi import Depends, Form, FastAPI, WebSocket, Request, Cookie, status, HTTPException
+from fastapi import Depends, Form, FastAPI, WebSocket, Request, Cookie, status, HTTPException, Response
 from fastapi.responses import JSONResponse
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -20,6 +20,7 @@ from weschatbot.services.chatbot_configuration_service import ChatbotConfigurati
 from weschatbot.services.chatbot_service import ChatbotPipeline
 from weschatbot.services.query_service import make_query_result, QueryService
 from weschatbot.services.session_service import SessionService, NotPermissionError
+from weschatbot.services.token_service import TokenService
 from weschatbot.services.user_service import BcryptUserService
 from weschatbot.services.vllm_llm_service import VLLMService
 from weschatbot.utils.config import config
@@ -66,6 +67,7 @@ vllm_client = VLLMService(
 
 session_service = SessionService()
 user_service = BcryptUserService()
+token_service = TokenService()
 
 query_service = QueryService()
 
@@ -97,6 +99,15 @@ jwt_manager = FastAPICookieJwtManager(
     security_algorithm=config["jwt"]["security_algorithm"]
 )
 
+@app.exception_handler(TokenExpiredError)
+async def token_expired_exception_handler(request: Request, exc: TokenExpiredError):
+    login_url = app.url_path_for("login_get")
+    return RedirectResponse(url=login_url, status_code=302)
+
+@app.exception_handler(TokenInvalidError)
+async def token_invalid_exception_handler(request: Request, exc: TokenInvalidError):
+    login_url = app.url_path_for("login_get")
+    return RedirectResponse(url=login_url, status_code=302)
 
 def return_login_form(request: Request, csrf: CsrfProtect, error=None):
     token, _ = csrf.generate_csrf_tokens()
@@ -109,7 +120,7 @@ def return_login_form(request: Request, csrf: CsrfProtect, error=None):
 
 
 @app.get("/logout")
-def logout(payload: dict = Depends(jwt_manager.required)):
+def logout():
     response = RedirectResponse(url=app.url_path_for("login_get"), status_code=303)
     jwt_manager.delete_token_cookie(response)
     return response
@@ -130,17 +141,32 @@ def login_post(request: Request, username: str = Form(...), password: str = Form
             "sub": str(user.id),
             "username": user.name
         }
-        token = jwt_manager.create_access_token(exp_in_seconds=24 * 3600, payload=payload)
+        token = jwt_manager.create_access_token(exp_in_seconds=int(config["jwt"]["access_token_expires_in_seconds"]),
+                                                payload=payload)
+        refresh_token = jwt_manager.create_refresh_token(
+            exp_in_seconds=int(config["jwt"]["refresh_token_expires_in_seconds"]), payload=payload)
         url = app.url_path_for("get")
         response = RedirectResponse(url=url, status_code=302)
-        jwt_manager.set_token_cookie(token=token, response=response)
+        jwt_manager.set_token_cookie(token=token, response=response, refresh_token=refresh_token)
+        refresh_token_expires_date = jwt_manager.get_exp(refresh_token)
+
+        token_service.create_refresh_token_record(
+            request=request,
+            user=user,
+            refresh_token=refresh_token,
+            expires_at=refresh_token_expires_date
+        )
+
         return response
     except InvalidUserError as e:
+        return return_login_form(request, csrf, str(e))
+    except Exception as e:
+        print(e)
         return return_login_form(request, csrf, str(e))
 
 
 @app.get("/")
-async def get(request: Request, payload: dict = Depends(jwt_manager.required)):
+async def get(request: Request, response: Response, payload: dict = Depends(jwt_manager.required)):
     url = app.url_path_for("new_chat")
     return RedirectResponse(url, status_code=302)
 

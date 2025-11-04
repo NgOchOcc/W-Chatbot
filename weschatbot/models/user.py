@@ -1,12 +1,12 @@
 import json
-from typing import List
+from typing import List, Dict, Any
 
 from flask_login import UserMixin
-from sqlalchemy import Integer, Column, String, ForeignKey, Table, Boolean, Text, Float, BigInteger
+from sqlalchemy import Integer, Column, String, ForeignKey, Table, Boolean, Text, Float, BigInteger, JSON, Index, \
+    DateTime
 from sqlalchemy.orm import mapped_column, relationship, Mapped
 
 from weschatbot.models.base import basic_fields, Base
-
 from weschatbot.utils.db import provide_session
 
 
@@ -25,6 +25,10 @@ class User(Base, UserMixin):
 
     chats: Mapped[List["ChatSession"]] = relationship(back_populates="user")
 
+    refresh_tokens: Mapped[List["RefreshToken"]] = relationship(
+        "RefreshToken", back_populates="user", cascade="all, delete-orphan"
+    )
+
     def __repr__(self):
         return "user:{self.name}".format(self=self)
 
@@ -42,6 +46,50 @@ class User(Base, UserMixin):
 
     def get_id(self):
         return self.id
+
+
+@basic_fields
+class RefreshToken(Base):
+    __tablename__ = "refresh_tokens"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True, nullable=False)
+    token = Column(String(2047), nullable=False)
+
+    user_agent_raw = Column(String(1024), nullable=True)
+
+    ip_address = Column(String(64), nullable=True)
+    accept_language = Column(String(128), nullable=True)
+
+    expires_at = Column(DateTime(timezone=True), nullable=True)
+    revoked = Column(Boolean, nullable=False, default=False, index=True)
+
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False,
+                                         index=True)
+    user: Mapped["User"] = relationship("User", back_populates="refresh_tokens")
+
+    __table_args__ = (
+        Index("ix_refresh_tokens_user_expires", "user_id", "expires_at"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<RefreshToken id={self.id} user_id={self.user_id} revoked={self.revoked}>"
+
+    name = str(token)
+
+    @provide_session
+    def to_dict(self, session=None):
+        data = {
+            "id": self.id,
+            "token": self.token,
+            "user_agent_raw": self.user_agent_raw,
+            "ip_address": self.ip_address,
+            "accept_language": self.accept_language,
+            "expires_at": self.expires_at.isoformat() if self.expires_at else None,
+            "revoked": self.revoked,
+            "user_id": self.user_id,
+            "user_name": self.user.name if self.user else None,
+        }
+        return data
 
 
 role_permissions = Table(

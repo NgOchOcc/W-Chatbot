@@ -50,6 +50,8 @@ setup(
         "pymilvus==2.5.10",
         "pyrate-limiter==3.9.0",
         "bcrypt==5.0.0",
+        "user_agents==2.2.0",
+        "uvicorn==0.38.0",
         "fastapi==0.115.12"
     ]
 )
