@@ -34,4 +34,4 @@ This section describes how to browse, inspect, and remove user chat sessions. On
 3. Upon confirmation, the session and its transcript are removed from the database.
 4. A flash notification confirms the successful deletion.
 
----
+

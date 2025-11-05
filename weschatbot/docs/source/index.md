@@ -11,6 +11,7 @@ configuration.
 :caption: "Chapters"
 
 overview
+dashboard
 login
 user_management
 chat_sessions
@@ -20,3 +21,5 @@ collection_management
 chatbot_configuration
 deployment
 configuration
+token
+query_result

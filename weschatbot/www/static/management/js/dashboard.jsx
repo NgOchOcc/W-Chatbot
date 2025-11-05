@@ -5,14 +5,12 @@ import {CChartLine, CChartBar} from "@coreui/react-chartjs";
 
 
 function parseDailyResponse(items) {
-    // items: [{ date: "YYYY-MM-DD", count: number }, ...]
     const labels = items.map((i) => i.date);
     const data = items.map((i) => i.count);
     return {labels, data};
 }
 
 function parseMonthlyResponse(items) {
-    // items: [{ month: "YYYY-MM", count: number }, ...]
     const labels = items.map((i) => i.month);
     const data = items.map((i) => i.count);
     return {labels, data};
