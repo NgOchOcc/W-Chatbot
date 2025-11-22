@@ -1,14 +1,10 @@
-import functools
-import inspect
-import pickle
-
-import redis
 from sqlalchemy import desc, func
 
 from weschatbot.models.user import Query
 from weschatbot.services.vllm_llm_service import VLLMService
 from weschatbot.utils.config import config
 from weschatbot.utils.db import provide_session
+from weschatbot.utils.redis_config import redis_cache
 
 
 def make_query_result(rank, doc, collection_id):
@@ -16,37 +12,6 @@ def make_query_result(rank, doc, collection_id):
     return QueryResult(document_id=14, row_id=doc["id"], document_text=doc["text"], cosine_score=doc["score"],
                        rank=rank,
                        collection_id=collection_id, collection_name="test_collection")
-
-
-def redis_cache(expire_seconds=3600, key_args=None, redis_url="redis://localhost:6379/0"):
-    def decorator(fn):
-        @functools.wraps(fn)
-        def wrapper(*args, **kwargs):
-            r = redis.Redis.from_url(redis_url)
-
-            sig = inspect.signature(fn)
-            bound = sig.bind(*args, **kwargs)
-            bound.apply_defaults()
-            arg_map = bound.arguments
-
-            key_parts = [fn.__name__]
-            if key_args:
-                for k in key_args:
-                    val = arg_map.get(k)
-                    key_parts.append(f"{k}={val}")
-            redis_key = "cache:" + "|".join(key_parts)
-
-            cached = r.get(redis_key)
-            if cached:
-                return pickle.loads(cached)
-
-            result = fn(*args, **kwargs)
-            r.setex(redis_key, expire_seconds, pickle.dumps(result))
-            return result
-
-        return wrapper
-
-    return decorator
 
 
 class Question:
@@ -124,13 +89,14 @@ class QueryService:
 
     @provide_session
     def get_query_results_by_date(self, from_date, to_date, page=1, page_size=20, message_id=None, session=None):
-        query = session.query(Query).filter(
-            Query.modified_date >= from_date,  # noqa
-            Query.modified_date <= to_date  # noqa
-        )
-
+        query = session.query(Query)
         if message_id:
             query = query.filter(Query.message_id == message_id)
+        else:
+            query = query.filter(
+                Query.modified_date >= from_date,  # noqa
+                Query.modified_date <= to_date  # noqa
+            )
 
         total = query.count()
 
@@ -225,8 +191,7 @@ class QueryService:
 
         return groups
 
-    @redis_cache(expire_seconds=300, key_args=["from_date", "to_date"],
-                 redis_url=f"redis://{config['redis']['host']}:{config['redis']['port']}/0")
+    @redis_cache(expire_seconds=300, key_args=["from_date", "to_date"])
     @provide_session
     def analyze_query_results(self, from_date, to_date, max_tokens=5120, session=None):
         # TODO refactor

@@ -1,8 +1,13 @@
+import functools
+import inspect
+import pickle
+
 import redis
 
 from weschatbot.utils.config import config
 
 DB_CHAT = 1
+DB_CACHE = 2
 
 
 def create_redis_client(database):
@@ -27,6 +32,37 @@ def provide_redis(database):
                 r = redis_client(database)
                 kwargs[arg_redis] = r
                 return func(*args, **kwargs)
+
+        return wrapper
+
+    return decorator
+
+
+def redis_cache(expire_seconds=3600, key_args=None, db=DB_CACHE):
+    def decorator(fn):
+        @functools.wraps(fn)
+        def wrapper(*args, **kwargs):
+            r = create_redis_client(database=db)
+
+            sig = inspect.signature(fn)
+            bound = sig.bind(*args, **kwargs)
+            bound.apply_defaults()
+            arg_map = bound.arguments
+
+            key_parts = [fn.__name__]
+            if key_args:
+                for k in key_args:
+                    val = arg_map.get(k)
+                    key_parts.append(f"{k}={val}")
+            redis_key = "cache:" + "|".join(key_parts)
+
+            cached = r.get(redis_key)
+            if cached:
+                return pickle.loads(cached)
+
+            result = fn(*args, **kwargs)
+            r.setex(redis_key, expire_seconds, pickle.dumps(result))
+            return result
 
         return wrapper
 
