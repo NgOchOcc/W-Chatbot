@@ -26,7 +26,8 @@ class ViewModelChat(ViewModel):
             return abort(404)
 
         res = chat.to_dict()
-        return render_template("management/chat_details.html", model=json.dumps(res, default=str)), 200
+        return render_template("management/chat_details.html", title=f"Chat session #{item_id}",
+                               model=json.dumps(res, default=str)), 200
 
     @provide_session
     @check_permission("delete")

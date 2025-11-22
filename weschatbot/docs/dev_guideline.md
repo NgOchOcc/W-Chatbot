@@ -64,7 +64,7 @@ docker compose up -d
 ##### Chatbot UI
 
 ```shell
-docker run -d -p 3000:3000 --gpus all \
+docker run -d -p 3000:3000 \
   --restart=always \
   --name westaco-chatbot-ui \
   --network westaco_chatbot \

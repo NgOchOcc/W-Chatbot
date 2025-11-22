@@ -1,6 +1,10 @@
 import {createRoot} from "react-dom/client";
 import React from "react";
 
+import {
+    CFormTextarea,
+    CFormCheck,
+} from '@coreui/react';
 
 function Actions({actions}) {
     return (
@@ -22,7 +26,49 @@ function Actions({actions}) {
     )
 }
 
+function BooleanHelper({field_value}) {
+    return (
+        <CFormCheck
+            type="checkbox"
+            label={field_value ? 'Yes' : 'No'}
+            checked={field_value}
+            disabled
+        />
+    )
+}
+
+function TextHelper({field_value}) {
+    return (
+        <>
+            {field_value && field_value.length > 200 ? (
+                <CFormTextarea
+                    disabled
+                    rows={5}
+                    value={field_value}
+                />
+            ) : (
+                field_value
+            )}
+        </>
+    );
+}
+
+function FieldHelper({field_value}) {
+    const field_type = typeof field_value;
+
+    switch (field_type) {
+        case 'boolean':
+            return <BooleanHelper field_value={field_value}></BooleanHelper>
+        default:
+            return <TextHelper field_value={field_value}/>
+    }
+}
+
 function ShowView({detail_fields, item}) {
+
+    console.log(detail_fields)
+    console.log(item)
+
     return (
         <>
             <table className={"table table-striped table-bordered table-hover"}>
@@ -33,15 +79,16 @@ function ShowView({detail_fields, item}) {
                             <strong>{field}</strong>
                         </td>
                         <td>
-                            {
-                                item[field] && item[field].length > 200 && <>
-                                    <div className="mb-3">
-                                        <textarea className="form-control" id="exampleFormControlTextarea1"
-                                                  disabled={true}
-                                                  rows="5">{item[field]}</textarea>
-                                    </div>
-                                </> || item[field]
-                            }
+                            {/*{*/}
+                            {/*    item[field] && item[field].length > 200 && <>*/}
+                            {/*        <div className="mb-3">*/}
+                            {/*            <textarea className="form-control" id="exampleFormControlTextarea1"*/}
+                            {/*                      disabled={true}*/}
+                            {/*                      rows="5">{item[field]}</textarea>*/}
+                            {/*        </div>*/}
+                            {/*    </> || item[field]*/}
+                            {/*}*/}
+                            <FieldHelper field_value={item[field]}></FieldHelper>
                         </td>
                     </tr>
                 })}

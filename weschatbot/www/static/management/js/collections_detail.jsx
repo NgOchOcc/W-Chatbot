@@ -310,7 +310,7 @@ function MilvusEntitiesPage({collectionId}) {
                         </CInputGroup>
 
                         <div style={{maxHeight: "580px", overflowY: "auto"}}>
-                            <CTable striped hover responsive small>
+                            <CTable striped hover responsive small bordered>
                                 <CTableHead>
                                     <CTableRow>
                                         <CTableHeaderCell style={{width: "5%"}}>#</CTableHeaderCell>
