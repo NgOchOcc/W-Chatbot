@@ -10,6 +10,7 @@ from weschatbot.security.flask_jwt_manager import FlaskJWTManager
 from weschatbot.services.user_service import BcryptUserService
 from weschatbot.utils.config import config
 from weschatbot.utils.db import provide_session
+from weschatbot.utils.redis_config import redis_cache
 from weschatbot.www.management.docs_blueprint import docs_bp
 from weschatbot.www.management.management import Management
 
@@ -79,6 +80,7 @@ login_manager.login_view = "management.login"
 
 @login_manager.user_loader
 @provide_session
+@redis_cache(expire_seconds=300, key_args=["user_id"])
 def load_user(user_id, session=None):
     user = session.query(User).options(selectinload(User.role)).filter(User.id == user_id).one_or_none()
     return user
