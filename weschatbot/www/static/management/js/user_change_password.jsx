@@ -11,10 +11,13 @@ const csrf_token = document.getElementById("csrf_token").innerText.trim()
 function App({model, csrf_token}) {
     console.log(model)
 
-    const [password, setPassword] = useState()
-    const [retypePassword, setRetypePassword] = useState()
+    const [password, setPassword] = useState("")
+    const [retypePassword, setRetypePassword] = useState("")
+    const [showPassword, setShowPassword] = useState(false)
+    const [showRetypePassword, setShowRetypePassword] = useState(false)
 
     const onSubmit = (e) => {
+        e.preventDefault()
         if (password === retypePassword) {
             fetch(model.submit_url, {
                 method: "POST",
@@ -43,24 +46,58 @@ function App({model, csrf_token}) {
         <>
             <div className={"col-md-6"}>
                 <h4>Change password for user: {model.user.name}</h4>
-                <form onSubmit={(e) => onSubmit(e)} method="POST">
+                <form onSubmit={onSubmit} method="POST">
                     <CSRFToken csrf_token={csrf_token}></CSRFToken>
+
                     <label htmlFor="inputPassword" className="form-label">Password</label>
-                    <input type="password" id="inputPassword" className="form-control"
-                           aria-describedby="passwordHelpBlock" value={password} onChange={(e) => setPassword(e.target.value)}/>
+                    <div className="input-group mb-3">
+                        <input
+                            type={showPassword ? "text" : "password"}
+                            id="inputPassword"
+                            className="form-control"
+                            aria-describedby="passwordHelpBlock"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                        />
+                        <button
+                            type="button"
+                            className="btn btn-outline-secondary"
+                            onClick={() => setShowPassword(!showPassword)}
+                        >
+                            {showPassword ? "Hide" : "Show"}
+                        </button>
+                    </div>
+
                     <label htmlFor="inputRetypePassword" className="form-label">Retype Password</label>
-                    <input type="password" id="inputRetypePassword" className="form-control"
-                           aria-describedby="retypepasswordHelpBlock" value={retypePassword} onChange={(e) => setRetypePassword(e.target.value)}/>
-                    <br/>
-                    <button className={"btn btn-primary me-2"}><i
-                        className="bi bi-save"></i> Save
+                    <div className="input-group mb-3">
+                        <input
+                            type={showRetypePassword ? "text" : "password"}
+                            id="inputRetypePassword"
+                            className="form-control"
+                            aria-describedby="retypepasswordHelpBlock"
+                            value={retypePassword}
+                            onChange={(e) => setRetypePassword(e.target.value)}
+                        />
+                        <button
+                            type="button"
+                            className="btn btn-outline-secondary"
+                            onClick={() => setShowRetypePassword(!showRetypePassword)}
+                        >
+                            {showRetypePassword ? "Hide" : "Show"}
+                        </button>
+                    </div>
+
+                    <button className={"btn btn-primary me-2"}>
+                        <i className="bi bi-save"></i> Save
                     </button>
-                    <button type={"button"} className={"btn btn-outline-secondary"} onClick={() => {
-                        history.back()
-                    }}><i className="bi bi-x-lg"></i> Cancel
+                    <button
+                        type={"button"}
+                        className={"btn btn-outline-secondary"}
+                        onClick={() => history.back()}
+                    >
+                        <i className="bi bi-x-lg"></i> Cancel
                     </button>
                 </form>
-
             </div>
         </>
     )

@@ -33,3 +33,24 @@
     overflow-y: auto;
     padding-right: 1rem;
 }
+
+
+.scroll-stable {
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+    padding-right: 1rem;
+}
+
+.scroll-stable::-webkit-scrollbar {
+    width: 8px;
+    background: transparent;
+}
+
+.scroll-stable:hover::-webkit-scrollbar {
+    width: 8px;
+}
+
+.scroll-stable:hover::-webkit-scrollbar-thumb {
+    background-color: rgba(100, 100, 100, 0.4);
+    border-radius: 4px;
+}

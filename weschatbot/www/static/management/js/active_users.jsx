@@ -14,31 +14,24 @@ import {
 function App({model}) {
     return (
         <>
-            <CCard>
-                <CCardHeader>
-                    Active Users
-                </CCardHeader>
-                <CCardBody>
-                    <CTable striped hover responsive small>
-                        <CTableHead>
-                            <CTableRow>
-                                <CTableHeaderCell style={{width: "20%"}}>User id</CTableHeaderCell>
-                                <CTableHeaderCell style={{width: "80%"}}>Last active time</CTableHeaderCell>
-                            </CTableRow>
-                        </CTableHead>
-                        <CTableBody>
-                            {model.map((item, index) => (
-                                <CTableRow key={index}>
-                                    <CTableDataCell style={{width: "20%"}}><span
-                                        style={{fontSize: "0.9rem"}}>{item["user_id"]}</span></CTableDataCell>
-                                    <CTableDataCell style={{width: "80%"}}><span
-                                        style={{fontSize: "0.9rem"}}>{item["last_active"]}</span></CTableDataCell>
-                                </CTableRow>
-                            ))}
-                        </CTableBody>
-                    </CTable>
-                </CCardBody>
-            </CCard>
+            <CTable striped hover responsive small bordered>
+                <CTableHead>
+                    <CTableRow>
+                        <CTableHeaderCell style={{width: "20%"}}>User id</CTableHeaderCell>
+                        <CTableHeaderCell style={{width: "80%"}}>Last active time</CTableHeaderCell>
+                    </CTableRow>
+                </CTableHead>
+                <CTableBody>
+                    {model.map((item, index) => (
+                        <CTableRow key={index}>
+                            <CTableDataCell style={{width: "20%"}}><span
+                                style={{fontSize: "0.9rem"}}>{item["user_id"]}</span></CTableDataCell>
+                            <CTableDataCell style={{width: "80%"}}><span
+                                style={{fontSize: "0.9rem"}}>{item["last_active"]}</span></CTableDataCell>
+                        </CTableRow>
+                    ))}
+                </CTableBody>
+            </CTable>
         </>
     )
 }

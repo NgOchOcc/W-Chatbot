@@ -65,7 +65,7 @@ function ListMessages({data}) {
     return (
         <>
             <div style={{marginBottom: "10px", overflowY: 'auto'}}>
-                <CTable striped hover responsive>
+                <CTable striped hover responsive bordered>
                     <CTableHead>
                         <CTableRow>
                             <CTableHeaderCell>#</CTableHeaderCell>
@@ -125,38 +125,33 @@ function Overview({data}) {
 }
 
 function ChatSessionView({data}) {
-    const [visible, setVisible] = useState(false)
+    const [visible, setVisible] = useState(false);
 
     return (
-        <div style={{maxHeight: '100vh', height: "auto", display: 'flex', flexDirection: 'column'}}>
-            <CCard className="flex-grow-1 d-flex flex-column">
-                <CCardHeader>
-                    Chat Session #{data.id}
-                    <CButton
-                        color="link"
-                        size="sm"
-                        className="float-end"
-                        style={{textDecoration: 'none'}}
-                        onClick={() => setVisible(!visible)}
-                    >
-                        {visible ? 'Hide Info' : 'Show Info'}
-                    </CButton>
-                </CCardHeader>
+        <div style={{maxHeight: '100vh', height: 'auto', display: 'flex', flexDirection: 'column'}}>
+            <div className="d-flex justify-content-between align-items-center mb-2">
+                <CButton
+                    color="link"
+                    size="sm"
+                    style={{textDecoration: 'none'}}
+                    onClick={() => setVisible(!visible)}
+                >
+                    {visible ? 'Hide Info' : 'Show Info'}
+                </CButton>
+            </div>
 
-                <CCardBody className="flex-grow-1 d-flex flex-column">
-                    <CCollapse visible={visible}>
-                        <Overview data={data}></Overview>
-                    </CCollapse>
-
-                    <h5>Messages</h5>
-                    <div style={{flexGrow: 1, overflowY: 'auto'}}>
-                        <ListMessages data={data}/>
-                    </div>
-                </CCardBody>
-            </CCard>
+            <CCollapse visible={visible}>
+                <div className="mb-3">
+                    <Overview data={data}/>
+                </div>
+            </CCollapse>
+            <div style={{flexGrow: 1, overflowY: 'auto'}}>
+                <ListMessages data={data}/>
+            </div>
         </div>
-    )
+    );
 }
+
 
 const container = document.getElementById("root_container")
 const root = createRoot(container)

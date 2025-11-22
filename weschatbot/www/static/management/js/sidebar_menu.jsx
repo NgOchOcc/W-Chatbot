@@ -66,7 +66,7 @@ function SidebarMenu({userName = 'User', onLogout, currentUser, userPermissions}
                 </CSidebarBrand>
             </CSidebarHeader>
 
-            <CSidebarNav>
+            <CSidebarNav className={"scroll-stable"}>
                 <CNavTitle>Administration</CNavTitle>
                 <NavItem href={"/management/ViewModelDashboard/dashboard"} icon={cilChartLine}
                          role={currentUser.role.name}
