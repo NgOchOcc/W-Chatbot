@@ -75,6 +75,8 @@ docker run -d -p 3000:3000 \
   -e WESCHATBOT__REDIS__PORT=6379 \
   -e WESCHATBOT__VLLM__BASE_URL=http://westaco-chatbot-vllm:9292 \
   -e WESCHATBOT__VLLM__MODEL=AlphaGaO/Qwen3-14B-GPTQ \
+  -e WESCHATBOT__JWT__COOKIE_SAMESITE=lax \
+  -e WESCHATBOT__JWT__COOKIE_SECURE=false \
   --network milvus \
   -v weschatbot_uploads_volume:/srv/weschatbot/uploads \
   -v weschatbot_converted_volume:/srv/weschatbot/converted \
