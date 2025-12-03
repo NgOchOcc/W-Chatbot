@@ -1,16 +1,16 @@
-import re
-from typing import Dict, List
 from abc import ABC, abstractmethod
+from typing import Dict, List
+
 from llama_index.core import Document as LlamaDocument
 
 
 class BaseChunkingStrategy(ABC):
     def __init__(
-        self,
-        chunk_size: int = 768,
-        chunk_overlap: int = 128,
-        min_chunk_size: int = 128,
-        max_chunk_size: int = 1024
+            self,
+            chunk_size: int = 768,
+            chunk_overlap: int = 128,
+            min_chunk_size: int = 128,
+            max_chunk_size: int = 1024
     ):
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap

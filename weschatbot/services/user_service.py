@@ -1,13 +1,16 @@
 import hashlib
+import logging
 import random
 import string
+from typing import Optional
+
+import bcrypt
 
 from weschatbot.exceptions.user_exceptions import InvalidUserError
 from weschatbot.models.user import Role, User
 from weschatbot.utils.db import provide_session
 
-import bcrypt
-from typing import Optional
+logger = logging.getLogger(__name__)
 
 
 class BcryptHash:
@@ -35,7 +38,8 @@ class BcryptHash:
         try:
             pw_bytes = BcryptHash._prepare_password(naked_string)
             return bcrypt.checkpw(pw_bytes, hashed_string.encode("utf-8"))
-        except (ValueError, TypeError):
+        except (ValueError, TypeError) as e:
+            logger.debug(e)
             return False
 
 

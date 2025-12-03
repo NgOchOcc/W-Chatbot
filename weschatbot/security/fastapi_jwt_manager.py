@@ -1,5 +1,4 @@
 from fastapi import HTTPException
-from jwt import InvalidTokenError
 
 from weschatbot.security.exceptions import TokenExpiredError, TokenInvalidError
 from weschatbot.security.jwt_manager import JWTManager
@@ -25,29 +24,31 @@ class FastAPIJWTManager(JWTManager):
         token = credential.credentials
         try:
             payload = self.verify_refresh_token(token)
-            if payload:
+            if payload is not None:
                 return payload
             raise HTTPException(status_code=401, detail="Invalid refresh token")
         except TokenExpiredError as e:
-            raise HTTPException(status_code=401, detail=f"{e}")
+            self.log.debug(e)
+            raise HTTPException(status_code=401, detail="Token is expired")
         except TokenInvalidError as e:
-            raise HTTPException(status_code=401, detail=f"{e}")
+            self.log.debug(e)
+            raise HTTPException(status_code=401, detail="Token is invalid")
 
     def refresh(self, refresh_token):
         try:
             in_db_refresh_token = TokenService.get_refresh_token(refresh_token)
             if in_db_refresh_token:
                 payload = self.verify_refresh_token(in_db_refresh_token.token)
-                if payload:
-                    new_access_token = self.create_access_token(
-                        int(config["jwt"]["access_token_expires_in_seconds"]),
-                        payload)
+                if payload is not None:
+                    new_access_token = self.create_access_token(config.getint("jwt", "access_token_expires_in_seconds"),
+                                                                payload)
                     return payload, new_access_token
             raise TokenInvalidError("Invalid refresh token")
         except TokenExpiredError:
             raise
         except TokenInvalidError as e:
-            raise
+            self.log.debug(e)
+            raise e
 
 
 _jwt_manager = FastAPIJWTManager(

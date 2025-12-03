@@ -1,8 +1,9 @@
-import httpx
-import asyncio
 from typing import List
-from llama_index.core.embeddings import BaseEmbedding
+
+import httpx
 from llama_index.core.bridge.pydantic import PrivateAttr
+from llama_index.core.embeddings import BaseEmbedding
+
 
 class VLLMEmbeddingService:
     def __init__(self, base_url: str, model: str):

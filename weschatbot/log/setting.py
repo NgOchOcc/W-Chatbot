@@ -1,9 +1,11 @@
+from weschatbot.utils.config import config
+
+
 def logging_setting() -> None:
-    from weschatbot.utils.config import config
-    import logging
+    import logging.config
 
-    logging_level = config["logging"]["level"]
+    logging_config_file = config.get("logging", "config_file")
 
-    logging.basicConfig(level=logging_level,
-                        format=config["logging"]["format"],
-                        datefmt='%Y-%m-%d %H:%M:%S')
+    print(f"Load logging config from file: {logging_config_file}")
+
+    logging.config.fileConfig(logging_config_file)

@@ -2,12 +2,13 @@ import json
 
 from flask import render_template
 
+from weschatbot.log.logging_mixin import LoggingMixin
 from weschatbot.services.active_status_service import ActiveStatusService
 from weschatbot.utils.redis_config import redis_client
 from weschatbot.www.management.model_vm import EmptyViewModel
 
 
-class ViewModelActiveUser(EmptyViewModel):
+class ViewModelActiveUser(EmptyViewModel, LoggingMixin):
     rd_client = redis_client(0)
     active_status_service = ActiveStatusService(rd_client)
 
@@ -15,6 +16,7 @@ class ViewModelActiveUser(EmptyViewModel):
         super().__init__(auth)
 
     def active_users(self):
+        self.log.info("active_users")
         model = [x.to_dict() for x in self.active_status_service.get_all_active_user()]
         title = "Active Users"
         return render_template(

@@ -1,4 +1,3 @@
-import re
 from typing import List, Dict
 
 from llama_index.core import Document as LlamaDocument
@@ -119,8 +118,7 @@ class SentencesplitStrategy:
 
         chunks = []
         for i, node in enumerate(nodes):
-            section_match = re.search(r'^#+\s+(.+)$', node.text.split('\n')[0], re.MULTILINE)
-
+            # section_match = re.search(r'^#+\s+(.+)$', node.text.split('\n')[0], re.MULTILINE)
             chunk_metadata = {
                 **metadata,
             }

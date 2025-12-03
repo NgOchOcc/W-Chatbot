@@ -1,8 +1,8 @@
 import json
-from typing import List, Dict, Any
+from typing import List
 
 from flask_login import UserMixin
-from sqlalchemy import Integer, Column, String, ForeignKey, Table, Boolean, Text, Float, BigInteger, JSON, Index, \
+from sqlalchemy import Integer, Column, String, ForeignKey, Table, Boolean, Text, Float, BigInteger, Index, \
     DateTime
 from sqlalchemy.orm import mapped_column, relationship, Mapped
 

@@ -1,5 +1,5 @@
 [tool.bumpversion]
-current_version = "0.0.1"
+current_version = "0.0.2"
 parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)"
 serialize = ["{major}.{minor}.{patch}"]
 search = "{current_version}"
@@ -21,12 +21,17 @@ pre_commit_hooks = []
 post_commit_hooks = []
 
 [[tool.bumpversion.files]]
-filename = "docs/deployment.md
+filename = "weschatbot/docs/dev_guideline.md"
 search = "{current_version}"
 replace = "{new_version}"
 
 [[tool.bumpversion.files]]
-filename = "version.py"
+filename = "weschatbot/docs/source/conf.py"
+search = "{current_version}"
+replace = "{new_version}"
+
+[[tool.bumpversion.files]]
+filename = "weschatbot/docs/source/deployment.md"
 search = "{current_version}"
 replace = "{new_version}"
 

@@ -64,6 +64,7 @@ class Management(LoggingMixin):
                 login_user(user)
                 return redirect(outside_url_for(".index")()), 302
             except InvalidUserError as e:
+                self.log.warning(f"Invalid username or password: {e}")
                 return redirect(outside_url_for(".login")()), 302
 
         else:

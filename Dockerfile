@@ -11,7 +11,7 @@ RUN cd weschatbot/www \
 CMD []
 
 
-FROM chatbot-base:0.0.1 AS weschatbot_app
+FROM chatbot-base:0.0.2 AS weschatbot_app
 
 EXPOSE 8000
 
@@ -36,7 +36,7 @@ RUN cd weschatbot/docs \
     && cd ../..
 
 RUN python -m build \
-    && pip install dist/weschatbot-0.0.1-py3-none-any.whl
+    && pip install dist/weschatbot-0.0.2-py3-none-any.whl
 
 EXPOSE 9292
 EXPOSE 3000

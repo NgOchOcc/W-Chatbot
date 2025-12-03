@@ -2,6 +2,8 @@ import asyncio
 import datetime
 import functools
 
+from weschatbot.log.logging_mixin import LoggingMixin
+
 SCAN_COUNT = 1000
 
 
@@ -17,7 +19,7 @@ class ActiveUser:
         }
 
 
-class ActiveStatusService:
+class ActiveStatusService(LoggingMixin):
     def __init__(self, redis_client):
         self.redis_client = redis_client
         self.presence_key = "presence:{user_id}"
@@ -80,12 +82,14 @@ class ActiveStatusService:
                 try:
                     ts = float(val)
                     dt = datetime.datetime.fromtimestamp(ts, tz=datetime.timezone.utc)
-                except Exception:
+                except Exception as e:
+                    self.log.debug(e)
                     try:
                         dt = datetime.datetime.fromisoformat(val)
                         if dt.tzinfo is None:
                             dt = dt.replace(tzinfo=datetime.timezone.utc)
-                    except Exception:
+                    except Exception as e:
+                        self.log.debug(e)
                         dt = datetime.datetime.fromtimestamp(0, tz=datetime.timezone.utc)
                 user_id = self.extract_user_id_from_key(key.decode())
                 result.append(ActiveUser(user_id, dt))

@@ -12,23 +12,23 @@ from weschatbot.services.document.base_chunking import BaseChunkingStrategy
 
 class AdaptiveMarkdownStrategy(BaseChunkingStrategy):
     def __init__(
-        self,
-        chunk_size: int = 2048,
-        chunk_overlap: int = 128,
-        min_chunk_size: int = 128,
-        max_chunk_size: int = 3192,
-        min_tokens: int = 256,  
-        max_tokens: int = 1024,  
-        table_max_chunk_size: int = 2048,
-        table_min_rows_per_chunk: int = 30,
-        table_max_rows_threshold: int = 200,
-        preserve_table_headers: bool = True,
-        add_table_summary: bool = True,
-        table_context_lines_before: int = 3,
-        table_context_lines_after: int = 2,
-        min_words_per_chunk: int = 30,
-        remove_image_references: bool = True,
-        merge_short_chunks: bool = True
+            self,
+            chunk_size: int = 2048,
+            chunk_overlap: int = 128,
+            min_chunk_size: int = 128,
+            max_chunk_size: int = 3192,
+            min_tokens: int = 256,
+            max_tokens: int = 1024,
+            table_max_chunk_size: int = 2048,
+            table_min_rows_per_chunk: int = 30,
+            table_max_rows_threshold: int = 200,
+            preserve_table_headers: bool = True,
+            add_table_summary: bool = True,
+            table_context_lines_before: int = 3,
+            table_context_lines_after: int = 2,
+            min_words_per_chunk: int = 30,
+            remove_image_references: bool = True,
+            merge_short_chunks: bool = True
     ):
         super().__init__(chunk_size, chunk_overlap, min_chunk_size, max_chunk_size)
         self.min_tokens = min_tokens
@@ -210,7 +210,7 @@ class AdaptiveMarkdownStrategy(BaseChunkingStrategy):
                     header = [lines[i], lines[i + 1]]
                 i += 1
             elif not lines[i].strip() and i + 1 < len(lines) and self._is_table_line(lines[i + 1]):
-                i += 1 
+                i += 1
             else:
                 i += 1
                 break
@@ -224,7 +224,7 @@ class AdaptiveMarkdownStrategy(BaseChunkingStrategy):
             'type': 'table',
             'content': '\n'.join(table_lines),
             'header': header,
-            'row_count': sum(1 for l in table_lines if l.strip() and not self._is_table_separator(l)),
+            'row_count': sum(1 for d in table_lines if d.strip() and not self._is_table_separator(d)),
             'context_before': '\n'.join(ctx_before[-self.table_context_lines_before:]),
             'context_after': '\n'.join(ctx_after[:self.table_context_lines_after])
         }, i
@@ -258,7 +258,7 @@ class AdaptiveMarkdownStrategy(BaseChunkingStrategy):
         ctx_before = section.get('context_before', '')
         ctx_after = section.get('context_after', '')
 
-        lines = [l for l in content.split('\n') if l.strip()]
+        lines = [d for d in content.split('\n') if d.strip()]
         if not header and len(lines) >= 2 and self._is_table_separator(lines[1]):
             header, data = lines[:2], lines[2:]
         elif header:
@@ -275,7 +275,7 @@ class AdaptiveMarkdownStrategy(BaseChunkingStrategy):
         return self._split_large_table(data, header, ctx_before, ctx_after, metadata, section['row_count'])
 
     def _build_table_chunk(self, lines, header, ctx_before, ctx_after, metadata, row_count,
-                          split_idx=0, is_last=False) -> LlamaDocument:
+                           split_idx=0, is_last=False) -> LlamaDocument:
         parts = []
         if split_idx == 0 and self.add_table_summary and header:
             cols = [c.strip() for c in header[0].split('|') if c.strip()]
@@ -298,7 +298,7 @@ class AdaptiveMarkdownStrategy(BaseChunkingStrategy):
 
     def _split_large_table(self, data, header, ctx_before, ctx_after, metadata, row_count) -> List[LlamaDocument]:
         header_size = sum(len(h) for h in header) if header else 0
-        avg_row_size = sum(len(l) for l in data) / max(len(data), 1)
+        avg_row_size = sum(len(d) for d in data) / max(len(data), 1)
         rows_per_chunk = max(
             int((self.table_max_chunk_size - header_size - 100) / avg_row_size),
             self.table_min_rows_per_chunk

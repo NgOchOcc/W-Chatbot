@@ -1,9 +1,10 @@
+import asyncio
 import logging
 import subprocess
 from functools import wraps
 
-from weschatbot.models.user import Collection, CollectionStatus
 from weschatbot.models.job import Job, JobStatus
+from weschatbot.models.user import Collection, CollectionStatus
 from weschatbot.services.document.index_document_service import PipelineMilvusStore, \
     IndexDocumentWithoutConverterService
 from weschatbot.utils.config import config
@@ -11,6 +12,8 @@ from weschatbot.utils.db import provide_session
 from weschatbot.worker.celery_worker import celery_app
 
 app = celery_app()
+
+logger = logging.getLogger(__name__)
 
 
 def update_job_status(func):
@@ -25,35 +28,17 @@ def update_job_status(func):
     @wraps(func)
     def wrapper(job_id, *args, **kwargs):
         try:
-            logging.info(f"Running {func.__name__}; job run {job_id}")
+            logger.info(f"Running {func.__name__}; job run {job_id}")
             func(*args, **kwargs)
             status = "done"
-            logging.info(f"Finished {func.__name__}; job run {job_id}")
+            logger.info(f"Finished {func.__name__}; job run {job_id}")
         except Exception as e:
-            logging.error(e)
+            logger.error(e)
             status = "failed"
-            logging.error(f"Failed {func.__name__}; job run {job_id}")
+            logger.error(f"Failed {func.__name__}; job run {job_id}")
         update(job_id, status)
 
     return wrapper
-
-
-@app.task
-@update_job_status
-def add(a, b):
-    print(f"Done result: {a + b}")
-    return a + b
-
-
-# @app.task
-# @update_job_status
-# def index_documents():
-#     converter = DocumentConverter()
-#     pipeline = PipelineMilvusStore(collection_name=config["core"]["milvus_collection_name"],
-#                                    milvus_host=config["milvus"]["host"],
-#                                    milvus_port=config["milvus"]["port"])
-#     indexer = IndexDocumentService(converter=converter, pipeline=pipeline)
-#     indexer.index()
 
 
 def update_collection_status(func):
@@ -69,14 +54,14 @@ def update_collection_status(func):
     def wrapper(collection_id, *args, **kwargs):
         try:
             update(collection_id, "running")
-            logging.info(f"Running {func.__name__}; job run {collection_id}")
+            logger.info(f"Running {func.__name__}; job run {collection_id}")
             func(collection_id, *args, **kwargs)
             status = "done"
-            logging.info(f"Finished {func.__name__}; job run {collection_id}")
+            logger.info(f"Finished {func.__name__}; job run {collection_id}")
         except Exception as e:
-            logging.error(e)
+            logger.error(e)
             status = "failed"
-            logging.error(f"Failed {func.__name__}; job run {collection_id}")
+            logger.error(f"Failed {func.__name__}; job run {collection_id}")
         update(collection_id, status)
 
     return wrapper
@@ -85,8 +70,6 @@ def update_collection_status(func):
 @app.task(queue="index")
 @update_collection_status
 def index_collection_to_milvus(collection_id, collection_name):
-    import asyncio
-
     async def run_indexing():
         pipeline = PipelineMilvusStore(
             collection_name=collection_name,
@@ -101,19 +84,17 @@ def index_collection_to_milvus(collection_id, collection_name):
         )
         indexer.index()
 
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    loop.run_until_complete(run_indexing())
+    return asyncio.run(run_indexing())
 
 
 @app.task(queue="convert")
 def convert_document(document):
-    print(f"Start converting - Document ID {document['id']}, calling sub process")
+    logger.info(f"Start converting - Document ID {document['id']}, calling sub process")
     result = subprocess.run(
         ["weschatbot", "document", "convert", "--id", f"{document['id']}"],
         capture_output=True
     )
     if result.returncode != 0:
-        print(f"Sub process failed with code {result.returncode}")
-        print(f"Document ID {document['id']} is not converted.")
-    print(f"Done - Document ID {document['id']}")
+        logger.info(f"Sub process failed with code {result.returncode}")
+        logger.info(f"Document ID {document['id']} is not converted.")
+    logger.info(f"Done - Document ID {document['id']}")

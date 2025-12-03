@@ -2,7 +2,7 @@ import os
 
 from setuptools import setup
 
-version = "0.0.1"
+version = "0.0.2"
 name = "weschatbot"
 author = "Westaco"
 author_email = "manh.tran@westaco.com"
@@ -52,6 +52,7 @@ setup(
         "bcrypt==5.0.0",
         "user_agents==2.2.0",
         "uvicorn==0.38.0",
+        "python-magic==0.4.27",
         "fastapi==0.115.12"
     ]
 )

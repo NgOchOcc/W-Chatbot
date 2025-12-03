@@ -10,7 +10,7 @@ from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
 
-from weschatbot.models.user import Collection, CollectionStatus, ChatbotConfiguration
+from weschatbot.models.user import Collection, CollectionStatus, ChatbotConfiguration # noqa
 from weschatbot.utils.db import provide_session
 
 # revision identifiers, used by Alembic.

@@ -1,7 +1,7 @@
 """create tables
 
 Revision ID: 51634997b174
-Revises: 
+Revises:
 Create Date: 2025-06-30 21:10:31.748861
 
 """
@@ -130,8 +130,8 @@ def upgrade() -> None:
 
     conn.execute(
         sa.text("""
-                    INSERT INTO chat_statuses (name, modified_date)
-                    VALUES (:name, :modified_date)
+                INSERT INTO chat_statuses (name, modified_date)
+                VALUES (:name, :modified_date)
                 """),
         [
             {"name": "active", "modified_date": now},

@@ -6,9 +6,9 @@ from llama_index.core import VectorStoreIndex, StorageContext
 from llama_index.vector_stores.milvus import MilvusVectorStore
 from sqlalchemy.orm import joinedload
 
+from weschatbot.exceptions.collection_exception import MilvusCollectionException
 from weschatbot.log.logging_mixin import LoggingMixin
 from weschatbot.models.user import Document, CollectionDocumentStatus, CollectionDocument
-from weschatbot.services.document.chunking_strategy import SentencesplitStrategy
 from weschatbot.services.document.adaptive_markdown_strategy import AdaptiveMarkdownStrategy
 from weschatbot.services.vllm_embedding_service import VLLMEmbeddingService, VLLMEmbeddingAdapter
 from weschatbot.utils.db import provide_session
@@ -51,7 +51,7 @@ class PipelineMilvusStore(Pipeline, LoggingMixin):
         self.metrics = metrics
 
         try:
-            print(f"Similarity: {self.metrics}")
+            self.log.info(f"Similarity: {self.metrics}")
             self.vector_store = MilvusVectorStore(
                 uri=f"http://{self.milvus_host}:{self.milvus_port}",
                 collection_name=self.collection_name,
@@ -63,8 +63,7 @@ class PipelineMilvusStore(Pipeline, LoggingMixin):
             )
             self.log.info(f"Connected to Milvus collection '{self.collection_name}' with dimension {self.dim}")
         except Exception as e:
-            self.log.error(f"Error creating Milvus vector store: {str(e)}")
-            raise
+            raise MilvusCollectionException("Error creating Milvus vector store") from e
 
         self.storage_context = StorageContext.from_defaults(vector_store=self.vector_store)
         self.chunking_strategy = AdaptiveMarkdownStrategy()
@@ -103,7 +102,8 @@ class PipelineMilvusStore(Pipeline, LoggingMixin):
                 return
 
             self.log.info(
-                f"Indexing {len(all_chunks)} chunks from {len(documents)} documents into collection '{self.collection_name}'")
+                f"Indexing {len(all_chunks)} chunks from {len(documents)} documents into collection '{self.collection_name}'")  # noqa E501
+
             VectorStoreIndex.from_documents(
                 all_chunks,
                 storage_context=self.storage_context,
@@ -113,10 +113,8 @@ class PipelineMilvusStore(Pipeline, LoggingMixin):
 
             self.log.info(f"Successfully indexed {len(all_chunks)} chunks")
 
-
         except Exception as e:
-            self.log.error(f"Error indexing documents: {str(e)}")
-            raise
+            raise e
 
 
 class IndexDocumentService(LoggingMixin):

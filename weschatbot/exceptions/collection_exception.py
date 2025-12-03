@@ -12,3 +12,7 @@ class StatusNotFound(Exception):
 
 class DocumentNotFoundError(Exception):
     pass
+
+
+class MilvusCollectionException(Exception):
+    pass

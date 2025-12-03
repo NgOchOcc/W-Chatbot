@@ -1,13 +1,13 @@
 from datetime import datetime, timedelta, timezone
 
 import jwt
-from jwt import InvalidTokenError
 
+from weschatbot.log.logging_mixin import LoggingMixin
 from weschatbot.security.exceptions import TokenExpiredError, TokenInvalidError
 from weschatbot.utils.config import config
 
 
-class JWTManager:
+class JWTManager(LoggingMixin):
     def __init__(self, secret_key, security_algorithm):
         self.secret_key = secret_key
         self.security_algorithm = security_algorithm
@@ -23,20 +23,20 @@ class JWTManager:
     def decode_token(self, token):
         try:
             return jwt.decode(token, self.secret_key, algorithms=[self.security_algorithm])
-        except jwt.ExpiredSignatureError:
-            raise TokenExpiredError("Expired token")
-        except jwt.InvalidTokenError:
-            raise TokenInvalidError("Invalid token")
+        except jwt.ExpiredSignatureError as e:
+            raise TokenExpiredError("Expired token") from e
+        except jwt.InvalidTokenError as e:
+            raise TokenInvalidError("Invalid token") from e
 
     def verify_token(self, token, token_type=None):
         try:
             payload = jwt.decode(token, self.secret_key,
                                  algorithms=[self.security_algorithm],
                                  options={"verify_exp": True})
-        except jwt.ExpiredSignatureError:
-            raise TokenExpiredError("Expired token")
+        except jwt.ExpiredSignatureError as e:
+            raise TokenExpiredError("Expired token") from e
         except jwt.InvalidTokenError as e:
-            raise TokenInvalidError("Invalid token")
+            raise TokenInvalidError("Invalid token") from e
 
         if token_type and payload["type"] != token_type:
             raise TokenInvalidError(f"Invalid {token_type} token")
@@ -71,10 +71,10 @@ class JWTManager:
             payload = jwt.decode(token, self.secret_key,
                                  algorithms=[self.security_algorithm],
                                  options={"verify_exp": False})
-        except jwt.ExpiredSignatureError:
-            raise TokenExpiredError("Expired token")
+        except jwt.ExpiredSignatureError as e:
+            raise TokenExpiredError("Expired token") from e
         except jwt.InvalidTokenError as e:
-            raise TokenInvalidError("Invalid token")
+            raise TokenInvalidError("Invalid token") from e
         return datetime.fromtimestamp(int(payload["exp"]), tz=timezone.utc)
 
 

@@ -1,12 +1,16 @@
+import logging
 from pathlib import Path
 
+import torch
 from marker.converters.pdf import PdfConverter
 from marker.models import create_model_dict
 from marker.output import text_from_rendered
 from markitdown import MarkItDown
-import torch
 
+from weschatbot.log.logging_mixin import LoggingMixin
 from weschatbot.utils.common import SingletonMeta
+
+logger = logging.getLogger(__name__)
 
 
 class Converter:
@@ -40,7 +44,7 @@ class MarkitdownConverter(Converter, metaclass=SingletonMeta):
         return rendered.text_content
 
 
-class DocumentConverter:
+class DocumentConverter(LoggingMixin):
     @staticmethod
     @torch.no_grad()
     def convert(document_path: str) -> str:
@@ -60,8 +64,8 @@ class DocumentConverter:
                     res = converter.convert(document_path)
                 return res
         except Exception as e:
-            raise Exception(f"Error converting file {document_path}: {str(e)}")
+            raise Exception(f"Error converting file {document_path}") from e
         finally:
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
-            print("VRAM cache cleared.")
+            logger.info("VRAM cache cleared.")
