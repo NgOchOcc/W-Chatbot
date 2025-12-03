@@ -9,4 +9,3 @@ processor = DocumentProcessor(
 
 # Process directory
 processor.process_directory("data/phase 3/", ['.md', '.pdf', 'xls', 'xlsx'])
-

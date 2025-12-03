@@ -44,7 +44,6 @@ def configure_sqlalchemy_session():
     from sqlalchemy import create_engine, QueuePool
 
     global mysql_session
-    global mysql_config
     global mysql_engine
 
     mysql_engine = create_engine(

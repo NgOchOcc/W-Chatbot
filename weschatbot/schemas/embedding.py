@@ -1,10 +1,12 @@
-from typing import Optional
-from enum import Enum
 from dataclasses import dataclass
+from enum import Enum
+from typing import Optional
+
 
 class EmbeddingMode(Enum):
     VLLM: str = "vllm"
     HUGGINGFACE: str = "huggingface"
+
 
 @dataclass
 class RetrievalConfig:

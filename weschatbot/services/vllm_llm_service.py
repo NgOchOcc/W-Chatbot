@@ -4,7 +4,10 @@ from typing import List, Dict, Optional
 
 import aiohttp
 
-from weschatbot.services.chatbot_configuration_service import ChatbotConfigurationService
+from weschatbot.services.chatbot_configuration_service import (
+    ChatbotConfigurationService,
+)
+from weschatbot.services.message_truncator_service import MessageTruncator
 
 
 def provide_loop(func):
@@ -14,7 +17,7 @@ def provide_loop(func):
         if loop.is_closed():
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-        kwargs['loop'] = loop
+        kwargs["loop"] = loop
         return func(*args, **kwargs)
 
     return wrapper
@@ -24,7 +27,11 @@ chatbot_configuration_service = ChatbotConfigurationService()
 
 
 class VLLMService:
-    def __init__(self, base_url: str = "http://localhost:9292", model: str = "AlphaGaO/Qwen3-14B-GPTQ"):
+    def __init__(
+            self,
+            base_url: str = "http://localhost:9292",
+            model: str = "AlphaGaO/Qwen3-14B-GPTQ",
+    ):
         self.base_url = base_url
         self.model = model
         self.session = None
@@ -33,6 +40,12 @@ class VLLMService:
         if self.session is None:
             self.session = aiohttp.ClientSession()
         return self.session
+
+    @staticmethod
+    def _ensure_temperature(kwargs: Dict) -> Dict:
+        if "temperature" not in kwargs:
+            kwargs["temperature"] = 0
+        return kwargs
 
     @provide_loop
     def sync_count_tokens(self, text, loop=None):
@@ -53,48 +66,36 @@ class VLLMService:
             return ret["choices"][0]["message"]["content"]
 
     async def get_topics(self, text):
-
-        # TODO refactor get_summary
-
         session = await self._get_session()
-        messages = [
-            {
-                "role": "system",
-                "content": chatbot_configuration_service.get_configuration().analytic_topic_prompt
-            },
-            {
-                "role": "user",
-                "content": text
-            }
-        ]
-
-        payload = {
-            "model": self.model,
-            "messages": messages
-        }
+        system_prompt = (
+            chatbot_configuration_service.get_configuration().analytic_topic_prompt
+        )
+        messages = self._build_single_turn_messages(system_prompt, text)
+        payload = self._build_basic_payload(messages)
 
         return await self._non_stream_chat(session, payload)
 
     async def get_summary(self, text):
         session = await self._get_session()
-
-        messages = [
-            {
-                "role": "system",
-                "content": chatbot_configuration_service.get_configuration().summary_prompt
-            },
-            {
-                "role": "user",
-                "content": text
-            }
-        ]
-
-        payload = {
-            "model": self.model,
-            "messages": messages
-        }
+        system_prompt = chatbot_configuration_service.get_configuration().summary_prompt
+        messages = self._build_single_turn_messages(system_prompt, text)
+        payload = self._build_basic_payload(messages)
 
         return await self._non_stream_chat(session, payload)
+
+    def _build_single_turn_messages(
+            self, system_prompt: str, user_content: str
+    ) -> List[Dict[str, str]]:
+        return [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_content},
+        ]
+
+    def _build_basic_payload(self, messages: List[Dict[str, str]]) -> Dict:
+        return {
+            "model": self.model,
+            "messages": messages,
+        }
 
     async def _count_tokens(self, text: str) -> int:
         try:
@@ -102,13 +103,13 @@ class VLLMService:
             payload = {
                 "model": self.model,
                 "prompt": text,
-                "add_generation_prompt": False
+                "add_generation_prompt": False,
             }
 
             async with session.post(
                     f"{self.base_url}/tokenize",
                     json=payload,
-                    timeout=aiohttp.ClientTimeout(total=30)
+                    timeout=aiohttp.ClientTimeout(total=30),
             ) as response:
                 if response.status == 200:
                     result = await response.json()
@@ -118,112 +119,75 @@ class VLLMService:
         except Exception:
             return len(text) // 2
 
-    async def _truncate_messages(self, messages: List[Dict[str, str]], max_tokens: int = 5120) -> List[Dict[str, str]]:
-        # TODO need to rewrite, this function also truncate the context
-        if not messages:
-            return messages
-
-        truncated_messages = []
-        total_tokens = 0
-        system_message = None
-        start_idx = 0
-        if messages and messages[0].get("role") == "system":
-            system_message = messages[0]
-            system_tokens = await self._count_tokens(system_message["content"])
-            if system_tokens < max_tokens:
-                truncated_messages.append(system_message)
-                total_tokens += system_tokens
-                start_idx = 1
-            else:
-                max_system_tokens = max_tokens // 2
-                system_content = system_message["content"]
-                while await self._count_tokens(system_content) > max_system_tokens and len(system_content) > 100:
-                    system_content = system_content[:int(len(system_content) * 0.9)]
-                truncated_messages.append({"role": "system", "content": system_content})
-                total_tokens += await self._count_tokens(system_content)
-                start_idx = 1
-
-        remaining_messages = messages[start_idx:]
-        for message in reversed(remaining_messages):
-            message_tokens = await self._count_tokens(message["content"])
-            if total_tokens + message_tokens <= max_tokens:
-                truncated_messages.insert(
-                    -len([m for m in truncated_messages if m.get("role") != "system"]) or len(truncated_messages),
-                    message)
-                total_tokens += message_tokens
-            else:
-                content = message["content"]
-                available_tokens = max_tokens - total_tokens
-                if available_tokens > 50:
-                    while await self._count_tokens(content) > available_tokens and len(content) > 50:
-                        content = content[:int(len(content) * 0.9)]
-                    truncated_message = {"role": message["role"], "content": content}
-                    truncated_messages.insert(
-                        -len([m for m in truncated_messages if m.get("role") != "system"]) or len(truncated_messages),
-                        truncated_message)
-                break
-
-        return truncated_messages
+    async def _truncate_messages(
+            self, messages: List[Dict[str, str]], max_tokens: int = 5120
+    ) -> List[Dict[str, str]]:
+        truncator = MessageTruncator(self._count_tokens)
+        return await truncator.truncate_messages(
+            messages=messages,
+            max_tokens=max_tokens,
+            min_system_chars=100,
+            min_content_chars=50,
+        )
 
     async def generate(self, prompt: str, **kwargs) -> str:
-        """Generate text using vLLM API with prompt format"""
-        if 'temperature' not in kwargs:
-            kwargs['temperature'] = 0
+        if "temperature" not in kwargs:
+            kwargs["temperature"] = 0
 
-        messages = [
-            {"role": "user", "content": prompt}
-        ]
-
+        messages = [{"role": "user", "content": prompt}]
         messages = await self._truncate_messages(messages, max_tokens=5120)
-
         response = await self.chat(messages=messages, stream=False, **kwargs)
-        return response.get("choices", [{}])[0].get("message", {}).get("content", "")
+        return self._extract_content_from_response(response)
 
-    async def chat(self, messages: List[Dict[str, str]], stream: bool = False, **kwargs):
+    async def chat(
+            self, messages: List[Dict[str, str]], stream: bool = False, **kwargs
+    ):
         session = await self._get_session()
-
-        if 'temperature' not in kwargs:
-            kwargs['temperature'] = 0
-
-        messages = await self._truncate_messages(messages, max_tokens=5120)
-
-        payload = {
-            "model": self.model,
-            "messages": messages,
-            "stream": stream,
-            **kwargs
-        }
+        kwargs = self._ensure_temperature(kwargs)
+        payload = await self._build_chat_payload(messages, stream=stream, **kwargs)
 
         if stream:
             return self._stream_chat(session, payload)
         else:
             return await self._non_stream_chat(session, payload)
 
+    async def _build_chat_payload(
+            self,
+            messages: List[Dict[str, str]],
+            stream: bool,
+            **kwargs,
+    ) -> Dict:
+        truncated = await self._truncate_messages(messages, max_tokens=5120)
+        return {
+            "model": self.model,
+            "messages": truncated,
+            "stream": stream,
+            **kwargs,
+        }
+
     async def _stream_chat(self, session, payload):
         async with session.post(
                 f"{self.base_url}/v1/chat/completions",
                 json=payload,
-                timeout=aiohttp.ClientTimeout(total=120)
+                timeout=aiohttp.ClientTimeout(total=120),
         ) as response:
             if response.status == 200:
                 async for line in response.content:
                     if line:
-                        # Parse SSE format for streaming
-                        line_str = line.decode('utf-8').strip()
+                        line_str = line.decode("utf-8").strip()
                         if line_str.startswith("data: "):
                             data_str = line_str[6:]
                             if data_str != "[DONE]":
-                                yield data_str.encode('utf-8')
+                                yield data_str.encode("utf-8")
             else:
                 error_text = await response.text()
                 raise Exception(f"vLLM API error: {response.status} - {error_text}")
 
     async def _non_stream_chat(self, session, payload):
-        # TODO exception aiohttp.client_exceptions.ServerDisconnectedError: Server disconnected
         async with session.post(
                 f"{self.base_url}/v1/chat/completions",
                 json=payload,
-                timeout=aiohttp.ClientTimeout(total=120)
+                timeout=aiohttp.ClientTimeout(total=120),
         ) as response:
             if response.status == 200:
                 result = await response.json()
@@ -237,37 +201,57 @@ class VLLMService:
             question: str,
             context: str,
             conversation_history: Optional[List[Dict[str, str]]] = None,
-            **kwargs
+            **kwargs,
     ) -> str:
-        messages = []
+        if "temperature" not in kwargs:
+            kwargs["temperature"] = 0
 
-        if 'temperature' not in kwargs:
-            kwargs['temperature'] = 0
+        messages = self._build_context_messages(question, context, conversation_history)
+        messages = await self._truncate_messages(messages, max_tokens=5120)
+        response = await self.chat(messages=messages, stream=False, **kwargs)
+        return self._extract_content_from_response(
+            response,
+            default="I couldn't generate a response. Please try again.",
+        )
 
-        if conversation_history and len(conversation_history) > 0:
-            # Take only the last 3 messages (1 conversation turn)
-            limited_history = conversation_history[-3:] if len(conversation_history) >= 3 else conversation_history[
-                                                                                               -len(
-                                                                                                   conversation_history):]
-            messages.extend(limited_history)
+    def _build_context_messages(
+            self,
+            question: str,
+            context: str,
+            conversation_history: Optional[List[Dict[str, str]]] = None,
+    ) -> List[Dict[str, str]]:
+        messages: List[Dict[str, str]] = []
 
-        system_message = f"{ChatbotConfigurationService().get_prompt()}\n{context}"
+        if conversation_history:
+            messages.extend(self._limit_conversation_history(conversation_history))
 
+        system_message = self._build_system_message_with_context(context)
         if not messages or messages[0].get("role") != "system":
             messages.insert(0, {"role": "system", "content": system_message})
 
         messages.append({"role": "user", "content": question})
-        messages = await self._truncate_messages(messages, max_tokens=5120)
-        response = await self.chat(
-            messages=messages,
-            stream=False,
-            **kwargs
-        )
+        return messages
 
+    @staticmethod
+    def _limit_conversation_history(
+            conversation_history: List[Dict[str, str]],
+            max_items: int = 3,
+    ) -> List[Dict[str, str]]:
+        if len(conversation_history) <= max_items:
+            return conversation_history[-len(conversation_history):]
+        return conversation_history[-max_items:]
+
+    @staticmethod
+    def _build_system_message_with_context(context: str) -> str:
+        return f"{ChatbotConfigurationService().get_prompt()}\n{context}"
+
+    @staticmethod
+    def _extract_content_from_response(response: Dict, default: str = "") -> str:
         if response and "choices" in response and len(response["choices"]) > 0:
-            return response["choices"][0]["message"]["content"]
-        else:
-            return "I couldn't generate a response. Please try again."
+            return (
+                response["choices"][0].get("message", {}).get("content", default or "")
+            )
+        return default
 
     async def close(self):
         if self.session:

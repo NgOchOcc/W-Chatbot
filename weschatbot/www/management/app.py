@@ -1,4 +1,4 @@
-from functools import wraps, reduce
+from functools import wraps
 
 from flask import Flask, render_template
 from flask_login import LoginManager, login_required

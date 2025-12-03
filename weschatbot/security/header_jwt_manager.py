@@ -14,9 +14,11 @@ class FastAPIJWTHeaderManager(FastAPIJWTManager):
         try:
             return super().required(credential)
         except TokenExpiredError as e:
-            raise HTTPException(status_code=401, detail=f"{e}")
+            self.log.debug(e)
+            raise HTTPException(status_code=401, detail="Token is expired")
         except TokenInvalidError as e:
-            raise HTTPException(status_code=401, detail=f"{e}")
+            self.log.debug(e)
+            raise HTTPException(status_code=401, detail="Token is invalid")
 
     def refresh_required(self, credential=Depends(reusable_oauth2)):
         return super().refresh_required(credential)

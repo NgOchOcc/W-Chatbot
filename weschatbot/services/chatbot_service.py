@@ -1,24 +1,26 @@
-from weschatbot.schemas.embedding import RetrievalConfig
-from weschatbot.services.vllm_llm_service import VLLMService
-from weschatbot.services.retrieve_service import Retriever
 from typing import List, Optional, Dict
+
+from weschatbot.schemas.embedding import RetrievalConfig
+from weschatbot.services.retrieve_service import Retriever
+from weschatbot.services.vllm_llm_service import VLLMService
+
 
 class ChatbotPipeline:
     def __init__(
-        self,
-        retrieval_config: RetrievalConfig,
-        vllm_client: VLLMService,
-        chatbot_config
+            self,
+            retrieval_config: RetrievalConfig,
+            vllm_client: VLLMService,
+            chatbot_config
     ):
         self.retriever = Retriever(retrieval_config)
         self.vllm_client = vllm_client
         self.chatbot_config = chatbot_config
 
     async def run(
-        self,
-        query: str,
-        conversation_history: Optional[List[Dict[str, str]]] = None,
-        filter_expr: Optional[str] = None
+            self,
+            query: str,
+            conversation_history: Optional[List[Dict[str, str]]] = None,
+            filter_expr: Optional[str] = None
     ) -> Dict:
         retrieved_docs = await self.retriever.retrieve(query, filter_expr)
         context = "\n".join([doc['text'] for doc in retrieved_docs if doc['text'].strip()])

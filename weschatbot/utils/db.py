@@ -66,5 +66,3 @@ def provide_async_session(func):
                 return await func(*args, **kwargs)
 
     return wrapper
-
-

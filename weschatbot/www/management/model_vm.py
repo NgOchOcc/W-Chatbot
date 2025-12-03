@@ -1,13 +1,16 @@
 import hashlib
 import json
+import logging
 import os
+import tempfile
 import uuid
 from datetime import datetime
 from functools import reduce, wraps
+from typing import Optional
 
-# from docutils.nodes import title
 from flask import Blueprint, request, abort, render_template, redirect, flash
 from flask_login import current_user
+from werkzeug.datastructures import FileStorage
 
 from weschatbot.log.logging_mixin import LoggingMixin
 from weschatbot.services.rbac_service import RBACService
@@ -16,11 +19,84 @@ from weschatbot.utils.db import provide_session
 from weschatbot.www.management.utils import get_auto_field_types, is_relationship, relationship_class, \
     relationship_data, outside_url_for
 
+logger = logging.getLogger(__name__)
+
 
 @provide_session
 def permissions_by_user(user_id, session=None):
     res = RBACService.get_object_permissions(current_user.role.id, session=session)
     return res
+
+
+class UploadError(Exception):
+    pass
+
+
+def save_upload_file(
+        upload_file: FileStorage,
+        dest_folder: str,
+        *,
+        max_size: int = config.getint("core", "upload_max_file_size"),
+        chunk_size: int = 64 * 1024
+) -> str:
+    if not upload_file or not getattr(upload_file, "filename", None):
+        raise UploadError("No file provided")
+
+    filename = secure_filename(upload_file.filename)
+    if not filename:
+        raise UploadError("Invalid filename")
+
+    content_length = getattr(upload_file, "content_length", None)
+    if content_length is not None and content_length > max_size:
+        raise UploadError("Content-Length exceeds limit")
+
+    tmp_path: Optional[str] = None
+    try:
+        tmp = tempfile.NamedTemporaryFile(delete=False)
+        tmp_path = tmp.name
+        total = 0
+
+        while True:
+            chunk = upload_file.stream.read(chunk_size)
+            if not chunk:
+                break
+            total += len(chunk)
+            if total > max_size:
+                tmp.close()
+                os.unlink(tmp_path)
+                raise UploadError("File size exceeds limit")
+            tmp.write(chunk)
+
+        tmp.flush()
+        tmp.close()
+
+        os.makedirs(dest_folder, exist_ok=True)
+        dest_path = os.path.join(dest_folder, filename)
+
+        if os.path.exists(dest_path):
+            base, ext = os.path.splitext(filename)
+            counter = 1
+            while True:
+                new_name = f"{base}_{counter}{ext}"
+                new_path = os.path.join(dest_folder, new_name)
+                if not os.path.exists(new_path):
+                    dest_path = new_path
+                    break
+                counter += 1
+
+        os.replace(tmp_path, dest_path)
+        tmp_path = None
+        return dest_path
+
+    except UploadError:
+        raise
+    except Exception as exc:
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.unlink(tmp_path)
+            except Exception:
+                pass
+        raise UploadError("Internal error while saving file") from exc
 
 
 def check_permission(permission):
@@ -494,11 +570,14 @@ class ViewModel(LoggingMixin):
                     res = UpdateValue(session.query(rel_class).filter(rel_class.id.in_(req_value)).all())
                 case "file_upload":
                     if field in request.files and request.files[field].filename:
-                        upload_file_name = secure_filename(request.files[field].filename)
-                        upload_file_path = f"{config['core']['upload_file_folder']}/{upload_file_name}"
-                        file = request.files[field]
-                        file.save(os.path.join(config["core"]["upload_file_folder"], upload_file_name))
-                        res = UpdateValue(upload_file_path)
+                        try:
+                            file = request.files[field]
+                            upload_file_path = save_upload_file(upload_file=file,
+                                                                dest_folder=config.get("core", "upload_file_folder"))
+                            res = UpdateValue(upload_file_path)
+                        except UploadError as e:
+                            flash(f"{e}", "danger")
+                            return redirect(self.list_view_model.search_url_func()), 302
                     else:
                         res = NoUpdate()
                 case _:
@@ -530,67 +609,72 @@ class ViewModel(LoggingMixin):
         model.item = item
         model_json = json.dumps(model.to_dict(session), default=str)
 
-        return render_template(self.update_template, model=model_json,
-                               title=f"Update {self.model_class.__name__}: {item_name_func() if item_name_func else self.update_view_model.item_name()}"), 200
+        title = f"Update {self.model_class.__name__}: \
+            {item_name_func() if item_name_func else self.update_view_model.item_name()}"
+        return render_template(
+            self.update_template, model=model_json,
+            title=title
+        ), 200
 
     @provide_session
     def update_item_post(self, item_id, session=None):
-
-        item = session.query(self.model_class).filter_by(id=item_id).one_or_none()
-        field_types = get_auto_field_types(self.model_class, self.update_fields, self.field_types)
-        for field in self.update_fields:
-            res = NoUpdate()
-            if field in self.disabled_update_fields:
-                continue
-            if field_types[field].lower() == "relationship_many":
-                req_value = request.form.getlist(field)
-                rel_class = relationship_class(self.model_class, field)
-                res = UpdateValue(session.query(rel_class).filter(rel_class.id.in_(req_value)).all())
-            elif field_types[field].lower() == "relationship_one":
-                req_value = request.form[field]
-                rel_class = relationship_class(self.model_class, field)
-                res = UpdateValue(session.query(rel_class).filter_by(id=req_value).one_or_none())
-            elif field_types[field] == "file_upload":
-                if field in request.files and request.files[field].filename:
-                    upload_file_name = secure_filename(request.files[field].filename)
-                    file = request.files[field]
-                    file.save(os.path.join("/tmp/flask_files", upload_file_name))
-                    res = UpdateValue(upload_file_name)
-                else:
-                    res = NoUpdate()
-            else:
-                value = request.form.get(field, None)
-                match field_types[field].lower():
-                    case "boolean":
-                        value = request.form.get(field, False)
-                        if value in ("true", "True", "1", 1):
-                            res = UpdateValue(True)
-                        else:
-                            res = UpdateValue(False)
-                    case "date":
-                        res = UpdateValue(datetime.fromtimestamp(int(value) / 1000.0))
-                    case "string":
-                        res = UpdateValue(value)
-                    case "select":
-                        res = UpdateValue(value)
-                    case "timestamp":
-                        res = UpdateValue(datetime.fromisoformat(value))
-                    case "float":
-                        res = UpdateValue(float(value))
-                    case "text":
-                        res = UpdateValue(str(value))
-                    case "integer":
-                        res = UpdateValue(int(value))
-                    case _:
-                        res = NoUpdate()
-            if res.is_updated():
-                setattr(item, field, res.value)
-
-        session.add(item)
-        flash("Successfully updated the item", "success")
         try:
+            item = session.query(self.model_class).filter_by(id=item_id).one_or_none()
+            field_types = get_auto_field_types(self.model_class, self.update_fields, self.field_types)
+            for field in self.update_fields:
+                res = NoUpdate()
+                if field in self.disabled_update_fields:
+                    continue
+                if field_types[field].lower() == "relationship_many":
+                    req_value = request.form.getlist(field)
+                    rel_class = relationship_class(self.model_class, field)
+                    res = UpdateValue(session.query(rel_class).filter(rel_class.id.in_(req_value)).all())
+                elif field_types[field].lower() == "relationship_one":
+                    req_value = request.form[field]
+                    rel_class = relationship_class(self.model_class, field)
+                    res = UpdateValue(session.query(rel_class).filter_by(id=req_value).one_or_none())
+                elif field_types[field] == "file_upload":
+                    if field in request.files and request.files[field].filename:
+                        upload_file_name = secure_filename(request.files[field].filename)
+                        file = request.files[field]
+                        file.save(os.path.join("/tmp/flask_files", upload_file_name))
+                        res = UpdateValue(upload_file_name)
+                    else:
+                        res = NoUpdate()
+                else:
+                    value = request.form.get(field, None)
+                    match field_types[field].lower():
+                        case "boolean":
+                            value = request.form.get(field, False)
+                            if value in ("true", "True", "1", 1):
+                                res = UpdateValue(True)
+                            else:
+                                res = UpdateValue(False)
+                        case "date":
+                            res = UpdateValue(datetime.fromtimestamp(int(value) / 1000.0))
+                        case "string":
+                            res = UpdateValue(value)
+                        case "select":
+                            res = UpdateValue(value)
+                        case "timestamp":
+                            res = UpdateValue(datetime.fromisoformat(value))
+                        case "float":
+                            res = UpdateValue(float(value))
+                        case "text":
+                            res = UpdateValue(str(value))
+                        case "integer":
+                            res = UpdateValue(int(value))
+                        case _:
+                            res = NoUpdate()
+                if res.is_updated():
+                    setattr(item, field, res.value)
+
+            session.add(item)
+            flash("Successfully updated the item", "success")
             return redirect(self.list_view_model.search_url_func()), 302
         except Exception as e:
+            self.log.error(e)
+            flash("Error update the item", "danger")
             return redirect(self.list_view_model.detail_url_func(item_id=item_id)), 302
 
     @provide_session
@@ -634,8 +718,10 @@ class ViewModel(LoggingMixin):
             return abort(404)
         res = self.detail_view_model
         res.item = item
-        return render_template(self.detail_template, model=json.dumps(res.to_dict(), default=str),
-                               title=f"Details of {self.model_class.__name__}: {self.detail_view_model.item_name()}"), 200
+        return render_template(
+            self.detail_template, model=json.dumps(res.to_dict(), default=str),
+            title=f"Details of {self.model_class.__name__}: {self.detail_view_model.item_name()}"
+        ), 200
 
 
 class SingleViewModel(ViewModel):

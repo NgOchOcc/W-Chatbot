@@ -1,4 +1,5 @@
 import json
+import logging
 from typing import List, Dict
 
 from fastapi import Depends, Form, FastAPI, WebSocket, Request, Cookie, status, HTTPException, Response
@@ -27,6 +28,8 @@ from weschatbot.utils.config import config
 from weschatbot.utils.limiter import limiter
 from weschatbot.utils.redis_config import redis_client
 from weschatbot.www.chatbot_ui.csrfsettings import CsrfSettings
+
+logger = logging.getLogger(__name__)
 
 
 @CsrfProtect.load_config
@@ -83,11 +86,14 @@ chatbot_pipeline = ChatbotPipeline(
 async def catch_exceptions_middleware(request: Request, call_next):
     try:
         return await call_next(request)
-    except TokenInvalidError:
+    except TokenInvalidError as e:
+        logger.warning(e)
         return RedirectResponse(app.url_path_for("login_get"), 302)
-    except TokenExpiredError:
+    except TokenExpiredError as e:
+        logger.warning(e)
         return RedirectResponse(app.url_path_for("login_get"), 302)
-    except Exception:
+    except Exception as e:
+        logger.exception(e)
         return JSONResponse(
             {"detail": "Internal server error"},
             status_code=500,
@@ -99,15 +105,18 @@ jwt_manager = FastAPICookieJwtManager(
     security_algorithm=config["jwt"]["security_algorithm"]
 )
 
+
 @app.exception_handler(TokenExpiredError)
 async def token_expired_exception_handler(request: Request, exc: TokenExpiredError):
     login_url = app.url_path_for("login_get")
     return RedirectResponse(url=login_url, status_code=302)
 
+
 @app.exception_handler(TokenInvalidError)
 async def token_invalid_exception_handler(request: Request, exc: TokenInvalidError):
     login_url = app.url_path_for("login_get")
     return RedirectResponse(url=login_url, status_code=302)
+
 
 def return_login_form(request: Request, csrf: CsrfProtect, error=None):
     token, _ = csrf.generate_csrf_tokens()
@@ -159,9 +168,10 @@ def login_post(request: Request, username: str = Form(...), password: str = Form
 
         return response
     except InvalidUserError as e:
+        logger.warning(e)
         return return_login_form(request, csrf, str(e))
     except Exception as e:
-        print(e)
+        logger.exception(e)
         return return_login_form(request, csrf, str(e))
 
 
@@ -207,7 +217,8 @@ async def delete_chat(chat_id: str, payload: dict = Depends(jwt_manager.required
     try:
         session_service.delete_session(user_id=user_id, chat_id=chat_id)
     except NotPermissionError as e:
-        raise HTTPException(status_code=401, detail=str(e))
+        logger.warning(e)
+        raise HTTPException(status_code=401, detail="Not enough permission")
 
 
 def get_conversation_history_from_chat(chat) -> List[Dict[str, str]]:
@@ -291,8 +302,8 @@ async def websocket_endpoint(websocket: WebSocket,
                                                                    message_id=message_id)
 
                 except Exception as e:
-                    answer = f"An error occurred. Please try again!"
-                    print(f"Error calling chatbot pipeline: {e}")
+                    answer = "An error occurred. Please try again!"
+                    logger.exception(f"Error calling chatbot pipeline: {e}")
 
                 res = {
                     "text": f"{answer}"
@@ -303,4 +314,4 @@ async def websocket_endpoint(websocket: WebSocket,
             await process_message()
 
     except WebSocketDisconnect:
-        print("Client disconnected")
+        logger.info("Client disconnected")

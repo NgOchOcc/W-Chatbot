@@ -2,6 +2,7 @@ import json
 
 from weschatbot.models.user import Document
 from weschatbot.services.celery_service import convert_document
+from weschatbot.utils.config import config
 from weschatbot.utils.db import provide_session
 from weschatbot.www.management.model_vm import ViewModel
 from flask import redirect, flash, render_template
@@ -42,12 +43,15 @@ class ViewModelDocument(ViewModel):
         if converted_path is None:
             flash("Item not found", "danger")
             return redirect(self.list_view_model.search_url_func()), 302
-        with open(converted_path, "r") as f:
-            converted_content = f.read()
-        model = {
-            "converted_content": converted_content
-        }
-        return render_template("management/converted_document.html", model=json.dumps(model, default=str))
+
+        if converted_path.startswith(config["core"]["converted_file_folder"]):
+            with open(converted_path, "r") as f:
+                converted_content = f.read()
+            model = {
+                "converted_content": converted_content
+            }
+            return render_template("management/converted_document.html", model=json.dumps(model, default=str))
+        return redirect(self.list_view_model.search_url_func()), 302
 
     def register(self, flask_app_or_bp):
         super(ViewModelDocument, self).register(flask_app_or_bp)

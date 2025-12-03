@@ -1,17 +1,21 @@
 import base64
+import logging
 
 from pymilvus import connections, FieldSchema, CollectionSchema, DataType, utility, Collection
 from pymilvus import list_collections
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import joinedload
 
-from weschatbot.exceptions.collection_exception import CollectionNotFoundException, ExistingCollectionDocumentException, \
-    StatusNotFound
+from weschatbot.exceptions.collection_exception import CollectionNotFoundException, \
+    ExistingCollectionDocumentException, StatusNotFound
+from weschatbot.log.logging_mixin import LoggingMixin
 from weschatbot.models.user import Collection as WCollection, Document, DocumentStatus, CollectionDocumentStatus, \
     CollectionDocument
 from weschatbot.schemas.collection import CollectionDesc, MilvusNotFoundCollectionDesc
 from weschatbot.services.celery_service import index_collection_to_milvus
 from weschatbot.utils.db import provide_session
+
+logger = logging.getLogger(__name__)
 
 
 class Base64URL:
@@ -27,7 +31,7 @@ class Base64URL:
         return base64.urlsafe_b64encode(data.encode()).decode().rstrip("=")
 
 
-class CollectionService:
+class CollectionService(LoggingMixin):
     def __init__(self, host, port):
         self.host = host
         self.port = port
@@ -52,7 +56,7 @@ class CollectionService:
         if output_fields is None:
             output_fields = [field.name for field in collection.schema.fields]
 
-        results = collection.query(limit=int(limit), expr=f"row_id > {min_row_id}", output_fields=output_fields)
+        results = collection.query(limit=int(limit), expr=f"row_id > {int(min_row_id)}", output_fields=output_fields)
         max_row_id = results[-1]["row_id"]
         if len(results) < int(limit):
             return results, None
@@ -68,7 +72,7 @@ class CollectionService:
             output_fields = [field.name for field in collection.schema.fields]
 
         result = collection.query(
-            expr=f"row_id == {row_id}",
+            expr=f"row_id == {int(row_id)}",
             out_fields=output_fields
         )
         return result, None
@@ -83,7 +87,7 @@ class CollectionService:
             output_fields = [field.name for field in collection.schema.fields]
 
         results = collection.query(
-            expr=f"row_id >= 0",
+            expr="row_id >= 0",
             output_fields=output_fields,
             limit=limit
         )
@@ -136,6 +140,7 @@ class CollectionService:
             except SQLAlchemyError:
                 session.rollback()
                 raise
+        raise CollectionNotFoundException(f"Collection {collection_id} not found in DB")
 
     @staticmethod
     def create_collection(
@@ -154,9 +159,9 @@ class CollectionService:
         if utility.has_collection(collection_name):
             if overwrite:
                 utility.drop_collection(collection_name)
-                print(f"Dropped existing collection '{collection_name}'")
+                logger.info(f"Dropped existing collection '{collection_name}'")
             else:
-                print(f"Collection '{collection_name}' already exists, will refer to this collection.")
+                logger.info(f"Collection '{collection_name}' already exists, will refer to this collection.")
                 return True
 
         fields = [
@@ -172,7 +177,7 @@ class CollectionService:
 
         schema = CollectionSchema(
             fields=fields,
-            description=f"Document collection with chunked text and embeddings"
+            description="Document collection with chunked text and embeddings"
         )
 
         schema.enable_dynamic_field = True
@@ -192,7 +197,7 @@ class CollectionService:
             index_params=index_params
         )
 
-        print(f"Successfully created collection '{collection_name}' with custom schema (dim={dim})")
+        logger.info(f"Successfully created collection '{collection_name}' with custom schema (dim={dim})")
         return True
 
     @provide_session
@@ -223,7 +228,7 @@ class CollectionService:
 
         status = session.query(CollectionDocumentStatus).filter_by(name="new").first()
         if not status:
-            raise StatusNotFound(f"Status new is not found")
+            raise StatusNotFound("Status 'new' is not found")
 
         new_link = CollectionDocument(
             collection_id=collection_id,
@@ -305,12 +310,15 @@ class CollectionService:
 
     @provide_session
     def delete_entities(self, collection_id, row_id, session=None):
-        collection = session.get(WCollection, collection_id)
-        if collection:
-            self.connect()
-            collection_name = collection.name
-            milvus_collection = Collection(collection_name)
-            milvus_collection.delete(expr=f"row_id == {row_id}")
-            milvus_collection.flush()
-        else:
-            raise CollectionNotFoundException(f"Collection {collection_id} is not found")
+        try:
+            collection = session.get(WCollection, collection_id)
+            if collection:
+                self.connect()
+                collection_name = collection.name
+                milvus_collection = Collection(collection_name)
+                milvus_collection.delete(expr=f"row_id == {int(row_id)}")
+                milvus_collection.flush()
+            else:
+                raise CollectionNotFoundException(f"Collection {collection_id} is not found")
+        except ValueError as e:
+            raise e

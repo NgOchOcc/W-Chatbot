@@ -3,6 +3,12 @@ from fastapi.security import HTTPAuthorizationCredentials
 
 from weschatbot.security.exceptions import TokenExpiredError, TokenInvalidError
 from weschatbot.security.fastapi_jwt_manager import FastAPIJWTManager
+from weschatbot.utils.config import config
+
+COOKIE_SAMESITE = config["jwt"]["cookie_samesite"]
+COOKIE_SECURE = config.getboolean("jwt", "cookie_secure")
+COOKIE_ACCESS_TOKEN_MAX_AGE = config.getint("jwt", "access_token_expires_in_seconds")
+COOKIE_REFRESH_TOKEN_MAX_AGE = config.getint("jwt", "refresh_token_expires_in_seconds")
 
 
 class CookieJWTConfig:
@@ -27,7 +33,7 @@ class CookieJWT:
 class FastAPICookieJwtManager(FastAPIJWTManager):
     reusable_oauth2 = CookieJWT(CookieJWTConfig())
 
-    def required(self, response: Response, credential_refresh_token=Depends(reusable_oauth2)):
+    async def required(self, response: Response, credential_refresh_token=Depends(reusable_oauth2)):
         refresh_token = None
         try:
             credential, refresh_token = credential_refresh_token
@@ -35,21 +41,29 @@ class FastAPICookieJwtManager(FastAPIJWTManager):
         except TokenInvalidError as e:
             raise e
         except TokenExpiredError as e:
-            if refresh_token:
-                try:
-                    payload, new_access_token = self.refresh(refresh_token=refresh_token)
-                    response.set_cookie(
-                        key=self.reusable_oauth2.access_token_cookie_name,
-                        value=new_access_token,
-                        httponly=True,
-                    )
-                    return payload
-                except TokenExpiredError as e:
-                    raise e
-                except TokenInvalidError as e:
-                    raise e
-                except Exception as e:
-                    raise HTTPException(status_code=401, detail=f"{e}")
+            self.log.debug(e)
+            if not refresh_token:
+                raise HTTPException(status_code=401, detail="Access token expired and no refresh token")
+            try:
+                payload, new_access_token = self.refresh(refresh_token=refresh_token)
+                response.set_cookie(
+                    key=self.reusable_oauth2.access_token_cookie_name,
+                    value=new_access_token,
+                    httponly=True,
+                    samesite=COOKIE_SAMESITE,
+                    secure=COOKIE_SECURE,
+                    max_age=COOKIE_ACCESS_TOKEN_MAX_AGE
+                )
+                return payload
+            except TokenExpiredError as e:
+                self.log.debug(e)
+                raise HTTPException(status_code=401, detail="Refresh token expired")
+            except TokenInvalidError:
+                self.log.debug(e)
+                raise HTTPException(status_code=401, detail="Invalid refresh token")
+            except Exception:
+                self.log.debug("Unexpected error during token refresh")
+                raise HTTPException(status_code=401, detail="Could not refresh token")
 
     def refresh_required(self, credential=Depends(reusable_oauth2)):
         return super().refresh_required(credential)
@@ -58,14 +72,21 @@ class FastAPICookieJwtManager(FastAPIJWTManager):
         response.set_cookie(
             key=self.reusable_oauth2.access_token_cookie_name,
             value=token,
-            httponly=True
+            httponly=True,
+            samesite=COOKIE_SAMESITE,
+            secure=COOKIE_SECURE,
+            max_age=COOKIE_ACCESS_TOKEN_MAX_AGE
         )
 
         response.set_cookie(
             key=self.reusable_oauth2.refresh_token_cookie_name,
             value=refresh_token,
-            httponly=True
+            httponly=True,
+            samesite=COOKIE_SAMESITE,
+            secure=COOKIE_SECURE,
+            max_age=COOKIE_REFRESH_TOKEN_MAX_AGE
         )
 
     def delete_token_cookie(self, response):
         response.delete_cookie(key=self.reusable_oauth2.access_token_cookie_name)
+        response.delete_cookie(key=self.reusable_oauth2.refresh_token_cookie_name)

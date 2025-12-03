@@ -1,7 +1,10 @@
+import logging
 import os
 from configparser import ConfigParser
 
 app_name = "weschatbot"
+
+logger = logging.getLogger(__name__)
 
 
 def get_config(app_home=None):

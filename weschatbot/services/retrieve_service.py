@@ -1,12 +1,14 @@
 from typing import List, Dict, Optional
-from pymilvus import Collection
-from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 
-from weschatbot.schemas.embedding import EmbeddingMode, RetrievalConfig
+from llama_index.embeddings.huggingface import HuggingFaceEmbedding
+from pymilvus import Collection
+
+from weschatbot.log.logging_mixin import LoggingMixin
+from weschatbot.schemas.embedding import RetrievalConfig
 from weschatbot.services.vllm_embedding_service import VLLMEmbeddingService
 
 
-class Retriever:
+class Retriever(LoggingMixin):
     def __init__(self, config: RetrievalConfig):
         self.config = config
         self.collection = Collection(config.collection_name)
@@ -61,7 +63,7 @@ class Retriever:
                 }
                 retrieved_docs.append(doc)
 
-        print("Retrieved Documents:", retrieved_docs)
+        self.log.info("Retrieved Documents:", retrieved_docs)
         return retrieved_docs
 
     async def close(self):

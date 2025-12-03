@@ -8,11 +8,18 @@ from weschatbot.utils.config import config
 class FlaskJWTManager(JWTManager):
 
     @staticmethod
-    def get_bearer_token():
-        bearer_token = request.headers.get("Authorization")
-        if not bearer_token:
+    def _extract_bearer(header_value: str) -> str:
+        if not header_value:
             raise TokenInvalidError("Bearer token is missing")
-        return bearer_token.removeprefix("Bearer ").strip().removeprefix("bearer ").strip()
+        token = header_value.strip()
+        if token.lower().startswith("bearer "):
+            return token[len("bearer "):].strip()
+        return token
+
+    @staticmethod
+    def get_bearer_token():
+        header = request.headers.get("Authorization")
+        return FlaskJWTManager._extract_bearer(header)
 
     def get_payload(self):
         token = self.get_bearer_token()

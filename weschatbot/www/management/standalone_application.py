@@ -1,3 +1,5 @@
+import logging.config
+
 from gunicorn.app.base import BaseApplication
 
 from weschatbot.log.logging_mixin import LoggingMixin
@@ -14,6 +16,12 @@ class StandaloneApplication(BaseApplication, LoggingMixin):
         for key, value in config.items():
             self.cfg.set(key.lower(), value)
 
+        log_conf = self.options.get("logConfig")
+        if log_conf:
+            self.cfg.set("on_starting",
+                         lambda server: logging.config.fileConfig(log_conf, disable_existing_loggers=False))
+            self.cfg.set("post_fork",
+                         lambda server, worker: logging.config.fileConfig(log_conf, disable_existing_loggers=False))
+
     def load(self):
         return self.application
-

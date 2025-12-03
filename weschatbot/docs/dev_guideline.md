@@ -4,14 +4,14 @@
 
 ```shell
 cd base_image
-docker build -t chatbot-base:0.0.1 .
+docker build -t chatbot-base:0.0.2 .
 cd ..
 ```
 
 ### Application image
 
 ```shell
-docker build -t westaco-chatbot:0.0.1 .
+docker build -t westaco-chatbot:0.0.2 .
 ```
 
 ### Start chatbot-ui
@@ -42,7 +42,7 @@ docker exec -it westaco-mysql mysql -u root -pAdcef#1234 -e "create database cha
 docker run --rm --network westaco_chatbot \
   --name westaco-init-db \
   -e WESCHATBOT__DB__SQL_ALCHEMY_CONN=mysql://root:Adcef#1234@westaco-mysql:3306/chatbot \
-  westaco-chatbot:0.0.1 \
+  westaco-chatbot:0.0.2 \
   alembic upgrade head
 ```
 
@@ -79,7 +79,7 @@ docker run -d -p 3000:3000 \
   -v weschatbot_uploads_volume:/srv/weschatbot/uploads \
   -v weschatbot_converted_volume:/srv/weschatbot/converted \
   -v weschatbot_models_volume:/root/.cache/huggingface \
-  westaco-chatbot:0.0.1 \
+  westaco-chatbot:0.0.2 \
   weschatbot chatbot start bind=0.0.0.0:3000 worker_class=uvicorn.workers.UvicornWorker workers=4
 ```
 
@@ -100,7 +100,7 @@ docker run -d -p 9090:5000 \
   --network milvus \
   -v weschatbot_uploads_volume:/srv/weschatbot/uploads \
   -v weschatbot_converted_volume:/srv/weschatbot/converted \
-  westaco-chatbot:0.0.1 \
+  westaco-chatbot:0.0.2 \
   weschatbot management start bind=0.0.0.0:5000 timeout=120 workers=4
 ```
 
@@ -122,7 +122,7 @@ docker run -d --gpus all \
   -v weschatbot_uploads_volume:/srv/weschatbot/uploads \
   -v weschatbot_converted_volume:/srv/weschatbot/converted \
   -v weschatbot_datalab_models_volume:/root/.cache/datalab/models/ \
-  westaco-chatbot:0.0.1 \
+  westaco-chatbot:0.0.2 \
   weschatbot worker start
 ```
 
@@ -142,7 +142,7 @@ docker run -d --gpus all \
     -e WESCHATBOT__REDIS__HOST=westaco-redis \
     -e WESCHATBOT__REDIS__PORT=6379 \
     -v weschatbot_models_volume:/root/.cache/huggingface \
-    westaco-chatbot:0.0.1 \
+    westaco-chatbot:0.0.2 \
     python -m vllm.entrypoints.openai.api_server \
     --model AlphaGaO/Qwen3-14B-GPTQ \
     --max-model-len 5500 \
@@ -165,7 +165,7 @@ docker run -d --gpus all \
   -e WESCHATBOT__REDIS__PORT=6379 \
   -v weschatbot_uploads_volume:/srv/weschatbot/uploads \
   -v weschatbot_models_volume:/root/.cache/huggingface \
-  westaco-chatbot:0.0.1 \
+  westaco-chatbot:0.0.2 \
   python -m vllm.entrypoints.openai.api_server \
   --model Qwen/Qwen3-Embedding-0.6B \
   --max-model-len 2048 \

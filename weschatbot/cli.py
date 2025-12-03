@@ -1,11 +1,9 @@
-from logging import DEBUG, INFO
-
 import click
-import uvicorn
 
+from weschatbot.log import setting
 from weschatbot.models.base import Base
 from weschatbot.services.document.document_service import DocumentService
-from weschatbot.utils import setting
+from weschatbot.worker.celery_worker import celery_app
 
 
 @click.group()
@@ -45,11 +43,18 @@ def db():
 
 @worker.command("start")
 def worker_start():
-    from weschatbot.worker.celery_worker import worker as celery_worker
-    celery_worker().start()
+    from celery.signals import setup_logging
+
+    @setup_logging.connect
+    def config_logger(*args, **kwargs):
+        setting.logging_setting()
+
+    wk = celery_app().Worker()
+    wk.start()
 
 
 def init_db():
+    from weschatbot.utils import setting
     from weschatbot.models.user import Role  # noqa
     from weschatbot.models.user import User  # noqa
     from weschatbot.models.user import ChatSession  # noqa

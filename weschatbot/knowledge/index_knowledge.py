@@ -1,9 +1,13 @@
-from sentence_transformers import SentenceTransformer
+import logging
+
 from pymilvus import (
     connections, FieldSchema, CollectionSchema, DataType, Collection, utility
 )
+from sentence_transformers import SentenceTransformer
 
 from weschatbot.utils.config import config
+
+logger = logging.getLogger(__name__)
 
 
 def main():
@@ -35,7 +39,7 @@ def main():
     ]
 
     insert_result = kb_collection.insert(entities)
-    print("Inserted data:", insert_result.primary_keys)
+    logger.info("Inserted data:", insert_result.primary_keys)
 
     kb_collection.create_index(field_name="embedding",
                                index_params={"index_type": "IVF_FLAT", "metric_type": "L2", "params": {"nlist": 128}})
@@ -48,9 +52,9 @@ def delete_collection(collection_name):
 
     if collection_name in utility.list_collections():
         utility.drop_collection(collection_name)
-        print(f"Collection '{collection_name}' is successfully deleted.")
+        logger.info(f"Collection '{collection_name}' is successfully deleted.")
     else:
-        print(f"Collection '{collection_name}' is not exist.")
+        logger.info(f"Collection '{collection_name}' is not exist.")
 
 
 def show_collection_data(collection_name):
@@ -62,12 +66,11 @@ def show_collection_data(collection_name):
 
     results = collection.query(expr="pk >= 0", output_fields=["text", "embedding"])
 
-    print("Data in collection:")
+    logger.info("Data in collection:")
     for data in results:
-        print(data)
+        logger.info(data)
 
 
 if __name__ == '__main__':
     delete_collection("enterprise_kb")
-    # show_collection_data("enterprise_kb")
     main()

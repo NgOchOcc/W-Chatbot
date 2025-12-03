@@ -13,7 +13,7 @@ from weschatbot.models.user import ChatMessage  # noqa
 from weschatbot.models.user import ChatStatus  # noqa
 from weschatbot.models.user import ChatSession  # noqa
 from weschatbot.models.job import *  # noqa
-from weschatbot.models.user import *
+from weschatbot.models.user import *  # noqa
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
