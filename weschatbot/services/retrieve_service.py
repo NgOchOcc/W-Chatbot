@@ -29,7 +29,7 @@ class Retriever(LoggingMixin):
             )
             self.embedding_model = None
 
-    async def retrieve(self, query: str, filter_expr: Optional[str] = None) -> List[Dict]:
+    async def retrieve(self, query: str, filter_expr: Optional[str] = None, search_limit=None) -> List[Dict]:
         if str(self.config.embedding_mode) == 'huggingface':
             query_embedding = self.embedding_model.get_text_embedding(query)
         elif str(self.config.embedding_mode) == 'vllm':
@@ -44,13 +44,15 @@ class Retriever(LoggingMixin):
             "params": {"nprobe": 10}
         }
 
+        limit = search_limit if search_limit else self.config.search_limit
+
         results = self.collection.search(
             data=[query_embedding],
             anns_field="embedding",
             param=search_params,
-            limit=self.config.search_limit,
+            limit=limit,
             expr=filter_expr,
-            output_fields=["text"]
+            output_fields=["text", "embedding"]
         )
 
         retrieved_docs = []
@@ -59,11 +61,12 @@ class Retriever(LoggingMixin):
                 doc = {
                     "text": hit.entity.get("text", ""),
                     "score": hit.score,
-                    "id": hit.id
+                    "id": hit.id,
+                    "embedding": hit.entity.get("embedding", []),
                 }
                 retrieved_docs.append(doc)
 
-        self.log.info("Retrieved Documents:", retrieved_docs)
+        # self.log.info("Retrieved Documents:", retrieved_docs)
         return retrieved_docs
 
     async def close(self):

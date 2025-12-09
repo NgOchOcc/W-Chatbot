@@ -53,6 +53,9 @@ setup(
         "user_agents==2.2.0",
         "uvicorn==0.38.0",
         "python-magic==0.4.27",
+        "numpy==2.2.6",
+        "scikit-learn==1.7.2",
+        "pandas==2.2.3",
         "fastapi==0.115.12"
     ]
 )
