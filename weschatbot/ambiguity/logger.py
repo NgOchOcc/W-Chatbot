@@ -1,3 +1,4 @@
+import os
 from typing import List
 
 import pandas as pd
@@ -40,3 +41,50 @@ class CSVLogger(BaseLogger):
 class NullLogger(BaseLogger):
     def log_step(self, step_name: str, chunks: List[Chunk]):
         pass
+
+
+class ParquetLogger(BaseLogger):
+    def __init__(self, filename="pipeline_log.parquet", engine: str = "pyarrow"):
+        self.filename = filename
+        self.engine = engine
+
+        if not os.path.exists(self.filename):
+            pd.DataFrame(columns=[
+                "question_id", "question", "step", "content", "score", "entropy",
+                "cluster", "cluster_label", "silhouette", "decision", "vector"
+            ]).to_parquet(self.filename, engine=self.engine, index=False)
+
+    def log_step(self, step_name: str, chunks: List[Chunk]):
+        data = []
+        for c in chunks:
+            vec = None
+            try:
+                vec = c.vector.tolist() if c.vector is not None else None
+            except Exception:
+                vec = list(c.vector) if c.vector is not None else None
+
+            data.append({
+                "question_id": c.question_id,
+                "question": c.question,
+                "step": step_name,
+                "content": c.content,
+                "score": c.score,
+                "entropy": c.entropy,
+                "cluster": c.cluster,
+                "cluster_label": c.cluster_label,
+                "silhouette": c.silhouette,
+                "decision": c.decision,
+                "vector": vec,
+            })
+        new_df = pd.DataFrame(data)
+
+        if os.path.exists(self.filename):
+            try:
+                existing = pd.read_parquet(self.filename, engine=self.engine)
+                combined = pd.concat([existing, new_df], ignore_index=True)
+            except Exception:
+                combined = new_df
+        else:
+            combined = new_df
+
+        combined.to_parquet(self.filename, engine=self.engine, index=False)
