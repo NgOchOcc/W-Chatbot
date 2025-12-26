@@ -4,9 +4,10 @@ from typing import List
 import pandas as pd
 
 from weschatbot.ambiguity.chunk import Chunk
+from weschatbot.log.logging_mixin import LoggingMixin
 
 
-class BaseLogger:
+class BaseLogger(LoggingMixin):
     def log_step(self, step_name: str, chunks: List[Chunk]):
         raise NotImplementedError
 
@@ -15,8 +16,24 @@ class CSVLogger(BaseLogger):
     def __init__(self, filename="pipeline_log.csv"):
         self.filename = filename
         pd.DataFrame(columns=[
-            "question_id", "question", "step", "content", "score", "entropy",
-            "cluster", "cluster_label", "silhouette", "decision"
+            "question_id",
+            "question",
+            "step",
+            "content",
+            "score",
+            "entropy",
+            "cluster",
+            "cluster_label",
+            "silhouette",
+            "decision",
+            "elbow_idx",
+            "elbow_value",
+            "steepness",
+            "steepness_norm",
+            "steepness_pos_weight",
+            "steepness_combined",
+            "normalized_entropy",
+            "confidence"
         ]).to_csv(self.filename, index=False)
 
     def log_step(self, step_name: str, chunks: List[Chunk]):
@@ -33,6 +50,14 @@ class CSVLogger(BaseLogger):
                 "cluster_label": c.cluster_label,
                 "silhouette": c.silhouette,
                 "decision": c.decision,
+                "elbow_idx": c.elbow_idx,
+                "elbow_value": c.elbow_value,
+                "steepness": c.steepness,
+                "steepness_norm": c.steepness_norm,
+                "steepness_pos_weight": c.steepness_pos_weight,
+                "steepness_combined": c.steepness_combined,
+                "normalized_entropy": c.normalized_entropy,
+                "confidence": c.confidence
             })
         df = pd.DataFrame(data)
         df.to_csv(self.filename, mode="a", header=False, index=False)
@@ -50,8 +75,25 @@ class ParquetLogger(BaseLogger):
 
         if not os.path.exists(self.filename):
             pd.DataFrame(columns=[
-                "question_id", "question", "step", "content", "score", "entropy",
-                "cluster", "cluster_label", "silhouette", "decision", "vector"
+                "question_id",
+                "question",
+                "step",
+                "content",
+                "score",
+                "entropy",
+                "cluster",
+                "cluster_label",
+                "silhouette",
+                "decision",
+                "vector",
+                "elbow_idx",
+                "elbow_value",
+                "steepness",
+                "steepness_norm",
+                "steepness_pos_weight",
+                "steepness_combined",
+                "normalized_entropy",
+                "confidence"
             ]).to_parquet(self.filename, engine=self.engine, index=False)
 
     def log_step(self, step_name: str, chunks: List[Chunk]):
@@ -60,7 +102,8 @@ class ParquetLogger(BaseLogger):
             vec = None
             try:
                 vec = c.vector.tolist() if c.vector is not None else None
-            except Exception:
+            except Exception as e:
+                self.log.debug(e)
                 vec = list(c.vector) if c.vector is not None else None
 
             data.append({
@@ -75,6 +118,14 @@ class ParquetLogger(BaseLogger):
                 "silhouette": c.silhouette,
                 "decision": c.decision,
                 "vector": vec,
+                "elbow_idx": c.elbow_idx,
+                "elbow_value": c.elbow_value,
+                "steepness": c.steepness,
+                "steepness_norm": c.steepness_norm,
+                "steepness_pos_weight": c.steepness_pos_weight,
+                "steepness_combined": c.steepness_combined,
+                "normalized_entropy": c.normalized_entropy,
+                "confidence": c.confidence
             })
         new_df = pd.DataFrame(data)
 
@@ -82,7 +133,8 @@ class ParquetLogger(BaseLogger):
             try:
                 existing = pd.read_parquet(self.filename, engine=self.engine)
                 combined = pd.concat([existing, new_df], ignore_index=True)
-            except Exception:
+            except Exception as e:
+                self.log.debug(e)
                 combined = new_df
         else:
             combined = new_df

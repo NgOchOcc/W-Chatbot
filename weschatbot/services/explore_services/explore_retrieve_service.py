@@ -2,10 +2,12 @@ import asyncio
 
 from tenacity import retry, stop_after_attempt, RetryError, wait_fixed
 
-from weschatbot.ambiguity.ambiguity_pipeline import CosineFilter, EntropyCheck, Clustering, ClusterLabeling, Decision, \
+from weschatbot.ambiguity.ambiguity_pipeline import CosineFilter, SoftmaxEntropy, Clustering, ClusterLabeling, Decision, \
     AmbiguityPipeline
 from weschatbot.ambiguity.chunk import Chunk
+from weschatbot.ambiguity.elbow_detection import ElbowDetection
 from weschatbot.ambiguity.logger import CSVLogger
+from weschatbot.ambiguity.steepness import Steepness
 from weschatbot.log.logging_mixin import LoggingMixin
 from weschatbot.services.retrieve_service import Retriever
 
@@ -17,15 +19,24 @@ async def retrieve_questions(retriever, question, search_limit):
 
 class ExploreRetrieveService(LoggingMixin):
     def __init__(self,
-                 filter_task=CosineFilter(threshold=0.7),
-                 entropy_task=EntropyCheck(),
+                 filter_task=CosineFilter(threshold=0.4),
+                 entropy_task=SoftmaxEntropy(),
+                 elbow_task=ElbowDetection(alpha=0.5, min_index=1, sigma_factor=0.4),
+                 steepness_task=Steepness(alpha=0.8, sigma_factor=0.25),
                  cluster_task=Clustering(n_clusters=2),
                  labeling_task=ClusterLabeling(),
                  decision_task=Decision(),
                  logger=CSVLogger()):
-        self.ambiguity_pipeline = AmbiguityPipeline(filter_task=filter_task, entropy_task=entropy_task,
-                                                    cluster_task=cluster_task, labeling_task=labeling_task,
-                                                    decision_task=decision_task, logger=logger)
+        self.ambiguity_pipeline = AmbiguityPipeline(
+            filter_task=filter_task,
+            entropy_task=entropy_task,
+            elbow_task=elbow_task,
+            steepness_task=steepness_task,
+            cluster_task=cluster_task,
+            labeling_task=labeling_task,
+            decision_task=decision_task,
+            logger=logger
+        )
 
     async def async_collect_data(self, question_file_path, retrieval_config):
         retriever = Retriever(retrieval_config)

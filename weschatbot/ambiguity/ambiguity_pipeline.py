@@ -1,17 +1,14 @@
 from typing import List
 
-import numpy as np
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
 
+from weschatbot.ambiguity.base import BaseTask
 from weschatbot.ambiguity.chunk import Chunk
-from weschatbot.ambiguity.logger import BaseLogger, NullLogger, CSVLogger
-from weschatbot.log.logging_mixin import LoggingMixin
-
-
-class BaseTask(LoggingMixin):
-    def process(self, chunks: List[Chunk]) -> List[Chunk]:
-        return chunks
+from weschatbot.ambiguity.elbow_detection import ElbowDetection
+from weschatbot.ambiguity.entropy import SoftmaxEntropy
+from weschatbot.ambiguity.logger import BaseLogger, CSVLogger
+from weschatbot.ambiguity.steepness import Steepness
 
 
 class CosineFilter(BaseTask):
@@ -34,37 +31,6 @@ class CosineFilter(BaseTask):
         res = filtered if filtered else chunks
         self.log.debug("CosineFilter output:")
         return res
-
-
-class EntropyCheck(BaseTask):
-    def __init__(self, use_softmax: bool = True):
-        self.use_softmax = use_softmax
-
-    def compute_entropy(self, scores: List[float]) -> float:
-        if self.use_softmax:
-            exp_scores = np.exp(scores)
-            probs = exp_scores / np.sum(exp_scores)
-        else:
-            probs = scores / np.sum(scores)
-        return -np.sum(probs * np.log(probs + 1e-12))
-
-    def process(self, chunks: List[Chunk]) -> List[Chunk]:
-        self.log.debug(f"EntropyCheck input: {chunks}")
-        if not chunks:
-            return chunks
-
-        scores = np.array([c.score for c in chunks])
-        entropy = self.compute_entropy(scores)
-        n = len(scores)
-        max_entropy = np.log(n) if n > 1 else 1.0
-        normalized_entropy = entropy / max_entropy
-
-        for c in chunks:
-            c.entropy = normalized_entropy
-
-        self.log.debug(f"normalized_entropy: {normalized_entropy}")
-        self.log.debug(f"EntropyCheck output: {chunks}")
-        return chunks
 
 
 class Clustering(BaseTask):
@@ -122,33 +88,83 @@ class ClusterLabeling(BaseTask):
         return chunks
 
 
+import numpy as np
+
+
+def compute_confidence(
+        entropy,
+        elbow_index,
+        elbow_value,
+        steepness,
+        k=30,
+        w_entropy=0.35,
+        w_elbow=0.30,
+        w_elbow_cosine=0.30,
+        w_steep=0.05
+):
+    entropy_score = 1.0 - entropy
+
+    elbow_index_norm = elbow_index / max(k - 1, 1)
+    elbow_index_score = 1.0 - elbow_index_norm
+
+    elbow_cosine_score = 1.0 - elbow_value
+
+    steepness_score = steepness
+
+    confidence = (
+            w_entropy * entropy_score +
+            w_elbow * elbow_index_score +
+            w_elbow_cosine * elbow_cosine_score +
+            w_steep * steepness_score
+    )
+
+    confidence = float(np.clip(confidence, 0.0, 1.0))
+
+    return confidence
+
+
 class Decision(BaseTask):
+
+    def __init__(self, confidence_threshold=0.35):
+        self.confidence_threshold = confidence_threshold
+
     def process(self, chunks: List[Chunk]) -> List[Chunk]:
         if not chunks:
             return chunks
-        entropy = chunks[0].entropy
-        clusters = set(c.cluster for c in chunks if c.cluster is not None)
+
         decision = "answer_direct"
-        if entropy and entropy > 0.7:
-            decision = "ask_clarification"
-        if len(clusters) > 1:
+
+        first_chunk = chunks[0]
+        entropy = first_chunk.normalized_entropy
+        elbow_index = first_chunk.elbow_idx
+        elbow_value = first_chunk.elbow_value
+        steepness = first_chunk.steepness_norm
+        k = len(chunks)
+        confidence = compute_confidence(entropy, elbow_index, elbow_value, steepness, k)
+
+        if confidence < self.confidence_threshold:
             decision = "ask_clarification"
         for c in chunks:
             c.decision = decision
+            c.confidence = confidence
         return chunks
 
 
 class AmbiguityPipeline:
     def __init__(self,
-                 filter_task: BaseTask = CosineFilter(threshold=0.7),
-                 entropy_task: BaseTask = EntropyCheck(),
+                 filter_task: BaseTask = CosineFilter(threshold=0.4),
+                 entropy_task: BaseTask = SoftmaxEntropy(),
+                 elbow_task: BaseTask = ElbowDetection(alpha=0.5, min_index=1, sigma_factor=0.4),
+                 steepness_task: BaseTask = Steepness(alpha=0.8, sigma_factor=0.25),
                  cluster_task: BaseTask = Clustering(n_clusters=2),
                  labeling_task: BaseTask = ClusterLabeling(),
-                 decision_task: BaseTask = Decision(),
+                 decision_task: BaseTask = Decision(confidence_threshold=0.45),
                  logger: BaseLogger = CSVLogger()):
         self.tasks = [
             ("CosineFilter", filter_task),
             ("EntropyCheck", entropy_task),
+            ("ElbowDetection", elbow_task),
+            ("Steepness", steepness_task),
             ("Clustering", cluster_task),
             ("ClusterLabeling", labeling_task),
             ("Decision", decision_task),
@@ -158,5 +174,6 @@ class AmbiguityPipeline:
     def run(self, chunks: List[Chunk]) -> List[Chunk]:
         for step_name, task in self.tasks:
             chunks = task.process(chunks)
-            self.logger.log_step(step_name, chunks)
+        step_name = "Final"
+        self.logger.log_step(step_name, chunks)
         return chunks

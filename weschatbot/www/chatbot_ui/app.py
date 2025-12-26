@@ -76,7 +76,7 @@ query_service = QueryService()
 
 chatbot_configuration = chatbot_configuration_service.get_configuration()
 
-chatbot_pipeline = ChatbotPipeline(
+chatbot_pipeline = ChatbotAmbiguityHandlingPipeline(
     retrieval_config=retrieval_config,
     vllm_client=vllm_client,
     chatbot_config=chatbot_configuration

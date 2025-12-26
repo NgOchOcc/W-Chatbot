@@ -9,8 +9,10 @@ if __name__ == '__main__':
     connections.connect("default", host=config["milvus"]["host"], port=int(config["milvus"]["port"]))
 
     question_file_path = "data/questions_1.txt"
-    file_logger = ParquetLogger(filename="pipeline_log_1.parquet")
-    explore_retrieve_service = ExploreRetrieveService(logger=file_logger)
+    file_logger = ParquetLogger(filename="pipeline_log_elbow_steepness_entropy.parquet")
+    explore_retrieve_service = ExploreRetrieveService(
+        logger=file_logger
+    )
 
     retrieval_config = RetrievalConfig(
         collection_name="test_vllm_v9",
