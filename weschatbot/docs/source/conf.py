@@ -9,7 +9,7 @@
 project = 'westaco-chatbot'
 copyright = '2025, westaco'
 author = 'westaco'
-release = '0.0.3'
+release = '0.0.4'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
