@@ -19,11 +19,13 @@ import {
     cilAppsSettings,
     cilBank,
     cilBook,
-    cilBookmark, cilChartLine,
+    cilBookmark,
+    cilChartLine,
     cilChatBubble,
     cilFile,
     cilLayers,
-    cilStar, cilTags,
+    cilStar,
+    cilTags,
     cilUser
 } from '@coreui/icons'
 
@@ -67,39 +69,50 @@ function SidebarMenu({userName = 'User', onLogout, currentUser, userPermissions}
             </CSidebarHeader>
 
             <CSidebarNav className={"scroll-stable"}>
-                <CNavTitle>Administration</CNavTitle>
+                <CNavTitle>Overview</CNavTitle>
                 <NavItem href={"/management/ViewModelDashboard/dashboard"} icon={cilChartLine}
                          role={currentUser.role.name}
                          permissions={permissions} value={"Dashboard"}></NavItem>
+                <NavItem href={"/management/ViewModelActiveUser/active_users"} icon={cilStar}
+                         role={currentUser.role.name}
+                         permissions={permissions} value={"Active Users"}></NavItem>
+                <NavItem href={"/management/ViewModelQuery/list"} icon={cilFile} role={currentUser.role.name}
+                         permissions={permissions} value={"Query Results"}></NavItem>
+
+                <CNavTitle>User Management</CNavTitle>
                 <NavItem href={"/management/ViewModelUser/list"} icon={cilUser} role={currentUser.role.name}
                          permissions={permissions} value={"Users"}></NavItem>
-                <NavItem href={"/management/ViewModelRefreshToken/list"} icon={cilTags} role={currentUser.role.name}
-                         permissions={permissions} value={"Tokens"}></NavItem>
-                <NavItem href={"/management/ViewModelChat/list"} icon={cilChatBubble} role={currentUser.role.name}
-                         permissions={permissions} value={"Chats"}></NavItem>
                 <NavItem href={"/management/ViewModelRole/list"} icon={cilBank} role={currentUser.role.name}
                          permissions={permissions} value={"Roles"}></NavItem>
                 <NavItem href={"/management/ViewModelPermission/list"} icon={cilBookmark} role={currentUser.role.name}
                          permissions={permissions} value={"Permissions"}></NavItem>
+                <NavItem href={"/management/ViewModelRefreshToken/list"} icon={cilTags} role={currentUser.role.name}
+                         permissions={permissions} value={"Tokens"}></NavItem>
+
+                <CNavTitle>Knowledge Base</CNavTitle>
                 <NavItem href={"/management/ViewModelDocument/list"} icon={cilFile} role={currentUser.role.name}
                          permissions={permissions} value={"Documents Uploading"}></NavItem>
-                {/*<NavItem href={"/management/ViewModelJob/list"} icon={cilNotes} role={currentUser.role.name}*/}
-                {/*         permissions={permissions} value={"Jobs"}></NavItem>*/}
+
                 <NavItem href={"/management/ViewModelCollection/list"} icon={cilLayers}
                          role={currentUser.role.name}
                          permissions={permissions} value={"Collections"}></NavItem>
+
+                <CNavTitle>Chatbot</CNavTitle>
                 <NavItem href={"/management/ViewModelChatbotConfiguration/"} icon={cilAppsSettings}
                          role={currentUser.role.name}
                          permissions={permissions} value={"Chatbot Configuration"}></NavItem>
-                <NavItem href={"/management/ViewModelQuery/list"} icon={cilFile} role={currentUser.role.name}
-                         permissions={permissions} value={"Query Results"}></NavItem>
-                <NavItem href={"/management/ViewModelActiveUser/active_users"} icon={cilStar}
-                         role={currentUser.role.name}
-                         permissions={permissions} value={"Active Users"}></NavItem>
+                <NavItem href={"/management/ViewModelChat/list"} icon={cilChatBubble} role={currentUser.role.name}
+                         permissions={permissions} value={"Chats"}></NavItem>
+
                 <CNavTitle>Docs</CNavTitle>
                 <CNavItem href="/management/docs">
                     <CIcon customClassName="nav-icon" icon={cilBook}/> Administrator Guideline
                 </CNavItem>
+
+                {/*<NavItem href={"/management/ViewModelJob/list"} icon={cilNotes} role={currentUser.role.name}*/}
+                {/*         permissions={permissions} value={"Jobs"}></NavItem>*/}
+
+
             </CSidebarNav>
             <CSidebarHeader className="border-top">
                 <div
