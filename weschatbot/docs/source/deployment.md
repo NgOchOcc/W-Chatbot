@@ -20,7 +20,7 @@
 
 ```shell
 cd base_image
-docker build -t chatbot-base:0.0.4 .
+docker build -t chatbot-base:0.0.2 .
 cd ..
 
 ```
@@ -30,7 +30,7 @@ cd ..
 ### Build application image
 
 ```shell
-docker build -t westaco-chatbot:0.0.4 .
+docker build -t westaco-chatbot:0.0.2 .
 ```
 
 * **Recommendation:** use semantic version tags, multi-stage builds, and push images to a private registry for
@@ -39,7 +39,7 @@ docker build -t westaco-chatbot:0.0.4 .
 ### Validate image
 
 ```shell
-docker run --rm westaco-chatbot:0.0.4 weschatbot --help
+docker run --rm westaco-chatbot:0.0.2 weschatbot --help
 ```
 
 * Confirm entrypoint/CLI works and the image contains required runtime files.
@@ -97,7 +97,7 @@ docker exec -it westaco-mysql mysql -u root -pAdcef#1234 -e "create database cha
 docker run --rm --network westaco_chatbot \
   --name westaco-init-db \
   -e WESCHATBOT__DB__SQL_ALCHEMY_CONN=mysql://root:Adcef#1234@westaco-mysql:3306/chatbot \
-  westaco-chatbot:0.0.4 \
+  westaco-chatbot:0.0.2 \
   alembic upgrade head
 ```
 
@@ -130,7 +130,7 @@ Follow this order to ensure dependencies are ready: VLLM services → management
 docker run -d --gpus all -p 9292:9292 --restart=always \
   --name westaco-chatbot-vllm --network westaco_chatbot --env-file .env \
   -v weschatbot_models_volume:/root/.cache/huggingface \
-  westaco-chatbot:0.0.4 \
+  westaco-chatbot:0.0.2 \
   python -m vllm.entrypoints.openai.api_server \
   --model AlphaGaO/Qwen3-14B-GPTQ \
   --max-model-len 5500 --gpu-memory-utilization 0.75 --port 9292
@@ -144,7 +144,7 @@ docker run -d --gpus all -p 9292:9292 --restart=always \
 docker run -d --gpus all -p 9290:9290 --restart=always \
   --name westaco-chatbot-vllm-embed --network westaco_chatbot --env-file .env \
   -v weschatbot_models_volume:/root/.cache/huggingface \
-  westaco-chatbot:0.0.4 \
+  westaco-chatbot:0.0.2 \
   python -m vllm.entrypoints.openai.api_server \
   --model Qwen/Qwen3-Embedding-0.6B --max-model-len 2048 \
   --gpu-memory-utilization 0.2 --task embed --port 9290 --tensor-parallel-size 1 --enforce-eager
@@ -161,7 +161,7 @@ docker run -d -p 9090:5000 --restart=always --name westaco-chatbot-management \
   -e WESCHATBOT__CELERY__BACKEND_URL=redis://westaco-redis:6379/3 \
   -v weschatbot_uploads_volume:/srv/weschatbot/uploads \
   -v weschatbot_converted_volume:/srv/weschatbot/converted \
-  westaco-chatbot:0.0.4 \
+  westaco-chatbot:0.0.2 \
   weschatbot management start bind=0.0.0.0:5000 timeout=120 workers=4
 ```
 
@@ -177,7 +177,7 @@ docker run -d --gpus all --restart=always --name westaco-chatbot-worker \
   -v weschatbot_uploads_volume:/srv/weschatbot/uploads \
   -v weschatbot_converted_volume:/srv/weschatbot/converted \
   -v weschatbot_datalab_models_volume:/root/.cache/datalab/models/ \
-  westaco-chatbot:0.0.4 \
+  westaco-chatbot:0.0.2 \
   weschatbot worker start
 ```
 
@@ -192,7 +192,7 @@ docker run -d -p 3000:3000 --gpus all --restart=always \
   -v weschatbot_uploads_volume:/srv/weschatbot/uploads \
   -v weschatbot_converted_volume:/srv/weschatbot/converted \
   -v weschatbot_models_volume:/root/.cache/huggingface \
-  westaco-chatbot:0.0.4 \
+  westaco-chatbot:0.0.2 \
   weschatbot chatbot start bind=0.0.0.0:3000 worker_class=uvicorn.workers.UvicornWorker workers=4
 ```
 
