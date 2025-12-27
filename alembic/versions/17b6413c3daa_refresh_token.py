@@ -22,9 +22,16 @@ depends_on: Union[str, Sequence[str], None] = None
 
 @provide_session
 def add_chatbot_configuration(session=None):
-    chatbot_configuration = ChatbotConfiguration(prompt="You are a chatbot!", similar_threshold=0.0)
-    session.add(chatbot_configuration)
-    session.commit()
+    existing = session.query(ChatbotConfiguration).first()
+    if existing is None:
+        chatbot_configuration = ChatbotConfiguration(
+            prompt="You are a chatbot!",
+            similar_threshold=0.0
+        )
+        session.add(chatbot_configuration)
+        session.commit()
+    else:
+        print("ChatbotConfiguration already exists")
 
 
 def upgrade() -> None:
