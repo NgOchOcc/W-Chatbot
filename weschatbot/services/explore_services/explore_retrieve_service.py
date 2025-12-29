@@ -1,5 +1,6 @@
 import asyncio
 
+import pandas as pd
 from tenacity import retry, stop_after_attempt, RetryError, wait_fixed
 
 from weschatbot.ambiguity.ambiguity_pipeline import CosineFilter, SoftmaxEntropy, Clustering, ClusterLabeling, Decision, \
@@ -41,18 +42,25 @@ class ExploreRetrieveService(LoggingMixin):
     async def async_collect_data(self, question_file_path, retrieval_config):
         retriever = Retriever(retrieval_config)
 
-        with open(question_file_path, 'r') as f:
-            questions = f.readlines()
+        df = pd.read_csv(question_file_path)
 
-        for question_id, question in enumerate(questions):
+        for _, row in df.iterrows():
+            question_id = row["id"]
+            question = row["content"]
             try:
-                retrieved_docs = await retrieve_questions(retriever, question=question,
-                                                          search_limit=30)
+                retrieved_docs = await retrieve_questions(
+                    retriever,
+                    question=question,
+                    search_limit=30
+                )
 
                 chunks = [
-                    Chunk(question_id=question_id, question=question, content=doc["text"], vector=doc["embedding"],
-                          score=doc["score"]) for doc
-                    in retrieved_docs]
+                    Chunk(question_id=question_id,
+                          question=question,
+                          content=doc["text"],
+                          vector=doc["embedding"],
+                          score=doc["score"]
+                          ) for doc in retrieved_docs]
                 self.ambiguity_pipeline.run(chunks)
             except RetryError as e:
                 self.log.warning(f"Error in question: {question_id}")
