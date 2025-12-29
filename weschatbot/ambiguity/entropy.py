@@ -23,7 +23,10 @@ def discrete_softmax_entropy_cosine(cosines, t=0.05, eps=1e-12):
 
     entropy = -np.sum(probs * np.log(probs))
     max_entropy = np.log(n)
-    normalized_entropy = entropy / max_entropy
+    if max_entropy == 0:
+        normalized_entropy = 0.0
+    else:
+        normalized_entropy = entropy / max_entropy
 
     return {
         "entropy": float(entropy),
