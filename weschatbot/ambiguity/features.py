@@ -16,7 +16,7 @@ def _score_stats(scores):
         'score_std': float(scores.std()),
         'score_min': float(scores.min()),
         'score_max': float(scores.max()),
-        'score_range': float(scores.ptp()),
+        'score_range': float(np.ptp(scores)),
         'score_cv': _safe_div(scores.std(), mean),
     }
 
@@ -47,7 +47,7 @@ class KMeansFeatures:
             'dist_q25': float(np.percentile(distances, 25)),
             'dist_q50': float(np.percentile(distances, 50)),
             'dist_q75': float(np.percentile(distances, 75)),
-            'dist_iqr': float(np.percentile(distances, [75, 25]).ptp()),
+            'dist_iqr': float(np.ptp(np.percentile(distances, [75, 25]))),
             'cluster_size_mean': float(size_mean),
             'cluster_size_std': float(size_std),
             'cluster_size_min': int(min(size_values)),
