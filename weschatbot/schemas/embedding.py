@@ -18,6 +18,9 @@ class RetrievalConfig:
     vllm_base_url: Optional[str] = None
     search_limit: int = 5
     metric_type: str = "COSINE"
+    enable_hybrid_search: bool = True
+    vector_weight: float = 0.5
+    text_weight: float = 0.5
 
 
 @dataclass

@@ -18,7 +18,8 @@ from weschatbot.security.cookie_jwt_manager import FastAPICookieJwtManager
 from weschatbot.security.exceptions import TokenInvalidError, TokenExpiredError
 from weschatbot.services.active_status_service import ActiveStatusService
 from weschatbot.services.chatbot_configuration_service import ChatbotConfigurationService
-from weschatbot.services.chatbot_service import ChatbotPipeline, ChatbotAmbiguityHandlingPipeline
+from weschatbot.services.chatbot_pipelines.ambiguity_handling_pipeline import ChatbotAmbiguityHandlingPipeline
+from weschatbot.services.chatbot_pipelines.base_pipeline import ChatbotPipeline
 from weschatbot.services.query_service import make_query_result, QueryService
 from weschatbot.services.session_service import SessionService, NotPermissionError
 from weschatbot.services.token_service import TokenService
@@ -60,7 +61,10 @@ retrieval_config = RetrievalConfig(
     embedding_model=EMBEDDING_MODEL,
     vllm_base_url=VLLM_EMBEDDING_URL,
     search_limit=int(config['retrieval']['search_limit']),
-    metric_type=config['retrieval']['metrics']
+    metric_type=config['retrieval']['metrics'],
+    enable_hybrid_search=config['retrieval'].getboolean('enable_hybrid_search', fallback=True),
+    vector_weight=float(config['retrieval'].get('vector_weight', fallback=0.5)),
+    text_weight=float(config['retrieval'].get('text_weight', fallback=0.5))
 )
 
 vllm_client = VLLMService(
@@ -76,17 +80,20 @@ query_service = QueryService()
 
 chatbot_configuration = chatbot_configuration_service.get_configuration()
 
-chatbot_pipeline = ChatbotPipeline(
-    retrieval_config=retrieval_config,
-    vllm_client=vllm_client,
-    chatbot_config=chatbot_configuration
-)
+enable_ambiguity = config["retrieval"]["enable_ambiguity"]
 
-# chatbot_pipeline = ChatbotAmbiguityHandlingPipeline(
-#     retrieval_config=retrieval_config,
-#     vllm_client=vllm_client,
-#     chatbot_config=chatbot_configuration
-# )
+if enable_ambiguity:
+    chatbot_pipeline = ChatbotAmbiguityHandlingPipeline(
+        retrieval_config=retrieval_config,
+        vllm_client=vllm_client,
+        chatbot_config=chatbot_configuration
+    )
+else:
+    chatbot_pipeline = ChatbotPipeline(
+        retrieval_config=retrieval_config,
+        vllm_client=vllm_client,
+        chatbot_config=chatbot_configuration
+    )
 
 
 @app.middleware("http")

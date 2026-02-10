@@ -1,11 +1,15 @@
 import asyncio
 
+import pandas as pd
 from tenacity import retry, stop_after_attempt, RetryError, wait_fixed
 
-from weschatbot.ambiguity.ambiguity_pipeline import CosineFilter, EntropyCheck, Clustering, ClusterLabeling, Decision, \
+from weschatbot.ambiguity.ambiguity_pipeline import CosineFilter, HybridScoreAnalyzer, SoftmaxEntropy, Clustering, \
+    ClusterLabeling, Decision, \
     AmbiguityPipeline
 from weschatbot.ambiguity.chunk import Chunk
+from weschatbot.ambiguity.elbow_detection import ElbowDetection
 from weschatbot.ambiguity.logger import CSVLogger
+from weschatbot.ambiguity.steepness import Steepness
 from weschatbot.log.logging_mixin import LoggingMixin
 from weschatbot.services.retrieve_service import Retriever
 
@@ -17,33 +21,54 @@ async def retrieve_questions(retriever, question, search_limit):
 
 class ExploreRetrieveService(LoggingMixin):
     def __init__(self,
-                 filter_task=CosineFilter(threshold=0.7),
-                 entropy_task=EntropyCheck(),
+                 filter_task=CosineFilter(threshold=0.4),
+                 hybrid_analyzer_task=HybridScoreAnalyzer(discrepancy_threshold=0.3),
+                 entropy_task=SoftmaxEntropy(),
+                 elbow_task=ElbowDetection(alpha=0.5, min_index=1, sigma_factor=0.4),
+                 steepness_task=Steepness(alpha=0.8, sigma_factor=0.25),
                  cluster_task=Clustering(n_clusters=2),
                  labeling_task=ClusterLabeling(),
                  decision_task=Decision(),
                  logger=CSVLogger()):
-        self.ambiguity_pipeline = AmbiguityPipeline(filter_task=filter_task, entropy_task=entropy_task,
-                                                    cluster_task=cluster_task, labeling_task=labeling_task,
-                                                    decision_task=decision_task, logger=logger)
+        self.ambiguity_pipeline = AmbiguityPipeline(
+            filter_task=filter_task,
+            hybrid_analyzer_task=hybrid_analyzer_task,
+            entropy_task=entropy_task,
+            elbow_task=elbow_task,
+            steepness_task=steepness_task,
+            cluster_task=cluster_task,
+            labeling_task=labeling_task,
+            decision_task=decision_task,
+            logger=logger
+        )
 
     async def async_collect_data(self, question_file_path, retrieval_config):
         retriever = Retriever(retrieval_config)
 
-        with open(question_file_path, 'r') as f:
-            questions = f.readlines()
+        df = pd.read_csv(question_file_path)
 
-        for question_id, question in enumerate(questions):
+        for _, row in df.iterrows():
+            question_id = row["id"]
+            question = row["content"]
             try:
-                retrieved_docs = await retrieve_questions(retriever, question=question,
-                                                          search_limit=30)
+                retrieved_docs = await retrieve_questions(
+                    retriever,
+                    question=question,
+                    search_limit=30
+                )
 
                 chunks = [
-                    Chunk(question_id=question_id, question=question, content=doc["text"], vector=doc["embedding"],
-                          score=doc["score"]) for doc
-                    in retrieved_docs]
+                    Chunk(
+                        question_id=question_id,
+                        question=question,
+                        content=doc["text"],
+                        vector=doc["embedding"],
+                        score=doc["score"],
+                        vector_score=doc.get("vector_score", doc["score"]),
+                        text_score=doc.get("text_score", 0.0)
+                    ) for doc in retrieved_docs]
                 self.ambiguity_pipeline.run(chunks)
-            except RetryError as e:
+            except RetryError:
                 self.log.warning(f"Error in question: {question_id}")
 
     def collect_data(self, question_file_path, retrieval_config):
