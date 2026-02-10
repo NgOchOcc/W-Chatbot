@@ -11,20 +11,12 @@ from alembic import op
 import sqlalchemy as sa
 
 from weschatbot.models.user import Collection, CollectionStatus, ChatbotConfiguration # noqa
-from weschatbot.utils.db import provide_session
 
 # revision identifiers, used by Alembic.
 revision: str = '8b15c8007ad8'
 down_revision: Union[str, Sequence[str], None] = 'a8fb7c78065a'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
-
-
-@provide_session
-def add_chatbot_configuration(session=None):
-    chatbot_configuration = ChatbotConfiguration(prompt="You are a chatbot!", similar_threshold=0.0)
-    session.add(chatbot_configuration)
-    session.commit()
 
 
 def upgrade() -> None:
@@ -41,7 +33,7 @@ def upgrade() -> None:
                     )
     # ### end Alembic commands ###
 
-    add_chatbot_configuration()
+    # add_chatbot_configuration()
 
 
 def downgrade() -> None:

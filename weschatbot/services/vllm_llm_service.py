@@ -4,6 +4,7 @@ from typing import List, Dict, Optional
 
 import aiohttp
 
+from weschatbot.log.logging_mixin import LoggingMixin
 from weschatbot.services.chatbot_configuration_service import (
     ChatbotConfigurationService,
 )
@@ -26,7 +27,7 @@ def provide_loop(func):
 chatbot_configuration_service = ChatbotConfigurationService()
 
 
-class VLLMService:
+class VLLMService(LoggingMixin):
     def __init__(
             self,
             base_url: str = "http://localhost:9292",
@@ -205,6 +206,9 @@ class VLLMService:
     ) -> str:
         if "temperature" not in kwargs:
             kwargs["temperature"] = 0
+
+        self.log.info(f"Question: {question}")
+        self.log.info(f"Context: {context}")
 
         messages = self._build_context_messages(question, context, conversation_history)
         messages = await self._truncate_messages(messages, max_tokens=5120)

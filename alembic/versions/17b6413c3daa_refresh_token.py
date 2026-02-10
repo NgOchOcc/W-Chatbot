@@ -10,11 +10,28 @@ from typing import Sequence, Union
 import sqlalchemy as sa
 from alembic import op
 
+from weschatbot.models.user import ChatbotConfiguration
+from weschatbot.utils.db import provide_session
+
 # revision identifiers, used by Alembic.
 revision: str = '17b6413c3daa'
 down_revision: Union[str, Sequence[str], None] = 'b9617dd720c8'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
+
+
+@provide_session
+def add_chatbot_configuration(session=None):
+    existing = session.query(ChatbotConfiguration).first()
+    if existing is None:
+        chatbot_configuration = ChatbotConfiguration(
+            prompt="You are a chatbot!",
+            similar_threshold=0.0
+        )
+        session.add(chatbot_configuration)
+        session.commit()
+    else:
+        print("ChatbotConfiguration already exists")
 
 
 def upgrade() -> None:
@@ -37,6 +54,8 @@ def upgrade() -> None:
     op.create_index('ix_refresh_tokens_user_expires', 'refresh_tokens', ['user_id', 'expires_at'], unique=False)
     op.create_index(op.f('ix_refresh_tokens_user_id'), 'refresh_tokens', ['user_id'], unique=False)
     # ### end Alembic commands ###
+
+    add_chatbot_configuration()
 
 
 def downgrade() -> None:

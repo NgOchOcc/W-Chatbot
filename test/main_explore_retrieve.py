@@ -8,9 +8,11 @@ from weschatbot.utils.config import config
 if __name__ == '__main__':
     connections.connect("default", host=config["milvus"]["host"], port=int(config["milvus"]["port"]))
 
-    question_file_path = "data/questions_1.txt"
-    file_logger = ParquetLogger(filename="pipeline_log_1.parquet")
-    explore_retrieve_service = ExploreRetrieveService(logger=file_logger)
+    question_file_path = "data/messages_202512292119.csv"
+    file_logger = ParquetLogger(filename="data/messages_202512292119_20260108_chunks.parquet")
+    explore_retrieve_service = ExploreRetrieveService(
+        logger=file_logger
+    )
 
     retrieval_config = RetrievalConfig(
         collection_name="test_vllm_v9",

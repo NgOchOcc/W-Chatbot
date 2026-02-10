@@ -63,7 +63,6 @@ def provide_redis(database: int):
     def decorator(func: Callable):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
-            # If caller already provided redis_client (positional or kw), do nothing
             func_params = func.__code__.co_varnames
             session_in_args = arg_name in func_params and func_params.index(arg_name) < len(args)
             session_in_kwargs = arg_name in kwargs

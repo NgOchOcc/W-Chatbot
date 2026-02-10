@@ -2,7 +2,7 @@ import os
 
 from setuptools import setup
 
-version = "0.0.2"
+version = "0.0.3"
 name = "weschatbot"
 author = "Westaco"
 author_email = "manh.tran@westaco.com"
@@ -56,6 +56,7 @@ setup(
         "numpy==2.2.6",
         "scikit-learn==1.7.2",
         "pandas==2.2.3",
+        "xgboost==3.1.2",
         "fastapi==0.115.12"
     ]
 )
